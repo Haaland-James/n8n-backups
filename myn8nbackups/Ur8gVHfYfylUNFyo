@@ -1,0 +1,19 @@
+{
+  "active": false,
+  "connections": {},
+  "createdAt": "2025-09-20T09:27:35.611Z",
+  "id": "Ur8gVHfYfylUNFyo",
+  "isArchived": false,
+  "meta": null,
+  "name": "JOTFC Auto Blog Workflow",
+  "nodes": [],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-23T14:21:13.000Z",
+  "versionId": "abc315af-d97f-4d4f-be7c-35a0d217f6fc"
+}
