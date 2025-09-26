@@ -1,0 +1,630 @@
+{
+  "active": false,
+  "connections": {
+    "Return Invalid Body Error with Schema": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If params are valid": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Return Invalid Body Error with Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If There Are Attendees": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Return Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Return Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Zoho Edit Error with Schema": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Zoho Create Error with Schema": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ensure Params Are Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Params Are Valid": {
+      "main": [
+        [
+          {
+            "node": "If params are valid",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Ensure Params Are Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-28T05:08:58.271Z",
+  "id": "hEIeROJ7G5KRUmrn",
+  "isArchived": true,
+  "meta": null,
+  "name": "Zoho Cal API",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"errors\": [{{ $json.errArray }}],\n  \"requestBodySchema\":{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"body\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"startDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"Start date and time in the format yyyy-MM-ddTHH:mm:ss.\"\n        },\n        \"endDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"End date and time in the format yyyy-MM-ddTHH:mm:ss\"\n        },\n        \"timeZone\": {\n          \"type\": \"string\",\n          \"description\": \"Time zone of the event in the format matching: America/New_York\"\n        },\n        \"calendarUid\": {\n          \"type\": \"string\",\n          \"description\": \"The UID of the calendar\"\n        },\n        \"eventTitle\": {\n          \"type\": \"string\",\n          \"description\": \"Title of the event\"\n        },\n        \"eventDescription\": {\n          \"type\": \"string\",\n          \"description\": \"Description of the event\"\n        },\n        \"isAllDayEvent\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is an all-day event. Defaults to false.\"\n        },\n        \"isPrivate\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is private. Defaults to false.\"\n        },\n        \"urlToAttach\": {\n          \"type\": \"string\",\n          \"format\": \"uri\",\n          \"description\": \"URL to be attached to the event\"\n        },\n        \"location\": {\n          \"type\": \"string\",\n          \"description\": \"Location of the event. Can be address or coordinates. Limit 255 chars\"\n        },\n        \"color\": {\n          \"type\": \"string\",\n          \"pattern\": \"^#([0-9a-fA-F]{6})$\",\n          \"description\": \"Color associated with the event in hex format. Will default to the default calendar color.\"\n        },\n        \"showOnFreeBusy\": {\n          \"type\": \"integer\",\n          \"enum\": [0, 1],\n          \"description\": \"Flag indicating whether the event should show on free/busy views. 0 = adds it | 1 = does not add it.\"\n        },\n        \"attendees\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"email\": {\n                \"type\": \"string\",\n                \"format\": \"email\",\n                \"description\": \"Email of the attendee\"\n              }\n            },\n            \"required\": [\"email\"],\n            \"additionalProperties\": false\n          },\n          \"description\": \"List of attendees for the event\"\n        }\n      },\n      \"required\": [\n        \"startDateTime\",\n        \"endDateTime\",\n        \"timeZone\",\n        \"calendarUid\",\n        \"eventTitle\"\n      ],\n      \"additionalProperties\": false\n    }\n  },\n  \"required\": [\"body\"],\n  \"additionalProperties\": false\n}\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "9b749937-718c-49cd-8b68-05904fa1b13e",
+      "name": "Return Invalid Body Error with Schema",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        176,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "5b86573e-904f-4cdc-88e0-5008932206c0",
+              "leftValue": "={{ $json.errArray[0] }}",
+              "rightValue": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2055188d-13e3-48bc-9f71-77c063fc6516",
+      "name": "If params are valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        240,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "3740561b-6d49-4a9e-8e4e-31279d253de6",
+              "leftValue": "={{ $('If params are valid').item.json.attendees }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f9e85658-e0c2-4899-b0f7-e0c55ef66de3",
+      "name": "If There Are Attendees",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        800,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "56c978d7-814e-428d-ac48-0f9fb56e6f4a",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "attendees",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "f820b4e7-ce8a-4596-8f62-18b04b3c93a6",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "b1bec773-3750-47fa-b5f4-89543aad5d3f",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        864,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"errors\": [\"Zoho calednar edit create failed. See execition details for more info\"],\n  \"requestBodySchema\":{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"body\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"startDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"Start date and time in the format yyyy-MM-ddTHH:mm:ss.\"\n        },\n        \"endDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"End date and time in the format yyyy-MM-ddTHH:mm:ss\"\n        },\n        \"timeZone\": {\n          \"type\": \"string\",\n          \"description\": \"Time zone of the event in the format matching: America/New_York\"\n        },\n        \"calendarUid\": {\n          \"type\": \"string\",\n          \"description\": \"The UID of the calendar\"\n        },\n        \"eventTitle\": {\n          \"type\": \"string\",\n          \"description\": \"Title of the event\"\n        },\n        \"eventDescription\": {\n          \"type\": \"string\",\n          \"description\": \"Description of the event\"\n        },\n        \"isAllDayEvent\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is an all-day event. Defaults to false.\"\n        },\n        \"isPrivate\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is private. Defaults to false.\"\n        },\n        \"urlToAttach\": {\n          \"type\": \"string\",\n          \"format\": \"uri\",\n          \"description\": \"URL to be attached to the event\"\n        },\n        \"location\": {\n          \"type\": \"string\",\n          \"description\": \"Location of the event. Can be address or coordinates. Limit 255 chars\"\n        },\n        \"color\": {\n          \"type\": \"string\",\n          \"pattern\": \"^#([0-9a-fA-F]{6})$\",\n          \"description\": \"Color associated with the event in hex format. Will default to the default calendar color.\"\n        },\n        \"showOnFreeBusy\": {\n          \"type\": \"integer\",\n          \"enum\": [0, 1],\n          \"description\": \"Flag indicating whether the event should show on free/busy views. 0 = adds it | 1 = does not add it.\"\n        },\n        \"attendees\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"email\": {\n                \"type\": \"string\",\n                \"format\": \"email\",\n                \"description\": \"Email of the attendee\"\n              }\n            },\n            \"required\": [\"email\"],\n            \"additionalProperties\": false\n          },\n          \"description\": \"List of attendees for the event\"\n        }\n      },\n      \"required\": [\n        \"startDateTime\",\n        \"endDateTime\",\n        \"timeZone\",\n        \"calendarUid\",\n        \"eventTitle\"\n      ],\n      \"additionalProperties\": false\n    }\n  },\n  \"required\": [\"body\"],\n  \"additionalProperties\": false\n}\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "1953d6cf-cc3c-433b-b4d6-0419ba0f421a",
+      "name": "Return Zoho Edit Error with Schema",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1776,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"errors\": [\"Zoho calendar create failed. See execition details for more info\"],\n  \"requestBodySchema\":{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"body\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"startDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"Start date and time in the format yyyy-MM-ddTHH:mm:ss.\"\n        },\n        \"endDateTime\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}$\",\n          \"description\": \"End date and time in the format yyyy-MM-ddTHH:mm:ss\"\n        },\n        \"timeZone\": {\n          \"type\": \"string\",\n          \"description\": \"Time zone of the event in the format matching: America/New_York\"\n        },\n        \"calendarUid\": {\n          \"type\": \"string\",\n          \"description\": \"The UID of the calendar\"\n        },\n        \"eventTitle\": {\n          \"type\": \"string\",\n          \"description\": \"Title of the event\"\n        },\n        \"eventDescription\": {\n          \"type\": \"string\",\n          \"description\": \"Description of the event\"\n        },\n        \"isAllDayEvent\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is an all-day event. Defaults to false.\"\n        },\n        \"isPrivate\": {\n          \"type\": \"boolean\",\n          \"description\": \"Indicates if the event is private. Defaults to false.\"\n        },\n        \"urlToAttach\": {\n          \"type\": \"string\",\n          \"format\": \"uri\",\n          \"description\": \"URL to be attached to the event\"\n        },\n        \"location\": {\n          \"type\": \"string\",\n          \"description\": \"Location of the event. Can be address or coordinates. Limit 255 chars\"\n        },\n        \"color\": {\n          \"type\": \"string\",\n          \"pattern\": \"^#([0-9a-fA-F]{6})$\",\n          \"description\": \"Color associated with the event in hex format. Will default to the default calendar color.\"\n        },\n        \"showOnFreeBusy\": {\n          \"type\": \"integer\",\n          \"enum\": [0, 1],\n          \"description\": \"Flag indicating whether the event should show on free/busy views. 0 = adds it | 1 = does not add it.\"\n        },\n        \"attendees\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"email\": {\n                \"type\": \"string\",\n                \"format\": \"email\",\n                \"description\": \"Email of the attendee\"\n              }\n            },\n            \"required\": [\"email\"],\n            \"additionalProperties\": false\n          },\n          \"description\": \"List of attendees for the event\"\n        }\n      },\n      \"required\": [\n        \"startDateTime\",\n        \"endDateTime\",\n        \"timeZone\",\n        \"calendarUid\",\n        \"eventTitle\"\n      ],\n      \"additionalProperties\": false\n    }\n  },\n  \"required\": [\"body\"],\n  \"additionalProperties\": false\n}\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "4347d223-4e70-423b-aaaf-6e70cf7ad997",
+      "name": "Return Zoho Create Error with Schema",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        544,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"zohoResponse\": \"{{ $json.events[0] }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "8ecc4506-4bf9-4d25-aec9-26996677fd11",
+      "name": "Return Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Handle Invalid Param Error",
+        "height": 227.15563167684877,
+        "width": 305.50431441139347,
+        "color": 3
+      },
+      "id": "f2eabc63-d3f7-45d7-8615-e4af87801e49",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Handle Zoho API Error",
+        "height": 227.15563167684877,
+        "width": 317.28529822692235,
+        "color": 3
+      },
+      "id": "96797e0b-0f83-402c-9596-d28b23040e53",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        496,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Handle Zoho API Error",
+        "height": 227.15563167684877,
+        "width": 331.34352570965586,
+        "color": 3
+      },
+      "id": "19768df2-44fb-4255-a76a-6919f8aaedb9",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Invite & Attach Each Attendee",
+        "height": 244.85129304758618,
+        "width": 450.6101018776295,
+        "color": 4
+      },
+      "id": "1c9f8112-c2ad-4f70-9ba6-34257a0bdb84",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Prep data for loop",
+        "height": 180.56523475005275,
+        "width": 333.7696102054797
+      },
+      "id": "70165163-b87e-451e-9cdb-a9bc57d5b044",
+      "name": "Sticky Note5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        832,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "id": "1ab1ddcb-b4fe-4a2f-95b6-4084d1e3d7c8",
+      "name": "Create Event",
+      "type": "n8n-nodes-zoho-calendar.zohoCalendar",
+      "typeVersion": 1,
+      "position": [
+        528,
+        528
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "id": "59f9f609-bc13-4103-8fbf-6704bb0dfa55",
+      "name": "Add Attendee To Event",
+      "type": "n8n-nodes-zoho-calendar.zohoCalendar",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "content": "### Send Success Message",
+        "height": 209.67671637682432,
+        "width": 202.40680922834963,
+        "color": 4
+      },
+      "id": "feb24d4d-6eea-4622-b569-46cad664e2be",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        608
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "45caeaf9-f358-4599-a1fa-97d8a8d3fa4b",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nlet errArray = [];\n\nconst json = $input.first().json.body; \n\n// Checks start time format\nif(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/.test(json.startDateTime)){\n  errArray.push(`\"Start Time Format Error. See schema for regex.\"`);\n}\n\n// Checks end time format\nif(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/.test(json.endDateTime)){\n  errArray.push(`\"End Time Format Error. See schema for regex.\"`);\n}\n\n// Checks that timezone exists\nif(!json.timeZone){\n  errArray.push(`\"Time zone is required. See schema.\"`);\n}\n\n// Checks that timezone is real\ntzTest = DateTime.local().setZone(json.timeZone);\nif(!tzTest.isValid && /^(?:\\w{2,8}\\/)?\\w{2,30}$/.test(json.timeZone)){\n  errArray.push(`\"Time zone is not valid. Luxon reason: ${tzTest.invalidReason}. See schema.\"`);\n}\n\n// Checks that calendar uid exists\nif(!json.calendarUid){\n  errArray.push(`\"Calendar UID is required.\"`);\n}\n  \n// Checks that event title exists\nif(!json.eventTitle){\n  errArray.push(`\"Event title is required.\"`);\n}\n\n// If is all day exists, ensure it's a bool\nif(json.isAllDayEvent && typeof json.isAllDayEvent === 'bolean'){\n  errArray.push(`\"'isAllDayEvent' should be of type bolean.\"`);\n}\n\n// If is is private exists, ensure it's a bool\nif(json.isPrivate && typeof json.isPrivate === 'bolean'){\n  errArray.push(`\"'isPrivate' should be of type bolean.\"`);\n}\n\n// If color exists, ensure it matches the regex\nif(json.color && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(json.color)){ \n  errArray.push(`\"'color' should be a hex value. See schema for regex.\"`);\n}\n\n// If showOnFreeBusy exists, ensure it is only 0 or 1\nif(json?.showOnFreeBusy > -1 && !/^(0|1)$/.test(json.showOnFreeBusy.toString())){ \n  errArray.push(`\"'showOnFreeBusy' should be only 0 or 1. See schema for details.\"`);\n}\n\n// defines email regex. Source here: https://regexr.com/3e48o\nconst emailRegex = /^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$/;\n// Ensure attendees emails are valid\nif(json.attendees){\n  for (const attendee of json.attendees) {\n    if(!emailRegex.test(attendee.email)){\n      errArray.push(`\"attendee at index ${json.attendees.indexOf(attendee)} has an invalid email (${attendee.email}).\"`);\n    }\n  }\n}\n\nif(errArray.length > 0){\n  return {errArray};\n}\n\nreturn $input.first().json.body;\n\n"
+      },
+      "id": "b65e0eec-7490-43ef-a755-5fea37700e2f",
+      "name": "Ensure Params Are Valid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        528
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "81202773-3077-4d97-82ca-c7548a23fd0a",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1835f2f9-4aa1-4154-94f3-30e5c238f97a",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        448
+      ],
+      "webhookId": "14679c3c-4005-4a5e-9254-99dc21589cd3"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.errArray }}"
+      },
+      "id": "a199627d-6bd3-4fbb-80de-9b172a61fc53",
+      "name": "Stop and Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        320,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Error with zoho create api"
+      },
+      "id": "b5b8e17c-85c3-4310-9ff2-dc645380d63d",
+      "name": "Stop and Error1",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        672,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Error with zoho edit api"
+      },
+      "id": "132cc2fc-deae-4e1a-a61a-30342011ed26",
+      "name": "Stop and Error2",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Workflow Created by Liam McGarrigle\nFor any questions or expansions please reach Liam at [liam@mcgarrigle.co](mailto:liam@mcgarrigle.co)\n\n### How to use this workflow\nyou will need:\n- self hosted n8n instance\n- install the community node `n8n-nodes-zoho-calendar`\n\n\nIf you make a test request to the webhook you will get a schema back for how to structure the body of the API call. \nThis workflow has detailed error handling. If you make an incorrect call it will respond with an error telling you what was incorrect.\n\nIf you want to know how to call this from Deluge then please [get in touch with me](mailto:liam@mcgarrigle.co).",
+        "height": 409.9971676104676,
+        "width": 487.13239900849834,
+        "color": 5
+      },
+      "id": "cdf7f178-b1e4-4887-a3fb-31df30d62b40",
+      "name": "Sticky Note7",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        368
+      ]
+    }
+  ],
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "json": {
+          "body": {
+            "startDateTime": "2024-02-20T16:30:00",
+            "endDateTime": "2024-02-20T17:30:00",
+            "timeZone": "America/New_York",
+            "calendarUid": "a6ae80b8ceca47a4a08759a5a97b298a",
+            "eventTitle": "Event Title",
+            "eventDescription": "Sample description new line",
+            "isAllDayEvent": false,
+            "isPrivate": false,
+            "urlToAttach": "https://google.com",
+            "location": "123 Street Philadelphia PA",
+            "color": "#FF0000",
+            "showOnFreeBusy": 0,
+            "attendees": [
+              {
+                "email": "liam@mcgarrigle.co"
+              },
+              {
+                "email": "ldmcgarrigle@gmail.com"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.mcgarrigle.consulting",
+            "user-agent": "PostmanRuntime/7.35.0",
+            "content-length": "320",
+            "accept": "*/*",
+            "accept-encoding": "gzip",
+            "cache-control": "no-cache",
+            "cdn-loop": "cloudflare",
+            "cf-connecting-ip": "71.225.225.61",
+            "cf-ipcountry": "US",
+            "cf-ray": "858959e7db8142ad-EWR",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "2c595f67-a1c5-4811-87b2-5afe7e7603f9",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "postman-token": "c9ac0927-c7b4-4002-acc2-f7699c34fb24",
+            "x-forwarded-for": "71.225.225.61",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "startDateTime": "2024-02-20T16:30:00",
+            "endDateTime": "2024-02-20T17:30:00",
+            "timeZone": "America/New_York",
+            "calendarUid": "a6ae80b8ceca47a4a08759a5a97b298a",
+            "eventTitle": "Event Title",
+            "eventDescription": "Sample description \n \n new line",
+            "isAllDayEvent": false,
+            "isPrivate": false,
+            "urlToAttach": "https://google.com",
+            "location": "123 Street Philadelphia PA",
+            "color": "#FF0000",
+            "showOnFreeBusy": 0,
+            "attendees": [
+              {
+                "email": "liam@mcgarrigle.co"
+              },
+              {
+                "email": "ldmcgarrigle@gmail.com"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-26T02:17:05.000Z",
+  "versionId": "ec7d299e-20d3-41f8-b258-84a46a011728"
+}
