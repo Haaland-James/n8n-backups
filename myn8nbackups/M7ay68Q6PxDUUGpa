@@ -1,0 +1,201 @@
+{
+  "active": true,
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Remove from test-trigger list1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to adore chien 2": {
+      "main": [
+        [
+          {
+            "node": "Remove from test-trigger list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-24T01:26:19.516Z",
+  "id": "M7ay68Q6PxDUUGpa",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "Sendy Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sendy-webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -192
+      ],
+      "id": "f5736445-50e0-411d-b0cf-c949fa425d24",
+      "name": "Webhook",
+      "webhookId": "7039e041-0d1c-426e-8d62-9b2074aa3f92"
+    },
+    {
+      "parameters": {
+        "amount": 8
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -32,
+        -192
+      ],
+      "id": "5e0eb480-0a23-4c0a-9f5c-edb1d6b6cfbb",
+      "name": "Wait",
+      "webhookId": "a0e7fedf-6875-4374-a212-56002a2dc7f3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sender-pro.com/subscribe",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.body.name }}"
+            },
+            {
+              "name": "=email",
+              "value": "={{ $json.body.email }}"
+            },
+            {
+              "name": "list",
+              "value": "MX6xqGqA5mmH5CnxQ7vzCQ"
+            },
+            {
+              "name": "quiz_result",
+              "value": "={{ $json.body.quiz_result }}"
+            },
+            {
+              "name": "api_key",
+              "value": "xZ0pSI0hgxEmXKcbE03B"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        176,
+        -192
+      ],
+      "id": "e1900d2c-9b04-4f27-8bf1-5b63a5fd6df0",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "email": "={{ $('Webhook').item.json.body.email }}",
+        "listId": "MX6xqGqA5mmH5CnxQ7vzCQ",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -432
+      ],
+      "id": "aa9ae0f5-850b-4936-a298-a0d15766e99f",
+      "name": "Add to adore chien 2",
+      "credentials": {
+        "sendyApi": {
+          "id": "uzRc83qjh1o0wGEa",
+          "name": "Sendy account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "email": "={{ $('Webhook').item.json.body.email }}",
+        "listId": "YIORYvrBhBY3qeW84vZLBg"
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -432
+      ],
+      "id": "ee228393-575d-45f0-8062-ffdf27c0f1fb",
+      "name": "Remove from test-trigger list",
+      "credentials": {
+        "sendyApi": {
+          "id": "uzRc83qjh1o0wGEa",
+          "name": "Sendy account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "email": "={{ $('Webhook').item.json.body.email }}",
+        "listId": "MUoC6bG5kiRxpPlxUlsC0Q"
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        416,
+        -192
+      ],
+      "id": "3d7e3135-edc8-418c-86af-d1f409246bb2",
+      "name": "Remove from test-trigger list1",
+      "credentials": {
+        "sendyApi": {
+          "id": "uzRc83qjh1o0wGEa",
+          "name": "Sendy account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-09-24T09:08:50.000Z",
+  "versionId": "6a536e48-b783-4b76-b74b-4f92a26a902a"
+}
