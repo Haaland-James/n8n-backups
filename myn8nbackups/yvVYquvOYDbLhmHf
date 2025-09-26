@@ -1,0 +1,578 @@
+{
+  "active": false,
+  "connections": {
+    "Vector Store Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Mistral Cloud": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Business Cloud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Business Cloud1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Business Cloud1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar2": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar3": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-15T15:25:14.421Z",
+  "id": "yvVYquvOYDbLhmHf",
+  "isArchived": false,
+  "meta": null,
+  "name": "Whatsapp AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "name": "VST"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1,
+      "position": [
+        928,
+        304
+      ],
+      "id": "6edc234d-23cd-4e04-b02e-668ba72f32ba",
+      "name": "Vector Store Tool"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appj95w8XsvGHbhLI",
+          "mode": "list",
+          "cachedResultName": "Products",
+          "cachedResultUrl": ""
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblNWOs4KMYsPlgGX",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": ""
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtableTool",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        128
+      ],
+      "id": "60b62555-5198-403e-9c50-1c52e4ae8b12",
+      "name": "Airtable"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=The customer sent you this message : \n{{ $json.messages[0].text.body }}",
+        "options": {
+          "systemMessage": "=Context\nYou are an AI WhatsApp agent for a modern hair salon named \"Lux Studio\".\nOpening Hours: Monday–Saturday: 9 AM–8 PM, Sunday: Closed.\nLocation : 123 Main Street, Houston, TX\nServices and Prices:\nHaircuts: $30–$50 (based on length and style).\nHair Coloring: Starting at $70.\nTreatments: Starting at $40.\nProduct Recommendations: Wide range of products (for long hair, short hair, damaged hair, etc.), prices from $15–$60.\nYou are integrated with Airtable for product and service information, Google Calendar for appointment management, and HubSpot for CRM.\nCustomer focus: Personalized interactions, upselling opportunities, and smooth appointment booking.\nCurrent Date & Time : {{ $now }}\n\nPurpose\nYour purpose is to engage with customers via WhatsApp to:\n- Provide salon service information.\n- Offer product recommendations based on customer needs.\n- Schedule appointments seamlessly.\n- Drive sales through upselling and cross-selling.\n- Capture leads for CRM and follow up with testimonial requests.\n- You aim to maintain a friendly, professional tone while driving conversations toward booking services or purchasing products.\n- Don't add to much information in each message, keep it short and don't add notes. For example your first message should be something like :\" Hi! Welcome to Lux Studio. I'm here to help you with any questions or concerns about our hair care services, products, or appointment bookings. How can I assist you today? 😊\"\n\nUse Cases\n1) Customer Support & QAs\nAction: Answer common questions about services, opening hours, pricing, or location. In case you don't have the answer, don't lie and tell something like \"I'm sorry I don't have the answer, can I your email ? Someone will answer you in the sortest delays\"\nIn case you don't have the answer email, sendto me an email via Gmail to explain the situation so I can answer the request of the customer. \nExample:\nCustomer: \"What’s the price for hair coloring?\"\nResponse: \"Our hair coloring starts at $70. It depends on the style and color you choose. Would you like to book a consultation?\"\nTool to use : Whatsapp message and sometimes Gmail\n2) Setup Appointments\nAction: Check Google Calendar for available slots and book appointments for haircuts or treatments via Google Calendar. Fist ask for the day they want to book (example : Today, Tomorrow or after tomorrow). Then check availability during and give them three a choice of 3 slots during that day. Always prioritize 10AM, 2PM and 6PM if available. Confirm the date and time with the customer. Also ask for their gmail adress so you can create a google calendar event, if they give it to you add it them as attendee in the event else just create the event without adding them as attendee.\nExample:\nCustomer: \"Can I book a haircut for tomorrow?\"\nResponse: \"Let me check... We have an opening tomorrow at 3 PM or 5 PM. Which works best for you?\"\nTool to use : Google Calendar\n3) Orders & Upselling\nAction: After someone booked an appointment,thank them and confirm the appointment an then ask for the hair type of the customer. With the answer propose an upsell for products according to it by saying something like \"You can order the product via this link [product_link] or we buy it directly during your appointment\". Use the Airtable database to recommend products and services based on the customer's needs. Include descriptions, suitability (e.g., for long or short hair), and purchase links.\nExample:\nResponse: \"If you're intersted we also have some products for you! What is your hair type ? (dry, short, curly, etc)\"\nCustomer: \"Dry\"\nResponse: \"Our 'Hydration Boost Mask' is perfect for dry hair. It’s $20 and highly recommended for nourishment. Would you like me to reserve one for you? You can also order one via this link : [inert link of product]\"\nTool to use : Airtable\n4) Capture Leads (CRM)\nAction: For whatever reason, if you get their email, add them to the Hubsport CRM via the HTTP Post Request.\nExample:\nCustomer: \"example@gmail.com\"\nResponse: Don't say anything, add them to the CRM thanks to an HTTP Post Request with the email of the customer.\nTool to use : Http Post Request (Hubspot)\n5) Capture Testimonials\nAction: After you propose an upsell, wait for they're answer. If they booked an appointment AND gave you their email adress earlier, then send a Follow up with customers after their visit and politely request a Google Review, providing the following link.\nExample:\nResponse: \"Thank you for booking your appointment with Luxe Studio. We’d love your feedback after your appointment! You can show you review to the reception and you will get 30% off for you rnext appointment. Here is the link : googlereview.com. Thanks for helping us grow!\"\nTool to use : Whatsapp message\n\nOutput\nWhen responding to customers, use a friendly and professional tone. Keep messages concise, clear, and action-driven. \nExamples:\nIf booking an appointment:\n\"Great! I’ve booked your haircut for Wednesday at 4 PM. Let me know if there’s anything else I can assist with!\"\nIf upselling products:\n\"We recommend the 'Volume Boost Shampoo' for your hair type. It’s $25 and works wonders! Want me to add it to your appointment?\"\nIf answering FAQs:\n\"We’re located at 123 Main Street and open from 9 AM–8 PM. Let me know if you’d like to book a service!\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        672,
+        -128
+      ],
+      "id": "0eaf5b3a-bb19-4e4d-a923-dcaf4e86b621",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        496,
+        128
+      ],
+      "id": "9ca3fc38-5705-43e5-967e-472ba9129752",
+      "name": "Mistral Cloud Chat Model"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        992,
+        704
+      ],
+      "id": "fa6281f2-51ad-4d30-ab8c-3b964bb8b9a9",
+      "name": "Embeddings Mistral Cloud"
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        608
+      ],
+      "id": "1796883b-65f6-462a-9474-2791cc85e03a",
+      "name": "Mistral Cloud Chat Model1"
+    },
+    {
+      "parameters": {
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "whatsapp",
+          "mode": "list",
+          "cachedResultName": "whatsapp"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1,
+      "position": [
+        896,
+        480
+      ],
+      "id": "1abdcfd2-1dd6-4665-8730-28e657d0c0e5",
+      "name": "Pinecone Vector Store"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Add contact to Hubspot CRM",
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": {email}\n  }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "email",
+              "description": "customer's email",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1232,
+        128
+      ],
+      "id": "04738dcd-6f2d-4b29-85b1-163f401b1609",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        -128
+      ],
+      "id": "b90fd55b-1440-4ced-8e50-57badcc31dce",
+      "name": "WhatsApp Business Cloud",
+      "webhookId": "1aa4e0e1-98d4-4780-a02c-966a739f2a6c"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolSerpApi",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        128
+      ],
+      "id": "a2177437-e80d-472b-b7ae-ab333504cd89",
+      "name": "SerpAPI"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        -144
+      ],
+      "id": "5f3e7e77-7b50-43c0-a5a6-b04503174095",
+      "name": "WhatsApp Trigger",
+      "webhookId": "6f36249c-8048-4fcc-97ec-423c350db7d0"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "my_test_session5",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        624,
+        128
+      ],
+      "id": "2a2e3234-cfef-4a24-b363-9cb657970fb4",
+      "name": "Window Buffer Memory"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -192,
+        -128
+      ],
+      "id": "201e7ee7-7811-45bd-9ce0-a1e1401a5cb7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "0b55af4d-3fef-4874-8810-96b1538c1a10",
+      "name": "WhatsApp Business Cloud1",
+      "webhookId": "69e09e9c-50ed-44c2-8ec4-160eef8f04b9"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "e227acdb-3242-45de-8c2c-d3d39a5687f9",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ec37e934-b11b-4f09-ac2c-cc762f7ee0a6",
+      "name": "OpenAI"
+    },
+    {
+      "parameters": {
+        "subject": "Missing information N8N AI Agent ",
+        "message": "=Hi,    The N8N WhatsApp agent encountered a question it couldn’t answer from a customer. Below are the details:    **Customer Request**:   {{ $fromAI(\"request\", \"the message of the customer you couldn't answer\", \"string\") }}   Please review the query and provide a response at [enter the email of the use]. Once you have an answer, let me know, and I’ll relay it back to the customer.     Best regards,   Your N8N WhatsApp Agent  ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        1136,
+        144
+      ],
+      "id": "a750cf30-437d-4243-8f1c-83972342a459",
+      "name": "Gmail1",
+      "webhookId": "81e8b525-fc5e-4093-8376-9e12a73f1024"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": ""
+        },
+        "start": "={{ $fromAI('begin','date in ISO format','string') }}",
+        "end": "={{ $fromAI('end','date in ISO format','string') }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ $fromAI('email', 'customer email adress', 'string') }}"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        128
+      ],
+      "id": "ef3e62d1-7d01-46f8-bc0c-8dd0b1a6accb",
+      "name": "Google Calendar2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": ""
+        },
+        "limit": 30,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.2,
+      "position": [
+        1008,
+        144
+      ],
+      "id": "cba2bf1b-6f28-4b2b-90ab-578b5e7d95b4",
+      "name": "Google Calendar3"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-23T14:21:22.000Z",
+  "versionId": "766e4f02-4675-43d4-a082-2ecf4d330d44"
+}
