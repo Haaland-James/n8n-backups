@@ -1,0 +1,438 @@
+{
+  "active": false,
+  "connections": {
+    "LinkedIn: Create Post": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Posted ✅",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-09T11:53:43.935Z",
+  "id": "VHNK7f62BbKPGrbr",
+  "isArchived": true,
+  "meta": null,
+  "name": "Damu LinkedIn Auto Post v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "051626da-6ad0-467e-8f9d-0eb9c3f3a96f",
+      "name": "Cron - Curated (MWThSaSu 09:00)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "60366560-2a03-4412-a27a-e392600389c4",
+      "name": "Cron - Trending POV (Tu/Fri 09:00)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "feeds",
+              "value": "[{\"name\": \"WEF Agenda\", \"url\": \"https://www.weforum.org/agenda/feed/\"}, {\"name\": \"Exploding Topics\", \"url\": \"https://explodingtopics.com/rss.xml\"}, {\"name\": \"StartUs Insights\", \"url\": \"https://www.startus-insights.com/feed/\"}, {\"name\": \"TechCrunch AI\", \"url\": \"https://techcrunch.com/tag/artificial-intelligence/feed/\"}, {\"name\": \"MIT Tech Review\", \"url\": \"https://www.technologyreview.com/feed/\"}, {\"name\": \"McKinsey Insights\", \"url\": \"https://www.mckinsey.com/insights/rss\"}, {\"name\": \"VentureBeat AI\", \"url\": \"https://venturebeat.com/category/ai/feed/\"}, {\"name\": \"GWI Blog\", \"url\": \"https://blog.gwi.com/feed/\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94533e10-2bf0-49b1-b26f-a69f695f11d2",
+      "name": "Set Feeds (pool)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "40b01555-e296-4b49-8928-186154aedb09",
+      "name": "Pick 5 Random Sources",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {}
+      },
+      "id": "ecc39158-80b2-492a-8c26-c240bdd0d8ec",
+      "name": "RSS Feed Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "079af359-1ae0-4b40-bab5-eec444c293f9",
+      "name": "Select Top Candidate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "699d6b97-8d75-4d4f-9bd7-40bac307147b",
+      "name": "Dedupe (14d)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.link}}",
+        "options": {
+          "redirect": {}
+        }
+      },
+      "id": "35d45d23-301e-4a9c-92c2-c05ab5fb0720",
+      "name": "HTTP Fetch (article)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1216,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e328d70e-3674-42ed-98d6-7503fc3decdf",
+      "name": "HTML Extract (body)",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "97f03a96-1c3c-43e5-acce-280c17fb71d4",
+      "name": "Fallback Extract",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "trendQueries",
+              "value": "[\"tokenization OR 'real world assets' finance\", \"GPU OR compute 'AI infrastructure' GCC\", \"digital twin OR 'smart city' utilities\", \"retail AI demand forecasting sustainability\", \"family office digital assets regulation\"]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "79a6a6dc-f031-4842-b5da-c98f95c4396a",
+      "name": "Set Trends (pool)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        384
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "52718d86-f9cf-417d-abc1-7106fbc4dc68",
+      "name": "Pick 1 Trend",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        224,
+        384
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ae92e1ba-738e-444a-bc3f-c8f20d0bc914",
+      "name": "Angle Extractor (Article)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 4,
+      "position": [
+        1968,
+        -176
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "id": "572532bc-9420-4ad0-b880-5ea161ff4101",
+      "name": "Angle Extractor (POV)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 4,
+      "position": [
+        464,
+        528
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "id": "011357d0-6650-42f2-afa7-038c19421e39",
+      "name": "LinkedIn Composer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 4,
+      "position": [
+        2224,
+        -32
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "id": "f0d799a0-1d45-4de6-a337-15997e0b0106",
+      "name": "Save Pending Post",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "={{'📝 *Preview*\\n\\n' + $json.post + '\\n\\nApprove: ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-approve?id=' + $json.id + '\\nRevise (punchy): ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-revise?id=' + $json.id + '&tone=punchy' + '\\nRevise (humble): ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-revise?id=' + $json.id + '&tone=humble' + '\\nReject: ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-reject?id=' + $json.id}}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "5842f987-8586-41ab-93a3-4f320a13dc66",
+      "name": "Telegram Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        2720,
+        -32
+      ],
+      "webhookId": "c2dca14d-a39d-43da-be6d-76731f3a1260"
+    },
+    {
+      "parameters": {
+        "path": "damu-approve",
+        "options": {
+          "responseData": "Approved. Posting now."
+        }
+      },
+      "id": "a73a511d-f4eb-4c5e-8249-322e4da4e40e",
+      "name": "Webhook: Approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        944
+      ],
+      "webhookId": "c150c870-f4e6-4b07-9493-a8b4a7e732cb"
+    },
+    {
+      "parameters": {},
+      "id": "fa5d7472-e3bf-4b87-b8cf-4c8bc30bf28b",
+      "name": "Load Pending (Approve)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/rest/posts",
+        "authentication": "oAuth2",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "9c22ec5c-7c4c-44a9-8d77-70965da77b60",
+      "name": "LinkedIn: Create Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        224,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "✅ Posted to LinkedIn.",
+        "additionalFields": {}
+      },
+      "id": "d8ed6db3-8ea2-478d-9f0e-82b1062d4c97",
+      "name": "Telegram: Posted ✅",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        464,
+        944
+      ],
+      "webhookId": "65dca942-9cea-4fba-a40f-7024a3485be0"
+    },
+    {
+      "parameters": {
+        "path": "damu-revise",
+        "options": {
+          "responseData": "Revision requested. Check Telegram for a new preview."
+        }
+      },
+      "id": "69d7e04d-ab1b-4353-ac8f-e3f019ab73cd",
+      "name": "Webhook: Revise",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        1232
+      ],
+      "webhookId": "29653da4-875f-4715-bee0-a323c3b9dc97"
+    },
+    {
+      "parameters": {},
+      "id": "ab19bcc3-de85-400a-8998-f19ab59b1b15",
+      "name": "Load Pending (Revise)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        1232
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "acdc29d9-e5bb-41a6-ac63-5ae614550878",
+      "name": "Composer (Tone-adjust)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 4,
+      "position": [
+        224,
+        1232
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "id": "dc6dad96-8bc5-4557-b2d9-c5ff1d693371",
+      "name": "Save Pending (Revised)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        464,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "={{'📝 *Revised Preview*\\n\\n' + $json.post + '\\n\\nApprove: ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-approve?id=' + $json.id + '\\nRevise (punchy): ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-revise?id=' + $json.id + '&tone=punchy' + '\\nRevise (humble): ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-revise?id=' + $json.id + '&tone=humble' + '\\nReject: ' + $env.N8N_WEBHOOK_BASE_URL + '/webhook/damu-reject?id=' + $json.id}}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "61060ca8-2b8e-48f5-beaa-69343484c486",
+      "name": "Telegram: Revised Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        720,
+        1232
+      ],
+      "webhookId": "e4658b73-1817-42e8-adf4-491f77db5f53"
+    },
+    {
+      "parameters": {
+        "path": "damu-reject",
+        "options": {
+          "responseData": "Post rejected. Nothing published."
+        }
+      },
+      "id": "03773e60-122a-4052-bfb7-941b5f7e2583",
+      "name": "Webhook: Reject",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        1504
+      ],
+      "webhookId": "c688f8d9-900c-4b54-96d7-4501c9b16e2d"
+    },
+    {
+      "parameters": {},
+      "id": "4316d8a3-dd45-4d28-80fd-16ba36e91d61",
+      "name": "Remove Pending",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "❌ Post rejected and cleared from queue.",
+        "additionalFields": {}
+      },
+      "id": "9d6b88ba-5f87-4407-9ca6-4e1af1e6aae2",
+      "name": "Telegram: Rejected ❌",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        224,
+        1504
+      ],
+      "webhookId": "cfe1f8c4-0cd0-4b0b-a2d5-29212c9d86f9"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-26T02:16:36.000Z",
+  "versionId": "70056662-1132-4ebb-81e6-2948d9fdf40b"
+}
