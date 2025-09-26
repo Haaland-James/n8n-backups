@@ -1,0 +1,188 @@
+{
+  "active": true,
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many workflows": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-26T07:58:28.153Z",
+  "id": "TRlNZk64uFXmrFqq",
+  "isArchived": false,
+  "meta": null,
+  "name": "Github Starter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        80
+      ],
+      "id": "65b16360-8091-4274-b33d-d5bfcdedfc80",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "returnAll": false,
+        "limit": 50,
+        "filters": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        80
+      ],
+      "id": "7574e1a0-441d-4f33-a41e-8a60f9cb8d26",
+      "name": "Get many workflows",
+      "credentials": {
+        "n8nApi": {
+          "id": "Rs3LZusvcC2sY9rh",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        272,
+        0
+      ],
+      "id": "c43a1f0e-72a6-4ef7-bf91-1886777b6bfa",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "content": "## Get All active Workflows\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 320,
+        "width": 1088
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -352,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "5f69cf29-a346-4cf9-bd0e-d66f90ea7f8c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7LYTBao6sGsJNKre",
+          "mode": "list",
+          "cachedResultName": "n8n Github Backups"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        64
+      ],
+      "id": "878ca3ae-7c4a-46b6-bd6a-997c514246c7",
+      "name": "Execute Workflow",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        64,
+        80
+      ],
+      "id": "f688cd36-c87c-4fca-b44b-eab6bf7ba8ec",
+      "name": "Limit"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-09-26T08:30:04.000Z",
+  "versionId": "de21681f-0889-40fd-bd4b-c0b183516f34"
+}
