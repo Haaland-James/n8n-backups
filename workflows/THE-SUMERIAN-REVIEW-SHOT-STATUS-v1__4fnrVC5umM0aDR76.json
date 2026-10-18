@@ -1,0 +1,959 @@
+{
+  "updatedAt": "2026-09-23T11:18:38.206Z",
+  "createdAt": "2026-09-23T11:08:12.494Z",
+  "id": "4fnrVC5umM0aDR76",
+  "name": "THE SUMERIAN — REVIEW & SHOT STATUS v1",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "d673f371-d873-4c2c-9f69-28c8590db89b",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -260
+      ],
+      "parameters": {
+        "content": "## REVIEW ACTIONS (human only)\nAPPROVE → APPROVED · REJECT → REJECTED · REQUEST_REVISION → REVISION_REQUESTED (+ ChatGPT revision brief).\nNever regenerates. A new version still needs `generation_authorized: true` in the pipeline.",
+        "width": 1750,
+        "height": 620,
+        "color": 5
+      }
+    },
+    {
+      "id": "e9a86986-0bdb-439e-8587-476a94adf56c",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        420
+      ],
+      "parameters": {
+        "content": "## SHOT STATUS LOOKUP\nGET ?shot_id=…&version=… → every version of a shot from the Production Library.",
+        "width": 1000,
+        "height": 380,
+        "color": 7
+      }
+    },
+    {
+      "id": "660ba6d1-96fb-44c5-b04a-39f1d6a8a8d3",
+      "name": "R01A — Receive Review (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5a8078a0-5e68-45ef-b20a-2d68a14462fe",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sumerian/review",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "2dc53186-4843-4e2d-9085-0855e5f61c07",
+      "name": "R02 — Validate Review Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// R02 — Validate Review Action\nconst i = $input.first().json;\nconst src = i.body !== undefined ? (typeof i.body === 'string' ? (() => { try { return JSON.parse(i.body); } catch (e) { return { __bad: e.message }; } })() : i.body) : i;\nconst form = i['Shot ID'] !== undefined;\nconst r = form ? { shot_id: i['Shot ID'], version: Number(i['Version']), review_action: i['Review Action'], notes: i['Notes'] || '', reviewer: i['Reviewer'] || '' } : src;\nconst errors = [];\nif (r.__bad) errors.push({ field: '$body', message: 'Body is not valid JSON: ' + r.__bad });\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (!r.__bad) {\n  if (typeof r.shot_id !== 'string' || !SHOT_RE.test(r.shot_id.trim())) errors.push({ field: 'shot_id', message: 'shot_id must look like SUM-S01-E01-SC01-SH001.' });\n  if (!(Number.isInteger(r.version) && r.version >= 1)) errors.push({ field: 'version', message: 'version must be a positive integer.' });\n  if (!['APPROVE', 'REJECT', 'REQUEST_REVISION'].includes(r.review_action)) errors.push({ field: 'review_action', message: 'review_action must be APPROVE, REJECT or REQUEST_REVISION.' });\n  if (r.review_action === 'REQUEST_REVISION' && !(typeof r.notes === 'string' && r.notes.trim())) errors.push({ field: 'notes', message: 'REQUEST_REVISION requires notes describing what to change.' });\n}\nconst shot_id = typeof r.shot_id === 'string' ? r.shot_id.trim() : null;\nreturn [{ json: { valid: errors.length === 0, errors, http_status: 400, source: form ? 'form' : 'webhook',\n  review: { shot_id, version: r.version, review_action: r.review_action, notes: typeof r.notes === 'string' ? r.notes.trim() : '', reviewer: r.reviewer || '' } } }];\n"
+      }
+    },
+    {
+      "id": "83b460bc-f186-452d-a3dd-a7d4db688344",
+      "name": "R02A — Review Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7d385312-f841-4c12-ace9-1a27c074291e",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "557c1e47-86c0-4db5-911c-10c55a6bc18f",
+      "name": "R03 — Load Shot Versions",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shot_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.review.shot_id }}"
+            }
+          ]
+        },
+        "limit": 100
+      }
+    },
+    {
+      "id": "19172d10-bbf8-40a2-bbc5-34e9c2537d6d",
+      "name": "R04 — Apply Review Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// R04 — Apply Review Decision\n// Only a human review action can produce APPROVED. REQUEST_REVISION never triggers regeneration in v1.\nconst v = $('R02 — Validate Review Action').first().json.review;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key);\nconst row = rows.find((x) => Number(x.version) === v.version);\nconst maxVersion = rows.reduce((a, x) => Math.max(a, Number(x.version) || 0), 0);\nconst now = new Date().toISOString();\nconst REVIEWABLE = ['REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'REVISION_REQUESTED'];\nconst MAP = { APPROVE: 'APPROVED', REJECT: 'REJECTED', REQUEST_REVISION: 'REVISION_REQUESTED' };\n\nif (!row) return [{ json: { allowed: false, http_status: 404, body: { result: 'ERROR', error_status: 'NOT_FOUND', message: `No production record for ${v.shot_id} version ${v.version}.` } } }];\nif (!REVIEWABLE.includes(row.approval_status) || !row.output_url) {\n  return [{ json: { allowed: false, http_status: 409, body: { result: 'ERROR', error_status: 'NOT_REVIEWABLE',\n    message: `${row.generation_key} is ${row.approval_status}/${row.generation_status}; only generated clips (REVIEW_REQUIRED) can be reviewed.` } } }];\n}\nlet history = [];\ntry { history = JSON.parse(row.review_history || '[]'); } catch (e) { history = []; }\nconst newState = MAP[v.review_action];\nhistory.push({ at: now, action: v.review_action, from: row.approval_status, to: newState, notes: v.notes, reviewer: v.reviewer });\n\nconst body = {\n  result: 'REVIEW_RECORDED', shot_id: row.shot_id, version: Number(row.version), generation_key: row.generation_key,\n  previous_status: row.approval_status, approval_status: newState, notes: v.notes, output_url: row.output_url, reviewed_at: now,\n  regeneration_triggered: false,\n};\nif (v.review_action === 'REQUEST_REVISION') {\n  body.chatgpt_revision_brief = {\n    instruction: 'Produce a revised shot manifest. Keep shot_id unchanged, set version to next_version, keep generation_authorized false until the human authorizes, and apply the review notes to the prompt fields only where needed.',\n    shot_id: row.shot_id, previous_version: Number(row.version), next_version: maxVersion + 1,\n    review_notes: v.notes, previous_prompt: row.submitted_prompt, previous_manifest: (() => { try { return JSON.parse(row.manifest_json); } catch (e) { return null; } })(),\n  };\n}\nreturn [{ json: { allowed: true, http_status: 200, update: { generation_key: row.generation_key, approval_status: newState, review_notes: v.notes, reviewed_at: now, review_history: JSON.stringify(history).slice(0, 20000) }, body } }];\n"
+      }
+    },
+    {
+      "id": "9b11f412-3d4a-4bcc-af67-a7a30d13b90a",
+      "name": "R04A — Transition Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7cf63a8f-e3ec-4672-8b09-e70258197e22",
+              "leftValue": "={{ $json.allowed }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0400b252-619a-4fab-88ff-62c0c24d6425",
+      "name": "R05 — Save Review Decision",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "condition": "eq",
+              "keyValue": "={{ $('R04 — Apply Review Decision').first().json.update.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "approval_status": "={{ $('R04 — Apply Review Decision').first().json.update.approval_status }}",
+            "review_notes": "={{ $('R04 — Apply Review Decision').first().json.update.review_notes }}",
+            "reviewed_at": "={{ $('R04 — Apply Review Decision').first().json.update.reviewed_at }}",
+            "review_history": "={{ $('R04 — Apply Review Decision').first().json.update.review_history }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "31fbacd3-c13d-42ac-a614-3a76b1bff952",
+      "name": "R06 — Return Review Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('R04 — Apply Review Decision').first().json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ 200 }}"
+        }
+      }
+    },
+    {
+      "id": "5ae60307-4d58-42ab-8163-a205f87e1087",
+      "name": "R07 — Return Review Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "0ac80590-25ba-4ea9-b29f-5ca1b49bff9b",
+      "name": "R02B — Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify(({ result: 'ERROR', error_status: 'VALIDATION_ERROR', errors: $json.errors }), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      }
+    },
+    {
+      "id": "29022301-bf69-415b-81e3-363bfcde7c7e",
+      "name": "S01 — Shot Status Lookup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "8251eb89-b182-46da-8e9b-01c9dc3ef323",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sumerian/shot-status",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "b58dc4cf-2374-4ec0-9fe6-97c9b9113df3",
+      "name": "S02 — Load Shot Versions",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        240,
+        560
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shot_id",
+              "condition": "eq",
+              "keyValue": "={{ ($json.query.shot_id || '__none__') }}"
+            }
+          ]
+        },
+        "limit": 100
+      }
+    },
+    {
+      "id": "971d9e34-f068-4d90-9e9a-3cdb5daae878",
+      "name": "S03 — Format Shot Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ],
+      "parameters": {
+        "jsCode": "// S03 — Format Shot Status\nconst q = $('S01 — Shot Status Lookup').first().json.query || {};\nconst version = q.version ? Number(q.version) : null;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key)\n  .filter((x) => version === null || Number(x.version) === version)\n  .sort((a, b) => Number(a.version) - Number(b.version));\nconst slim = rows.map((x) => ({\n  shot_id: x.shot_id, version: Number(x.version), generation_type: x.generation_type, generation_status: x.generation_status,\n  approval_status: x.approval_status, ltx_job_id: x.ltx_job_id || null, ltx_model: x.ltx_model, ltx_resolution: x.ltx_resolution,\n  duration_seconds: x.duration_seconds, estimated_cost_usd: x.estimated_cost_usd, submitted_at: x.submitted_at || null,\n  completed_at: x.completed_at || null, output_url: x.output_url || null, error_status: x.error_status || null,\n  error_detail: x.error_detail || null, review_notes: x.review_notes || null, reviewed_at: x.reviewed_at || null,\n}));\nreturn [{ json: { http_status: q.shot_id ? 200 : 400, body: q.shot_id ? { shot_id: q.shot_id, versions: slim, count: slim.length } : { result: 'ERROR', message: 'Pass ?shot_id=SUM-S01-E01-SC01-SH001 (optional &version=N).' } } }];\n"
+      }
+    },
+    {
+      "id": "7694b6a7-a8cf-4459-b842-cfbc4f340ae6",
+      "name": "S04 — Return Shot Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "85419f37-7288-4a31-931d-4bcda2c571de",
+      "name": "Note 17",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        840
+      ],
+      "parameters": {
+        "content": "## LTX CREDENTIAL CHECK (zero cost)\nGET a non-existent job id. **404 not_found = key valid**, 401 = key invalid. Never submits a generation.",
+        "width": 1000,
+        "height": 380,
+        "color": 6
+      }
+    },
+    {
+      "id": "557cc2f4-7404-459a-b6ff-7ea0f99a20e8",
+      "name": "A01 — LTX Auth Check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        980
+      ],
+      "webhookId": "65a3fa2f-ea1e-45d0-ba65-70975b97c323",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sumerian/ltx-auth-check",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "e140100e-ad06-4b70-9819-802068925800",
+      "name": "A02 — GET Nonexistent LTX Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        980
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://api.ltx.io/v2/text-to-video/sumerian-auth-check-00000000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "XN6vJybDVjx2WZbc",
+          "name": "LTX VIDEO API — THE SUMERIAN"
+        }
+      }
+    },
+    {
+      "id": "d3c0fecc-97fd-46ce-a311-e39bbcf3307c",
+      "name": "A03 — Interpret Auth Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        980
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json; const s = r.statusCode; let b = r.body; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) {} }\nconst t = b && b.error ? b.error.type : null;\nconst ok = s === 404;\nreturn [{ json: { http_status: 200, body: { ltx_credential_valid: ok ? true : (s === 401 || s === 403 ? false : null), ltx_http_status: s || null, ltx_error_type: t, interpretation: ok ? 'Key accepted (404 for a dummy job id). No generation was submitted; no cost.' : (s === 401 || s === 403 ? 'Key rejected. Re-enter it in the credential \"LTX VIDEO API — THE SUMERIAN\".' : 'Inconclusive; see ltx_http_status.'), checked_at: new Date().toISOString() } } }];"
+      }
+    },
+    {
+      "id": "69d86231-fe41-4b71-b86a-b525a5671d1a",
+      "name": "A04 — Return Auth Check",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        980
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "R01A — Receive Review (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "R02 — Validate Review Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R02 — Validate Review Action": {
+      "main": [
+        [
+          {
+            "node": "R02A — Review Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R02A — Review Valid?": {
+      "main": [
+        [
+          {
+            "node": "R03 — Load Shot Versions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "R02B — Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R03 — Load Shot Versions": {
+      "main": [
+        [
+          {
+            "node": "R04 — Apply Review Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R04 — Apply Review Decision": {
+      "main": [
+        [
+          {
+            "node": "R04A — Transition Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R04A — Transition Allowed?": {
+      "main": [
+        [
+          {
+            "node": "R05 — Save Review Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "R07 — Return Review Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R05 — Save Review Decision": {
+      "main": [
+        [
+          {
+            "node": "R06 — Return Review Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S01 — Shot Status Lookup": {
+      "main": [
+        [
+          {
+            "node": "S02 — Load Shot Versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S02 — Load Shot Versions": {
+      "main": [
+        [
+          {
+            "node": "S03 — Format Shot Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S03 — Format Shot Status": {
+      "main": [
+        [
+          {
+            "node": "S04 — Return Shot Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A01 — LTX Auth Check": {
+      "main": [
+        [
+          {
+            "node": "A02 — GET Nonexistent LTX Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A02 — GET Nonexistent LTX Job": {
+      "main": [
+        [
+          {
+            "node": "A03 — Interpret Auth Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A03 — Interpret Auth Check": {
+      "main": [
+        [
+          {
+            "node": "A04 — Return Auth Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "95d662d1-76fc-4048-9fdd-bc2f10970098",
+  "activeVersionId": null,
+  "triggerCount": 3,
+  "shared": [
+    {
+      "updatedAt": "2026-09-23T11:08:12.494Z",
+      "createdAt": "2026-09-23T11:08:12.494Z",
+      "role": "workflow:owner",
+      "workflowId": "4fnrVC5umM0aDR76",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
