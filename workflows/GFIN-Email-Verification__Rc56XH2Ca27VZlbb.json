@@ -1,0 +1,469 @@
+{
+  "updatedAt": "2026-10-13T10:59:48.151Z",
+  "createdAt": "2026-09-08T23:29:19.123Z",
+  "id": "Rc56XH2Ca27VZlbb",
+  "name": "GFIN Email Verification",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup before first run\n\n**1. Add these 5 columns to the 'Lead Pool' tab (headers only):**\n`email_check_result`  `accept_all`  `email_is_role`  `sendability`  `email_verified_at`\n\n**2. Create the MillionVerifier credential**\nn8n → Credentials → New → **Query Auth** (NOT Header Auth — MillionVerifier takes the key as a query param)\n- Name: `api`\n- Value: your MillionVerifier API key\n- Save it as: **MillionVerifier API**\nThen open the 'MillionVerifier: Verify' node and select it.\n\n**3. Re-select the Google Sheets credential** on both Sheets nodes if they show a warning after import.\n\n**4. Tune MAX_PER_RUN** in 'Select Emails To Verify' (default 200) to control credit burn.\n\n**5. Run Manual Test Trigger first.** Check the Lead Pool for populated sendability values, then activate.",
+        "height": 460,
+        "width": 460
+      },
+      "id": "a21d56cc-c3b9-4857-86dc-df08c420287e",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        176,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## What this does\n\nTakes emails already sitting in the Lead Pool (381 of them at last count, but only 3 ever verified) and runs each through MillionVerifier.\n\nWrites back a single **`sendability`** column that the email outreach workflow gates on:\n\n- `sendable` — result ok, not a role account. Safe to email.\n- `role_account` — ok but info@/admin@ style. Deliverable, poor for cold outreach.\n- `risky_catch_all` — domain accepts everything; can't confirm the mailbox exists.\n- `do_not_send` — invalid or disposable.\n- `unknown` — verifier couldn't determine. Leave alone.\n\nSkips anything already verified, already emailed, or unsubscribed, so re-runs only spend credits on new rows.",
+        "height": 460,
+        "width": 420
+      },
+      "id": "062a6c80-f866-457a-97d0-9f5cbade1d45",
+      "name": "How It Works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "6357b14d-122a-4169-b048-f56ccebfc6df",
+      "name": "Every Day 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        176,
+        352
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cab54bf6-888f-4b56-84f7-0a488185c12e",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        176,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "id": "ec619244-cddf-4d31-a3be-843a50dec7c9",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        400,
+        432
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick rows worth spending a verification credit on.\n// Skips: no email, already verified, already emailed, unsubscribed, no write-back key.\n\nconst MAX_PER_RUN = 200;\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\nconst out = [];\nfor (const item of $input.all()) {\n  const r = item.json;\n  if (!ne(r.email)) continue;\n  if (!ne(r.provider_id)) continue;\n  if (ne(r.email_check_result)) continue;\n  if (ne(r.email_sent_at)) continue;\n  if (String(r.email_send_status || '').toLowerCase() === 'unsubscribed') continue;\n  out.push({ json: r });\n}\n\nconsole.log(`Verification queue: ${out.length} candidates, sending ${Math.min(out.length, MAX_PER_RUN)}`);\nreturn out.slice(0, MAX_PER_RUN);"
+      },
+      "id": "197e868e-224e-4b13-b073-9c3a16c5cbf9",
+      "name": "Select Emails To Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "05f824eb-caa9-4d05-8d93-759192c7bf24",
+      "name": "Loop Over Emails",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        848,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.millionverifier.com/api/v3/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "timeout",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b04c5f67-b545-44ab-8e76-cdc0932eae60",
+      "name": "MillionVerifier: Verify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1088,
+        528
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "usnGPvG9S60pIXrJ",
+          "name": "SerpApi Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Map MillionVerifier's response onto GFIN sendability states.\n// MV result values: ok | catch_all | unknown | disposable | invalid | error\n\nconst lead = $('Loop Over Emails').item.json;\nconst v = $json || {};\n\nconst result = String(v.result || 'unknown').toLowerCase();\nconst role = v.role === true || String(v.role).toLowerCase() === 'true';\nconst apiErrored = !!v.error || result === 'error';\n\nlet confidence;\nif (result === 'ok') confidence = 90;\nelse if (result === 'catch_all') confidence = 50;\nelse if (result === 'unknown') confidence = 30;\nelse confidence = 0; // invalid, disposable, error\n\n// Role accounts (info@, admin@, contact@) deliver fine but convert badly on cold outreach.\nif (role && confidence > 0) confidence -= 20;\n\nlet sendability;\nif (apiErrored) sendability = 'unknown';\nelse if (result === 'ok') sendability = role ? 'role_account' : 'sendable';\nelse if (result === 'catch_all') sendability = 'risky_catch_all';\nelse if (result === 'invalid' || result === 'disposable') sendability = 'do_not_send';\nelse sendability = 'unknown';\n\nreturn { json: {\n  provider_id: lead.provider_id,\n  email: lead.email,\n  email_check_result: apiErrored ? 'error' : result,\n  accept_all: result === 'catch_all',\n  email_is_role: role,\n  email_verified: result === 'ok',\n  email_confidence: confidence,\n  sendability: sendability,\n  email_verified_at: new Date().toISOString()\n}};"
+      },
+      "id": "0f8e2f51-2354-4562-8155-a1bc86d3361d",
+      "name": "Map Verification Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $json.provider_id }}",
+            "email_verified": "={{ $json.email_verified }}",
+            "email_confidence": "={{ $json.email_confidence }}",
+            "email_check_result": "={{ $json.email_check_result }}",
+            "accept_all": "={{ $json.accept_all }}",
+            "email_is_role": "={{ $json.email_is_role }}",
+            "sendability": "={{ $json.sendability }}",
+            "email_verified_at": "={{ $json.email_verified_at }}"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_check_result",
+              "displayName": "email_check_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "accept_all",
+              "displayName": "accept_all",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_is_role",
+              "displayName": "email_is_role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sendability",
+              "displayName": "sendability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_verified_at",
+              "displayName": "email_verified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "db8cd7b2-2ab3-4b40-b1f6-084f4594bda2",
+      "name": "Write Verification To Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1520,
+        528
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "id": "83bf1ce9-e79c-4eeb-9c2b-6252c270e493",
+      "name": "Pace Requests",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1744,
+        528
+      ],
+      "webhookId": "324fe2d0-ff0c-45ae-bca3-cb2f3c2c9354"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tally what this run produced.\nlet rows = [];\ntry { rows = $('Map Verification Result').all().map(i => i.json); } catch (e) {}\n\nconst tally = {};\nfor (const r of rows) {\n  const k = r.sendability || 'unknown';\n  tally[k] = (tally[k] || 0) + 1;\n}\n\nreturn [{ json: {\n  run_id: $execution.id,\n  finished_at: new Date().toISOString(),\n  verified_this_run: rows.length,\n  by_sendability: tally\n}}];"
+      },
+      "id": "28ca450b-743c-4a56-acb2-371f310a5094",
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        336
+      ]
+    }
+  ],
+  "connections": {
+    "Every Day 09:00": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Select Emails To Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Emails To Verify": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Emails": {
+      "main": [
+        [
+          {
+            "node": "Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MillionVerifier: Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MillionVerifier: Verify": {
+      "main": [
+        [
+          {
+            "node": "Map Verification Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Verification Result": {
+      "main": [
+        [
+          {
+            "node": "Write Verification To Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Verification To Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Pace Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pace Requests": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Every Day 09:00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "07e132f2-efe7-4c57-8b32-7ddb98a44454",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-09-08T23:29:19.123Z",
+      "createdAt": "2026-09-08T23:29:19.123Z",
+      "role": "workflow:owner",
+      "workflowId": "Rc56XH2Ca27VZlbb",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
