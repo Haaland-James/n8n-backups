@@ -1,0 +1,1991 @@
+{
+  "updatedAt": "2026-09-12T11:48:00.525Z",
+  "createdAt": "2026-07-28T09:57:15.892Z",
+  "id": "ufZuWDDf1Iq5Y8dE",
+  "name": "GFIN Lead Enrichment",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup before running\n1. Point both Google Sheets nodes at your Lead Pool sheet (documentId + sheetName)\n2. Attach your existing Google Sheets credential (same one Workflow A/B use)\n3. In 'Update Lead Pool Row', set the matching column to whatever uniquely identifies a lead in your sheet (e.g. profile_url) - adjust the placeholder\n4. Column 'name' must hold the lead's full name (e.g. 'Jane Smith') - this workflow splits it into first/last inside the Code nodes",
+        "height": 260,
+        "width": 380
+      },
+      "id": "249041c8-9799-4894-99d6-a02b49c02a77",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2160,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "15 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "f2638dcd-4b29-4eac-b110-53b45c18c402",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2816,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "options": {}
+      },
+      "id": "f7f8ede6-c3d7-4422-92af-6f5e9ebf44b8",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2608,
+        256
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick up leads that still need data.\n//\n// Terminal states are skipped so failed leads are not retried nightly\n// forever (that was what blew the Sheets quota).\n//\n// pattern_unknown / pattern_inferred are RETRYABLE: the address pattern is\n// unproven, but a verified peer at the same domain may appear later and\n// upgrade them.\nconst TERMINAL  = new Set(['enriched', 'needs_manual_review', 'domain_not_found']);\nconst RETRYABLE = new Set(['pattern_unknown', 'pattern_inferred']);\n\nconst out = [];\n\nfor (const item of items) {\n  const d = item.json || {};\n  const status = String(d.enriched_status || '').trim();\n  const src    = String(d.email_source || '').trim();\n\n  // --- Legacy migration -------------------------------------------------\n  // Rows written before the pattern resolver existed were marked 'enriched'\n  // with a bare 'pattern_guess' source, but the address was always assumed\n  // to be first.last@ with no evidence behind it. Re-admit them once so the\n  // evidence-based resolver can replace them.\n  //\n  // Self-clearing: after reprocessing they take a qualified source such as\n  // 'domain_peer:first.last' or 'pattern_guess:unevidenced', so they will\n  // not match this rule again.\n  if (status === 'enriched' && src === 'pattern_guess') {\n    out.push({ json: d });\n    continue;\n  }\n  // ----------------------------------------------------------------------\n\n  if (TERMINAL.has(status)) continue;\n\n  if (RETRYABLE.has(status)) {\n    out.push({ json: d });\n    continue;\n  }\n\n  // Never processed before\n  if (status === '' && (!d.company_domain || !d.email)) {\n    out.push({ json: d });\n  }\n}\n\nreturn out;"
+      },
+      "id": "750783fd-fcd1-4afe-b38c-92d1eb5ecf4e",
+      "name": "Filter Needs Enrichment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "f9dc2e85-d9f2-43f6-be1f-a54fb3e5c156",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2832,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const headline = $json.headline || '';\nlet companyName = null;\n\n// Handles: \"Title at Company\", \"Title @ Company\", \"Title | Company\"\nconst atMatch = headline.match(/\\bat\\s+(.+?)(?:\\s*[|\\-\\u2013]|$)/i);\nconst atSymbolMatch = headline.match(/@\\s*(.+?)(?:\\s*[|\\-\\u2013]|$)/);\nconst pipeMatch = headline.match(/\\|\\s*(.+?)$/);\n\nif (atMatch) companyName = atMatch[1].trim();\nelse if (atSymbolMatch) companyName = atSymbolMatch[1].trim();\nelse if (pipeMatch) companyName = pipeMatch[1].trim();\n\n// Strip noise so the domain guess isn't polluted\nif (companyName) {\n  companyName = companyName\n    .replace(/\\(.*?\\)/g, '')\n    .replace(/[\\u2122\\u00ae\\u00a9]/g, '')\n    .split(/,| and | & | \\| /i)[0]\n    .replace(/^@/, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  const words = companyName.split(/\\s+/).filter(Boolean);\n  const junk = /^(company|non-?profit development|business development|program management|consultant|freelance)$/i;\n  if (words.length > 5 || junk.test(companyName) || companyName.length < 2) {\n    companyName = null;\n  }\n}\n\nreturn {\n  json: {\n    ...$json,\n    company_name: companyName,\n    company_name_source: companyName ? 'headline_parsed' : null\n  }\n};"
+      },
+      "id": "de5b0b02-a8e0-4f34-92f9-2c808e333c0d",
+      "name": "Parse Company From Headline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "company-found-cond",
+              "leftValue": "={{ $json.company_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1ab243fc-176b-4ba1-b95e-f878276d7b4d",
+      "name": "Company Name Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2304,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status-1",
+              "name": "enrichment_status",
+              "type": "string",
+              "value": "needs_manual_review"
+            },
+            {
+              "id": "status-2",
+              "name": "enriched_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f4d3e0f3-3da9-45f0-b27b-aba89db7f689",
+      "name": "Mark Needs Manual Review",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2064,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const companyName = $json.company_name;\nif (!companyName) return { json: { ...$json, domain_candidates: [] } };\n\nconst cleaned = companyName\n  .replace(/\\b(inc|llc|corp|corporation|foundation|nonprofit|non-profit|ltd|co)\\.?\\b/gi, '')\n  .replace(/[^\\w\\s]/g, '')\n  .trim();\n\nconst words = cleaned.toLowerCase().split(/\\s+/).filter(Boolean);\n\n// Generic role/sector words. Guessing a domain from these lands on squatted\n// domains that pass an MX check but belong to someone else entirely\n// (e.g. \"Nonprofit Leader\" -> leader.com -> anne.friedman@leader.com).\nconst GENERIC = new Set([\n  'leader','leaders','leadership','consultant','consultants','consulting','consultancy',\n  'advisor','advisors','advisory','services','service','solutions','group','partners',\n  'partner','associates','agency','ventures','capital','holdings','global','international',\n  'national','regional','local','community','communities','network','networks','institute',\n  'society','association','alliance','coalition','council','center','centre','initiative',\n  'project','projects','program','programs','programme','development','strategy','strategies',\n  'strategic','management','marketing','media','digital','creative','director','executive',\n  'founder','cofounder','owner','president','chair','chairman','manager','officer','principal',\n  'entrepreneur','freelance','freelancer','independent','self','employed','retired','various',\n  'multiple','company','business','businesses','enterprise','enterprises','charity','charities',\n  'philanthropy','philanthropic','fundraising','fundraiser','grants','grant','funding','funds',\n  'impact','change','future','health','healthcare','education','technology','tech','innovation',\n  'research','training','coaching','team','office','department','division','board','trust',\n  'the','and','for','with','group of','llc'\n]);\n\nconst allGeneric = words.length > 0 && words.every(w => GENERIC.has(w));\nif (words.length === 0 || allGeneric) {\n  return {\n    json: {\n      ...$json,\n      domain_candidates: [],\n      domain_rejected_reason: 'generic_company_name'\n    }\n  };\n}\n\n// A lone short or generic token is too weak to guess from\nif (words.length === 1 && (GENERIC.has(words[0]) || words[0].length < 4)) {\n  return {\n    json: {\n      ...$json,\n      domain_candidates: [],\n      domain_rejected_reason: 'company_name_too_weak'\n    }\n  };\n}\n\nconst noSpaces = cleaned.replace(/\\s+/g, '').toLowerCase();\nconst withDashes = cleaned.split(/\\s+/).join('-').toLowerCase();\nconst firstWord = words[0] || '';\nconst firstTwo = words.slice(0, 2).join('') || firstWord;\n\n// Full-name forms first: \"yougottabelieve.org\" is far more likely to be the\n// real org than the truncated \"yougotta.com\". .org before .com for nonprofits.\nconst raw = [\n  `${noSpaces}.org`,\n  `${noSpaces}.com`,\n  `${withDashes}.org`,\n  `${withDashes}.com`,\n  `${firstTwo}.org`,\n  `${firstTwo}.com`,\n  `${firstWord}.org`,\n  `${firstWord}.com`\n];\n\nconst candidates = [...new Set(raw)].filter(d => {\n  if (d.length <= 8) return false;              // drop \".com\" / tiny stubs\n  const label = d.replace(/\\.(com|org)$/, '');\n  if (GENERIC.has(label)) return false;         // never guess a bare generic word\n  if (label.length < 4) return false;\n  return true;\n});\n\nreturn { json: { ...$json, domain_candidates: candidates } };"
+      },
+      "id": "45dc4998-291b-487f-b27b-044e071baeb1",
+      "name": "Guess Domain Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const candidates = $json.domain_candidates || [];\nlet verifiedDomain = null;\n\nfor (const domain of candidates) {\n  try {\n    const data = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://dns.google/resolve?name=${domain}&type=MX`,\n      json: true\n    });\n    if (data.Answer && data.Answer.length > 0) {\n      verifiedDomain = domain;\n      break;\n    }\n  } catch (e) {}\n}\n\nconst result = {\n  ...$json,\n  company_domain: verifiedDomain || '',\n  domain_verified: !!verifiedDomain\n};\n\nreturn { json: result };"
+      },
+      "id": "36726040-edea-4900-adb4-9b7d5c7f78e7",
+      "name": "Verify Domain via DNS MX",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1824,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "domain-verified-cond",
+              "leftValue": "={{ $json.domain_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9f334f3a-3125-4763-b67c-7aebc523e1c5",
+      "name": "Domain Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1648,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status-3",
+              "name": "enrichment_status",
+              "type": "string",
+              "value": "domain_not_found"
+            },
+            {
+              "id": "status-4",
+              "name": "enriched_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "15b73086-5630-4059-b0cf-d3d944c28b1d",
+      "name": "Mark Domain Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1616,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Apply the pattern resolved upstream. Only emit a sendable address\n// when the pattern is evidenced; otherwise flag pattern_unknown and\n// let LinkedIn outreach handle the lead.\nconst out = Object.assign({}, $json);\n\nconst domain = String(out.company_domain || '').trim().toLowerCase();\nconst first = String(out.name_first || '').trim().toLowerCase();\nconst last = String(out.name_last || '').trim().toLowerCase();\n\nif (!domain || !first || !last) {\n  out.email = '';\n  out.email_candidates = [];\n  out.enrichment_status = out.enrichment_status || 'needs_manual_review';\n  return { json: out };\n}\n\nconst PATTERNS = {\n  'first.last': (f, l) => f + '.' + l,\n  'first':      (f, l) => f,\n  'flast':      (f, l) => f[0] + l,\n  'firstlast':  (f, l) => f + l,\n  'first_last': (f, l) => f + '_' + l,\n  'f.last':     (f, l) => f[0] + '.' + l,\n  'last.first': (f, l) => l + '.' + f,\n  'firstl':     (f, l) => f + l[0],\n  'lastf':      (f, l) => l + f[0]\n};\n\n// Ranked fallbacks, kept for reference only - never auto-selected\nconst ORDER = ['first.last','first','flast','firstlast','f.last','first_last','last.first'];\nout.email_candidates = ORDER.map(k => PATTERNS[k](first, last) + '@' + domain);\n\nconst pattern = String(out.email_pattern || '');\nconst src = String(out.email_pattern_source || 'unknown');\n\nif (pattern && PATTERNS[pattern]) {\n  out.email = PATTERNS[pattern](first, last) + '@' + domain;\n  out.email_source = src + ':' + pattern;\n  out.email_verified = (src === 'domain_peer');\n\n  // domain_peer  -> reverse-engineered from a real name+address pair. Exact.\n  // site_scrape  -> shape inferred from an address whose owner is unknown.\n  //                 'first' vs 'flast' is genuinely ambiguous at this stage,\n  //                 so keep it upgradeable rather than marking it terminal.\n  out.enrichment_status = (src === 'domain_peer') ? 'enriched' : 'pattern_inferred';\n} else {\n  // No evidence for this domain. Keep the most likely guess visible in the\n  // sheet so it can be upgraded later, but do NOT mark it sendable.\n  out.email = PATTERNS['first.last'](first, last) + '@' + domain;\n  out.email_source = 'pattern_guess:unevidenced';\n  out.email_verified = false;\n  out.enrichment_status = 'pattern_unknown';\n}\n\nreturn { json: out };"
+      },
+      "id": "4b1a1bc5-9ee1-4da7-8c5d-7185648efa6d",
+      "name": "Generate Email Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Confidence now reflects real evidence. Previously smtp_verified and\n// profile_lookup were never set by any node, so every lead scored 40.\nconst out = Object.assign({}, $json);\n\nconst patternSrc = String(out.email_pattern_source || 'unknown');\nconst domainSrc = String(out.company_domain_source || '');\n\nlet score = 0;\n\n// Domain evidence\nif (out.domain_verified === true) score += 20;\nif (domainSrc === 'serpapi_fallback') score += 5;   // corroborated by search + MX\n\n// Company name evidence\nif (out.company_name_source === 'profile_lookup') score += 15;\nelse if (out.company_name_source === 'headline_parsed') score += 5;\n\n// Address pattern evidence - the part that actually decides deliverability\nif (patternSrc === 'domain_peer') score += 50;      // reverse-engineered from a real address\nelse if (patternSrc === 'site_scrape') score += 30; // shape inferred from a scraped address\n\nif (score > 100) score = 100;\n\nout.email_confidence = score;\nout.enrichment_status = out.enrichment_status || 'enriched';\nout.enriched_at = new Date().toISOString();\n\n// Explicit send gate so downstream outreach never has to re-derive this\nout.email_sendable = (out.enrichment_status === 'enriched' && score >= 70);\n\nreturn { json: out };"
+      },
+      "id": "890584b7-0d1a-49ed-af83-2da5a773b037",
+      "name": "Score Confidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1392,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $json.provider_id }}",
+            "email": "={{ $json.email }}",
+            "email_source": "={{ $json.email_source }}",
+            "email_confidence": "={{ $json.email_confidence }}",
+            "email_verified": "={{ $json.email_verified }}",
+            "company_domain": "={{ $json.company_domain }}",
+            "company_domain_source": "={{ $json.company_domain_source }}",
+            "enriched_status": "={{ $json.enrichment_status }}",
+            "enriched_at": "={{ $json.enriched_at }}",
+            "email_candidates": "={{ $json.email_candidates }}",
+            "domain_verified": "={{ $json.domain_verified }}"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "enriched_status",
+              "displayName": "enriched_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_domain_source",
+              "displayName": "company_domain_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_candidates",
+              "displayName": "email_candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_source",
+              "displayName": "lead_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_sent_at",
+              "displayName": "email_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_send_status",
+              "displayName": "email_send_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "cc1086a8-bef1-4ffb-85db-eabab41c88a6",
+      "name": "Update Lead Pool Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1040,
+        1200
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "domain-verified-cond",
+              "leftValue": "={{ $json.domain_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "63a73c2c-af5e-4e21-80e4-0ecd7972267a",
+      "name": "Domain Verified?2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2288,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "queryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.company_name }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            },
+            {
+              "name": "safe",
+              "value": "active"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "8ba84954-2388-4461-a1b6-b47a2cbb7c75",
+      "name": "SerpAPI Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2720,
+        896
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "usnGPvG9S60pIXrJ",
+          "name": "SerpApi Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Key supplied via the 'SerpApi Key' query-auth credential (param: api_key). Do not inline the key here."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// Domain Fallback Search - final\n// Mode: Run Once for Each Item\n// ============================================================\n\n// ---- 1. Locate the SerpAPI response (wherever it lives) ----\n// ---- 1. Locate the SerpAPI response ----\nlet serp = {};\nlet serpSource = 'none';\nconst serpCandidates = [];\ntry { serpCandidates.push(['$json', $json]); } catch(e){}\ntry { serpCandidates.push(['$input.item', $input.item.json]); } catch(e){}\ntry { serpCandidates.push(['SerpAPI Search', $('SerpAPI Search').item.json]); } catch(e){}\nfor (const [label, c] of serpCandidates) {\n  const obj = Array.isArray(c) ? c[0] : c;   // handle wrapped [ {...} ]\n  if (obj && (Array.isArray(obj.organic_results) || obj.knowledge_graph || obj.local_results)) {\n    serp = obj;\n    serpSource = label;\n    break;\n  }\n}\n\n// ---- 2. Find the domain from the search response ----\nconst skip = ['linkedin.com','facebook.com','twitter.com','x.com','instagram.com',\n  'crunchbase.com','bloomberg.com','wikipedia.org','youtube.com','glassdoor.com',\n  'indeed.com','zoominfo.com','apollo.io','medium.com','tiktok.com','nyc.gov',\n  'benevity.org','mightycause.com','guidestar.org','causeiq.com','dictionary.com',\n  'merriam-webster.com','cambridge.org','vocabulary.com','company.com','naukrigulf.com',\n  'uaecompanies.ae','moet.gov.ae','screener.in','councilofnonprofits.org',\n  'givebutter.com','causevox.com','instrumentl.com'];\n\nconst isJunk = (h) => skip.some(s => h === s || h.endsWith('.' + s));\nconst toHost = (u) => {\n  if (!u || typeof u !== \"string\") return null;\n  try {\n    let h = u.trim();\n    h = h.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\\/\\//, \"\");\n    h = h.replace(/^[^@\\/]*@/, \"\");\n    h = h.split(\"/\")[0].split(\"?\")[0].split(\"#\")[0];\n    h = h.split(\":\")[0];\n    h = h.replace(/^www\\./i, \"\").toLowerCase();\n    return h || null;\n  } catch (e) { return null; }\n};\n\nlet domain = null;\n\n// 2a. knowledge graph website\nif (serp.knowledge_graph && serp.knowledge_graph.website) {\n  const h = toHost(serp.knowledge_graph.website);\n  if (h && !isJunk(h)) domain = h;\n}\n\n// 2b. local_results places\nif (!domain && serp.local_results && Array.isArray(serp.local_results.places)) {\n  for (const p of serp.local_results.places) {\n    const h = (p.links && p.links.website) ? toHost(p.links.website) : null;\n    if (h && !isJunk(h)) { domain = h; break; }\n  }\n}\n\n// 2c. first non-junk organic result\nif (!domain && Array.isArray(serp.organic_results)) {\n  for (const r of serp.organic_results) {\n    const h = toHost(r.link || '');\n    if (h && !isJunk(h)) { domain = h; break; }\n  }\n}\n\n// ---- 3. MX check (signal only, never blocks acceptance) ----\nlet mxOk = false;\nif (domain) {\n  try {\n    const dns = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://dns.google/resolve?name=${domain}&type=MX`,\n      json: true\n    });\n    mxOk = !!(dns.Answer && dns.Answer.length > 0);\n  } catch(e) {\n    mxOk = false;\n  }\n}\n\n// ---- 4. Locate the lead record (whichever candidate has row_number) ----\nlet lead = {};\nconst leadCandidates = [];\ntry { leadCandidates.push($input.item.json); } catch(e){}\ntry { leadCandidates.push($json); } catch(e){}\ntry { leadCandidates.push($('SerpAPI Search').item.json); } catch(e){}\ntry { leadCandidates.push($('Domain Verified?').item.json); } catch(e){}\nfor (const c of leadCandidates) {\n  if (c && (c.row_number !== undefined || c.provider_id !== undefined)) {\n    lead = c;\n    break;\n  }\n}\n\n// ---- 5. WHITELIST: rebuild a clean lead item, nothing else ----\nconst LEAD_FIELDS = [\n  'row_number','provider_id','public_identifier','linkedin_link','name','headline',\n  'network_distance','location','slice','status','discovered_at','outreach_sent_at',\n  'last_action','reply_text','suggested_reply','replied_at','connected_at',\n  'company_name','company_name_source','company_domain','email','email_source',\n  'email_confidence','email_verified','enriched_at','domain_rejected_reason'\n];\n\nconst clean = {};\nfor (const f of LEAD_FIELDS) {\n  clean[f] = lead[f] !== undefined ? lead[f] : '';\n}\n\n// ---- 6. Apply the domain result ----\nclean._debug_serp_source = serpSource;\nclean._debug_results_count = Array.isArray(serp.organic_results) ? serp.organic_results.length : -1;\nclean._debug_candidates = serpCandidates.map(([l]) => l).join(',');\nclean._debug_first_link = (serp.organic_results && serp.organic_results[0]) ? serp.organic_results[0].link : 'NONE';\n\n// ---- 6b. Apply the domain result ----\n// A company name the guesser rejected as generic is just as unsafe here:\n// SerpAPI on \"Leader\" returns whatever ranks first, not the lead's employer.\nconst rejected = !!lead.domain_rejected_reason;\n\n// MX must pass. Previously this was computed then ignored, so any first\n// organic result became the domain and got pattern-guessed emails built on it.\nconst accept = !!domain && mxOk && !rejected;\n\nclean.company_domain = accept ? domain : '';\nclean.company_domain_source = accept ? 'serpapi_fallback' : '';\nclean.company_domain_mx_ok = mxOk;\nclean.domain_verified = accept;\nif (!accept) {\n  clean.domain_rejected_reason = rejected\n    ? lead.domain_rejected_reason\n    : (domain ? 'serpapi_domain_no_mx' : 'serpapi_no_domain');\n}\n\nreturn { json: clean };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        896
+      ],
+      "id": "f42891e5-521e-4e4a-a4c8-81048f01b102",
+      "name": "Match company with Unverified domain"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "f6cf2c24-2581-43ff-91e8-167fb0e14346",
+      "name": "Schedule Trigger1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2096,
+        2608
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "options": {}
+      },
+      "id": "d79e52b7-14c0-44fe-be2f-e54c6364527f",
+      "name": "Read Lead Pool1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1888,
+        2608
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.filter(item => {\n  const d = item.json;\n  return !d.company_domain || !d.email;\n});"
+      },
+      "id": "4b102de3-7fc1-4486-877e-3f3dbc43ed8a",
+      "name": "Filter Needs Enrichment1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        2608
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "684a7722-ab95-415c-9413-fd4948f89ab4",
+      "name": "Loop Over Items1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2416,
+        2848
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const headline = $json.headline || '';\nlet companyName = null;\n\n// Handles: \"Title at Company\", \"Title @ Company\", \"Title | Company\"\nconst atMatch = headline.match(/\\bat\\s+(.+?)(?:\\s*[|\\-\\u2013]|$)/i);\nconst atSymbolMatch = headline.match(/@\\s*(.+?)(?:\\s*[|\\-\\u2013]|$)/);\nconst pipeMatch = headline.match(/\\|\\s*(.+?)$/);\n\nif (atMatch) companyName = atMatch[1].trim();\nelse if (atSymbolMatch) companyName = atSymbolMatch[1].trim();\nelse if (pipeMatch) companyName = pipeMatch[1].trim();\n\n// Strip noise so the domain guess isn't polluted\nif (companyName) {\n  companyName = companyName\n    .replace(/\\(.*?\\)/g, '')\n    .replace(/[\\u2122\\u00ae\\u00a9]/g, '')\n    .split(/,| and | & | \\| /i)[0]\n    .replace(/^@/, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  const words = companyName.split(/\\s+/).filter(Boolean);\n  const junk = /^(company|non-?profit development|business development|program management|consultant|freelance)$/i;\n  if (words.length > 5 || junk.test(companyName) || companyName.length < 2) {\n    companyName = null;\n  }\n}\n\nreturn {\n  json: {\n    ...$json,\n    company_name: companyName,\n    company_name_source: companyName ? 'headline_parsed' : null\n  }\n};"
+      },
+      "id": "75b10e0e-53b4-4e50-a7e4-210f3bceccbb",
+      "name": "Parse Company From Headline1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        2864
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "company-found-cond",
+              "leftValue": "={{ $json.company_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bfc4e360-5c1d-4164-88af-558a5b3277b7",
+      "name": "Company Name Found?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1888,
+        2864
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status-1",
+              "name": "enrichment_status",
+              "type": "string",
+              "value": "needs_manual_review"
+            },
+            {
+              "id": "status-2",
+              "name": "enriched_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1fa9e465-c6c1-4941-9f2e-6a064bff4fe8",
+      "name": "Mark Needs Manual Review1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1600,
+        3008
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const companyName = $json.company_name;\nif (!companyName) return { json: { ...$json, domain_candidates: [] } };\n\nconst cleaned = companyName\n  .replace(/\\b(inc|llc|corp|corporation|foundation|nonprofit|non-profit|ltd|co)\\.?\\b/gi, '')\n  .replace(/[^\\w\\s]/g, '')\n  .trim();\n\nconst noSpaces = cleaned.replace(/\\s+/g, '').toLowerCase();\nconst withDashes = cleaned.split(/\\s+/).join('-').toLowerCase();\n\nconst words = cleaned.toLowerCase().split(/\\s+/).filter(Boolean);\nconst firstWord = words[0] || '';\nconst firstTwo = words.slice(0, 2).join('') || firstWord;\n\nconst candidates = [...new Set([\n  `${firstTwo}.com`,     // \"c16bio.com\" - often the real one\n  `${firstTwo}.org`,\n  `${noSpaces}.com`,\n  `${noSpaces}.org`,\n  `${firstWord}.com`,\n  `${firstWord}.org`,\n  `${withDashes}.com`,\n  `${withDashes}.org`\n])].filter(d => d.length > 4);   // drop junk like \".com\"\n\nreturn { json: { ...$json, domain_candidates: candidates } };"
+      },
+      "id": "cd4d9c9e-f3d7-409e-ac1e-103154673226",
+      "name": "Guess Domain Candidates1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1584,
+        2832
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const candidates = $json.domain_candidates || [];\nlet verifiedDomain = null;\n\nfor (const domain of candidates) {\n  try {\n    const data = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://dns.google/resolve?name=${domain}&type=MX`,\n      json: true\n    });\n    if (data.Answer && data.Answer.length > 0) {\n      verifiedDomain = domain;\n      break;\n    }\n  } catch (e) {}\n}\n\nconst result = {\n  ...$json,\n  company_domain: verifiedDomain || '',\n  domain_verified: !!verifiedDomain\n};\n\nreturn { json: result };"
+      },
+      "id": "7a52f34f-32b8-4a66-9f39-6771ade7b003",
+      "name": "Verify Domain via DNS MX1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        2832
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "domain-verified-cond",
+              "leftValue": "={{ $json.domain_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "40cd6a53-ead9-4729-a2be-9d935935e8a7",
+      "name": "Domain Verified?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        2848
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status-3",
+              "name": "enrichment_status",
+              "type": "string",
+              "value": "domain_not_found"
+            },
+            {
+              "id": "status-4",
+              "name": "enriched_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5845090d-46d6-4c7a-b8db-73d1d4b85b70",
+      "name": "Mark Domain Not Found1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1488,
+        3312
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const domain = $json.company_domain;\nconst fullName = ($json.name || '').trim().toLowerCase();\nif (!domain || !fullName) {\n  return { json: { ...$json, email_candidates: [] } };\n}\n\nconst parts = fullName.split(/\\s+/);\nconst first = parts[0];\nconst last = parts[parts.length - 1];\nconst firstInitial = first[0];\n\nconst candidates = [\n  `${first}.${last}@${domain}`,\n  `${first}@${domain}`,\n  `${firstInitial}${last}@${domain}`,\n  `${first}${last}@${domain}`,\n  `${last}.${first}@${domain}`\n];\n\nreturn {\n  json: {\n    ...$json,\n    email_candidates: candidates,\n    email: candidates[0]\n  }\n};"
+      },
+      "id": "b4a1a06d-6162-4818-94f7-2635d05a295e",
+      "name": "Generate Email Candidates1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        2896
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let confidence = 0;\nif ($json.domain_verified) confidence += 30;\nif ($json.company_name_source === 'profile_lookup') confidence += 20;\nelse if ($json.company_name_source === 'headline_parsed') confidence += 10;\nif ($json.smtp_verified === true) confidence += 40;\n\nreturn {\n  json: {\n    ...$json,\n    email_confidence: confidence,\n    email_source: $json.smtp_verified ? 'smtp_verified' : 'pattern_guess',\n    enrichment_status: 'enriched',\n    enriched_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "040b82f0-a369-43d9-976b-a3b4c4283e18",
+      "name": "Score Confidence1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        2896
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $json.provider_id }}",
+            "email_candidates": "={{ $json.email_candidates }}",
+            "domain_verified": "={{ $json.domain_verified }}",
+            "company_domain_source": "={{ $json.company_domain_source }}",
+            "enriched_status": "={{ $json.enrichment_status }}",
+            "enriched_at": "={{ $json.enriched_at }}",
+            "email_verified": "={{ $json.email_verified }}",
+            "email_confidence": "={{ $json.email_confidence }}",
+            "email_source": "={{ $json.email_source }}",
+            "email": "={{ $json.email }}"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "enriched_status",
+              "displayName": "enriched_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain_source",
+              "displayName": "company_domain_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_candidates",
+              "displayName": "email_candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "48da620d-cc4c-4375-b2ae-fd351bd25525",
+      "name": "Update Lead Pool Row1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -576,
+        3184
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "domain-verified-cond",
+              "leftValue": "={{ $json.domain_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a9ef10c-65ef-4fc1-ab0e-119d66bdab7f",
+      "name": "Domain Verified?3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1712,
+        3216
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.company_name }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "a1ced12239570689765b682c2959f39c357de3dd6598e37533a964bd50f038c3"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            },
+            {
+              "name": "safe",
+              "value": "active"
+            },
+            {
+              "name": "tbs",
+              "value": "isz:l"
+            },
+            {
+              "name": "ijn",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "2480fddd-4c2a-4511-965e-584d9282891a",
+      "name": "SerpAPI Search1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2080,
+        3216
+      ],
+      "disabled": true,
+      "notes": "Replace YOUR_SERPAPI_KEY with your actual key from serpapi.com\ntbs=isz:l filters for large images only"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================================\n// Domain Fallback Search - final\n// Mode: Run Once for Each Item\n// ============================================================\n\n// ---- 1. Locate the SerpAPI response (wherever it lives) ----\n// ---- 1. Locate the SerpAPI response ----\nlet serp = {};\nlet serpSource = 'none';\nconst serpCandidates = [];\ntry { serpCandidates.push(['$json', $json]); } catch(e){}\ntry { serpCandidates.push(['$input.item', $input.item.json]); } catch(e){}\ntry { serpCandidates.push(['SerpAPI Search', $('SerpAPI Search1').item.json]); } catch(e){}\nfor (const [label, c] of serpCandidates) {\n  const obj = Array.isArray(c) ? c[0] : c;   // handle wrapped [ {...} ]\n  if (obj && (Array.isArray(obj.organic_results) || obj.knowledge_graph || obj.local_results)) {\n    serp = obj;\n    serpSource = label;\n    break;\n  }\n}\n\n// ---- 2. Find the domain from the search response ----\nconst skip = ['linkedin.com','facebook.com','twitter.com','x.com','instagram.com',\n  'crunchbase.com','bloomberg.com','wikipedia.org','youtube.com','glassdoor.com',\n  'indeed.com','zoominfo.com','apollo.io','medium.com','tiktok.com','nyc.gov',\n  'benevity.org','mightycause.com','guidestar.org','causeiq.com','dictionary.com',\n  'merriam-webster.com','cambridge.org','vocabulary.com','company.com','naukrigulf.com',\n  'uaecompanies.ae','moet.gov.ae','screener.in','councilofnonprofits.org',\n  'givebutter.com','causevox.com','instrumentl.com'];\n\nconst isJunk = (h) => skip.some(s => h === s || h.endsWith('.' + s));\nconst toHost = (u) => {\n  if (!u || typeof u !== \"string\") return null;\n  try {\n    let h = u.trim();\n    h = h.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\\/\\//, \"\");\n    h = h.replace(/^[^@\\/]*@/, \"\");\n    h = h.split(\"/\")[0].split(\"?\")[0].split(\"#\")[0];\n    h = h.split(\":\")[0];\n    h = h.replace(/^www\\./i, \"\").toLowerCase();\n    return h || null;\n  } catch (e) { return null; }\n};\n\nlet domain = null;\n\n// 2a. knowledge graph website\nif (serp.knowledge_graph && serp.knowledge_graph.website) {\n  const h = toHost(serp.knowledge_graph.website);\n  if (h && !isJunk(h)) domain = h;\n}\n\n// 2b. local_results places\nif (!domain && serp.local_results && Array.isArray(serp.local_results.places)) {\n  for (const p of serp.local_results.places) {\n    const h = (p.links && p.links.website) ? toHost(p.links.website) : null;\n    if (h && !isJunk(h)) { domain = h; break; }\n  }\n}\n\n// 2c. first non-junk organic result\nif (!domain && Array.isArray(serp.organic_results)) {\n  for (const r of serp.organic_results) {\n    const h = toHost(r.link || '');\n    if (h && !isJunk(h)) { domain = h; break; }\n  }\n}\n\n// ---- 3. MX check (signal only, never blocks acceptance) ----\nlet mxOk = false;\nif (domain) {\n  try {\n    const dns = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://dns.google/resolve?name=${domain}&type=MX`,\n      json: true\n    });\n    mxOk = !!(dns.Answer && dns.Answer.length > 0);\n  } catch(e) {\n    mxOk = false;\n  }\n}\n\n// ---- 4. Locate the lead record (whichever candidate has row_number) ----\nlet lead = {};\nconst leadCandidates = [];\ntry { leadCandidates.push($input.item.json); } catch(e){}\ntry { leadCandidates.push($json); } catch(e){}\ntry { leadCandidates.push($('SerpAPI Search1').item.json); } catch(e){}\ntry { leadCandidates.push($('Domain Verified?1').item.json); } catch(e){}\nfor (const c of leadCandidates) {\n  if (c && (c.row_number !== undefined || c.provider_id !== undefined)) {\n    lead = c;\n    break;\n  }\n}\n\n// ---- 5. WHITELIST: rebuild a clean lead item, nothing else ----\nconst LEAD_FIELDS = [\n  'row_number','provider_id','public_identifier','linkedin_link','name','headline',\n  'network_distance','location','slice','status','discovered_at','outreach_sent_at',\n  'last_action','reply_text','suggested_reply','replied_at','connected_at',\n  'company_name','company_name_source','company_domain','email','email_source',\n  'email_confidence','email_verified','enriched_at'\n];\n\nconst clean = {};\nfor (const f of LEAD_FIELDS) {\n  clean[f] = lead[f] !== undefined ? lead[f] : '';\n}\n\n// ---- 6. Apply the domain result ----\nclean._debug_serp_source = serpSource;\nclean._debug_results_count = Array.isArray(serp.organic_results) ? serp.organic_results.length : -1;\nclean._debug_candidates = serpCandidates.map(([l]) => l).join(',');\nclean._debug_first_link = (serp.organic_results && serp.organic_results[0]) ? serp.organic_results[0].link : 'NONE';\n\n// ---- 6b. FIX: actually apply the domain result to the output ----\nclean.company_domain = domain || '';\nclean.company_domain_source = domain ? 'serpapi_fallback' : '';\nclean.company_domain_mx_ok = mxOk;\nclean.domain_verified = !!domain;\n\nreturn { json: clean };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1888,
+        3216
+      ],
+      "id": "17a2afd5-eac1-4218-9647-0c2584566163",
+      "name": "Match company with Unverified domain1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ===========================================================\n// Resolve Email Pattern\n// Works out HOW a domain forms addresses, instead of always\n// assuming first.last@ (which was hardcoded as candidates[0]).\n//\n// FALLBACK: set ENABLE_MAILTO_SCRAPE = false to switch off all\n// site fetching. Everything still works from domain peers alone.\n// ===========================================================\nconst ENABLE_MAILTO_SCRAPE = true;\nconst SCRAPE_TIMEOUT_MS = 4000;   // was 8000 - slow sites were stalling runs\nconst SCRAPE_MAX_PAGES = 1;      // was 3 - homepage only\n\nconst http = (opts) => this.helpers.httpRequest(opts);\n\n// ---------- name handling ----------\nconst deaccent = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');\nconst tidy = (s) => deaccent(s).toLowerCase().replace(/[^a-z\\s'-]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nconst TITLES = new Set(['dr','mr','mrs','ms','miss','prof','professor','rev','fr','sir','dame','hon']);\nconst SUFFIXES = new Set(['jr','sr','ii','iii','iv','phd','md','mba','cpa','esq','msw','rn','cfre','cae']);\n\nfunction parseName(raw) {\n  let parts = tidy(raw).split(' ').filter(Boolean);\n  parts = parts.filter(p => !TITLES.has(p.replace(/[.'-]/g, '')));\n  parts = parts.filter(p => !SUFFIXES.has(p.replace(/[.'-]/g, '')));\n  parts = parts.filter(p => p.replace(/[^a-z]/g, '').length > 1);\n  if (parts.length < 2) return null;\n  const first = parts[0].replace(/[^a-z]/g, '');\n  const last = parts[parts.length - 1].replace(/[^a-z]/g, '');\n  if (!first || !last) return null;\n  return { first, last };\n}\n\nconst PATTERNS = {\n  'first.last': (f, l) => f + '.' + l,\n  'first':      (f, l) => f,\n  'flast':      (f, l) => f[0] + l,\n  'firstlast':  (f, l) => f + l,\n  'first_last': (f, l) => f + '_' + l,\n  'f.last':     (f, l) => f[0] + '.' + l,\n  'last.first': (f, l) => l + '.' + f,\n  'firstl':     (f, l) => f + l[0],\n  'lastf':      (f, l) => l + f[0]\n};\n\nfunction inferPattern(fullName, email) {\n  const n = parseName(fullName);\n  if (!n) return null;\n  const local = String(email || '').split('@')[0].toLowerCase();\n  if (!local) return null;\n  for (const key of Object.keys(PATTERNS)) {\n    try { if (PATTERNS[key](n.first, n.last) === local) return key; } catch (e) {}\n  }\n  return null;\n}\n\n// ---------- 1. Learn patterns from trusted peers already in the pool ----------\nconst TRUSTED_SOURCES = new Set(['exa_scrape_verified','reply_confirmed','manual','smtp_verified','site_scrape']);\nfunction isTrusted(r) {\n  return r.email_verified === true\n    || String(r.email_verified).toUpperCase() === 'TRUE'\n    || TRUSTED_SOURCES.has(String(r.email_source || ''));\n}\n\nlet poolRows = [];\ntry { poolRows = $('Read Lead Pool').all().map(i => i.json); } catch (e) {}\n\nconst patternMap = {};\nfor (const r of poolRows) {\n  const em = String(r.email || '').trim().toLowerCase();\n  if (!em.includes('@') || !isTrusted(r)) continue;\n  const dom = em.split('@')[1];\n  if (!dom || patternMap[dom]) continue;\n  const p = inferPattern(r.name, em);\n  if (p) patternMap[dom] = { pattern: p, evidence: em };\n}\n\n// ---------- 2. Shape guess from a scraped address (owner name unknown) ----------\nconst ROLE = new Set(['info','contact','hello','admin','office','team','hr','support','help','press',\n  'media','donate','giving','donations','general','mail','email','enquiries','inquiries','webmaster',\n  'noreply','no-reply','sales','marketing','volunteer','events','careers','jobs','communications','post']);\n\nfunction shapeFromLocal(local) {\n  const l = String(local || '').toLowerCase();\n  if (!l || ROLE.has(l)) return null;\n  if (l.indexOf('_') !== -1) return 'first_last';\n  if (l.indexOf('.') !== -1) {\n    const bits = l.split('.');\n    if (bits.length === 2 && bits[0] && bits[1]) return bits[0].length === 1 ? 'f.last' : 'first.last';\n    return null;\n  }\n  if (/^[a-z]+$/.test(l)) return l.length <= 7 ? 'first' : 'firstlast';\n  return null;\n}\n\nasync function scrapeDomain(domain) {\n  const esc = domain.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const re = new RegExp('[A-Za-z0-9._%+-]+@' + esc, 'gi');\n  const urls = ['https://' + domain, 'https://' + domain + '/contact', 'https://' + domain + '/about'];\n  for (const u of urls.slice(0, SCRAPE_MAX_PAGES)) {\n    try {\n      const res = await http({\n        method: 'GET', url: u, json: false, timeout: SCRAPE_TIMEOUT_MS,\n        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GFIN-enrichment/1.0)' }\n      });\n      const text = typeof res === 'string' ? res : JSON.stringify(res);\n      const hits = Array.from(new Set((text.match(re) || []).map(x => x.toLowerCase())));\n      for (const h of hits) {\n        const shape = shapeFromLocal(h.split('@')[0]);\n        if (shape) return { pattern: shape, evidence: h };\n      }\n    } catch (e) {}\n  }\n  return null;\n}\n\n// ---------- 3. Resolve for this lead ----------\nconst out = Object.assign({}, $json);\nconst domain = String(out.company_domain || '').trim().toLowerCase();\nconst person = parseName(out.name);\n\nif (!person) {\n  out.email_pattern = '';\n  out.email_pattern_source = 'name_not_person';\n  out.enrichment_status = 'needs_manual_review';\n  return { json: out };\n}\n\nout.name_first = person.first;\nout.name_last = person.last;\n\nlet resolved = (domain && patternMap[domain])\n  ? { pattern: patternMap[domain].pattern, evidence: patternMap[domain].evidence, src: 'domain_peer' }\n  : null;\n\nif (!resolved && domain && ENABLE_MAILTO_SCRAPE) {\n  const scraped = await scrapeDomain(domain);\n  if (scraped) resolved = { pattern: scraped.pattern, evidence: scraped.evidence, src: 'site_scrape' };\n}\n\nif (resolved) {\n  out.email_pattern = resolved.pattern;\n  out.email_pattern_source = resolved.src;\n  out.email_pattern_evidence = resolved.evidence;\n} else {\n  out.email_pattern = '';\n  out.email_pattern_source = 'unknown';\n}\n\nreturn { json: out };"
+      },
+      "id": "70bacca9-ef93-4ae2-8086-f74da941f3f7",
+      "name": "Resolve Email Pattern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1808,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "not-rejected",
+              "leftValue": "={{ $json.domain_rejected_reason }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2926179b-2325-40df-a9a1-cca53e2d7c40",
+      "name": "Worth Searching?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2800,
+        1184
+      ],
+      "notes": "Skips the paid Google search for company names already rejected as generic (e.g. 'Nonprofit Leader'). Searching those returns noise and wastes SerpAPI credits."
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Filter Needs Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Needs Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Parse Company From Headline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Company From Headline": {
+      "main": [
+        [
+          {
+            "node": "Company Name Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Name Found?": {
+      "main": [
+        [
+          {
+            "node": "Guess Domain Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Needs Manual Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guess Domain Candidates": {
+      "main": [
+        [
+          {
+            "node": "Verify Domain via DNS MX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Domain via DNS MX": {
+      "main": [
+        [
+          {
+            "node": "Domain Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Verified?": {
+      "main": [
+        [
+          {
+            "node": "Resolve Email Pattern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Worth Searching?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Candidates": {
+      "main": [
+        [
+          {
+            "node": "Score Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Confidence": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Pool Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead Pool Row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Verified?2": {
+      "main": [
+        [
+          {
+            "node": "Resolve Email Pattern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Domain Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Search": {
+      "main": [
+        [
+          {
+            "node": "Match company with Unverified domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match company with Unverified domain": {
+      "main": [
+        [
+          {
+            "node": "Domain Verified?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool1": {
+      "main": [
+        [
+          {
+            "node": "Filter Needs Enrichment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Needs Enrichment1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Parse Company From Headline1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Company From Headline1": {
+      "main": [
+        [
+          {
+            "node": "Company Name Found?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Name Found?1": {
+      "main": [
+        [
+          {
+            "node": "Guess Domain Candidates1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Needs Manual Review1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Needs Manual Review1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guess Domain Candidates1": {
+      "main": [
+        [
+          {
+            "node": "Verify Domain via DNS MX1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Domain via DNS MX1": {
+      "main": [
+        [
+          {
+            "node": "Domain Verified?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Verified?1": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Candidates1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SerpAPI Search1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Domain Not Found1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Candidates1": {
+      "main": [
+        [
+          {
+            "node": "Score Confidence1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Confidence1": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Pool Row1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead Pool Row1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Verified?3": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Candidates1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Domain Not Found1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Search1": {
+      "main": [
+        [
+          {
+            "node": "Match company with Unverified domain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match company with Unverified domain1": {
+      "main": [
+        [
+          {
+            "node": "Domain Verified?3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Needs Manual Review": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Pool Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Domain Not Found": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Pool Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Email Pattern": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worth Searching?": {
+      "main": [
+        [
+          {
+            "node": "SerpAPI Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Domain Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 1800,
+    "availableInMCP": true,
+    "errorWorkflow": "VZWpZqNvzymxhVcm"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "fb9d70e2-d37c-49be-b47c-85079ace9a99",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-07-28T09:57:15.892Z",
+      "createdAt": "2026-07-28T09:57:15.892Z",
+      "role": "workflow:owner",
+      "workflowId": "ufZuWDDf1Iq5Y8dE",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
