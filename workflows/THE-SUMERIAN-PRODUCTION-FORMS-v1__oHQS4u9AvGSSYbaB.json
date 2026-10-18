@@ -1,0 +1,365 @@
+{
+  "updatedAt": "2026-09-23T11:18:55.528Z",
+  "createdAt": "2026-09-23T11:18:55.528Z",
+  "id": "oHQS4u9AvGSSYbaB",
+  "name": "THE SUMERIAN — PRODUCTION FORMS v1",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "fe348291-2590-478a-88aa-729f8a039ce4",
+      "name": "Note A",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -200
+      ],
+      "parameters": {
+        "width": 1100,
+        "height": 400,
+        "color": 7,
+        "content": "## MANIFEST INTAKE FORM\nPaste one ChatGPT shot manifest → forwarded as-is to **THE SUMERIAN — LTX PRODUCTION PIPELINE v1** webhook. All validation, gating and cost control happen in the pipeline."
+      }
+    },
+    {
+      "id": "7d2a84a1-3963-4f76-9d8d-79467e5710c3",
+      "name": "F01 — Shot Manifest Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "36b28461-6ab7-4469-984f-70ee8b5c6b97",
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "THE SUMERIAN — Submit Shot Manifest",
+        "formDescription": "Paste ONE shot manifest JSON from the ChatGPT Creative Director. With \"generation_authorized\": false nothing is billed; the shot is staged as READY_FOR_APPROVAL.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Shot Manifest JSON",
+              "fieldType": "textarea",
+              "placeholder": "{ \"project_id\": \"SUM\", ... }",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "sumerian-manifest",
+          "buttonLabel": "Submit manifest",
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "AMtbrXSO0quLJhjP",
+          "name": "SUMERIAN — Manifest Form Login"
+        }
+      }
+    },
+    {
+      "id": "7f036821-adc8-4313-b924-458ba0f983f2",
+      "name": "F02 — Forward to Pipeline Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://awf.deeplearningintelligence.com/webhook/sumerian/manifest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ $json['Shot Manifest JSON'] }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "94634261-f68d-4bb5-8cd3-b1f6c5f1f3bf",
+      "name": "F03 — Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json; let b = r.body; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) {} }\nconst esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst head = b && typeof b === 'object' ? (b.result || '') + (b.error_status ? ' · ' + b.error_status : '') + (b.approval_status ? ' · ' + b.approval_status : '') : 'HTTP ' + r.statusCode;\nconst html = '<h2>' + esc(head) + '</h2><p>HTTP ' + esc(r.statusCode) + '</p><pre style=\"white-space:pre-wrap;text-align:left;font-size:12px\">' + esc(typeof b === 'string' ? b : JSON.stringify(b, null, 2)) + '</pre>';\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "552a8aea-5941-41e4-9d49-4889977d8129",
+      "name": "F04 — Show Result",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        0
+      ],
+      "webhookId": "cdd0f16d-a300-4ddd-9f6d-73ee0e0db555",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.html }}"
+      }
+    },
+    {
+      "id": "a9f8b08f-7745-4382-ac6a-04fc47494ce8",
+      "name": "Note B",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        260
+      ],
+      "parameters": {
+        "width": 1100,
+        "height": 400,
+        "color": 5,
+        "content": "## SHOT REVIEW FORM\nHuman review decision → forwarded to the review webhook. Only this path (or the review webhook) can set **APPROVED**."
+      }
+    },
+    {
+      "id": "68de6397-f397-4d88-bb33-a379c0590278",
+      "name": "F11 — Shot Review Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        460
+      ],
+      "webhookId": "cc721fbf-01df-46e1-9756-4d423ba53ec7",
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "THE SUMERIAN — Shot Review",
+        "formDescription": "Record a human review decision for one generated shot version.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Shot ID",
+              "placeholder": "SUM-S01-E01-SC01-SH001",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Version",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Review Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "APPROVE"
+                  },
+                  {
+                    "option": "REJECT"
+                  },
+                  {
+                    "option": "REQUEST_REVISION"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Reviewer"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "sumerian-review",
+          "buttonLabel": "Record review",
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "AMtbrXSO0quLJhjP",
+          "name": "SUMERIAN — Manifest Form Login"
+        }
+      }
+    },
+    {
+      "id": "408473e1-8b99-4422-9a49-fb1eb2e364eb",
+      "name": "F12 — Forward to Review Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        460
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://awf.deeplearningintelligence.com/webhook/sumerian/review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ shot_id: String($json['Shot ID'] || '').trim(), version: Number($json['Version']), review_action: $json['Review Action'], notes: $json['Notes'] || '', reviewer: $json['Reviewer'] || '' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "72ba8c67-884c-4dfe-b011-2b04dce34f5a",
+      "name": "F13 — Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json; let b = r.body; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) {} }\nconst esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst head = b && typeof b === 'object' ? (b.result || '') + (b.error_status ? ' · ' + b.error_status : '') + (b.approval_status ? ' · ' + b.approval_status : '') : 'HTTP ' + r.statusCode;\nconst html = '<h2>' + esc(head) + '</h2><p>HTTP ' + esc(r.statusCode) + '</p><pre style=\"white-space:pre-wrap;text-align:left;font-size:12px\">' + esc(typeof b === 'string' ? b : JSON.stringify(b, null, 2)) + '</pre>';\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "4b5a0e9f-7b62-4823-9432-58c8cffc1568",
+      "name": "F14 — Show Result",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        460
+      ],
+      "webhookId": "56d653d2-97fa-4125-9b18-438f9ad096a3",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.html }}"
+      }
+    }
+  ],
+  "connections": {
+    "F01 — Shot Manifest Form": {
+      "main": [
+        [
+          {
+            "node": "F02 — Forward to Pipeline Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F02 — Forward to Pipeline Webhook": {
+      "main": [
+        [
+          {
+            "node": "F03 — Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F03 — Format Result": {
+      "main": [
+        [
+          {
+            "node": "F04 — Show Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F11 — Shot Review Form": {
+      "main": [
+        [
+          {
+            "node": "F12 — Forward to Review Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F12 — Forward to Review Webhook": {
+      "main": [
+        [
+          {
+            "node": "F13 — Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F13 — Format Result": {
+      "main": [
+        [
+          {
+            "node": "F14 — Show Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "fe07e233-11f9-4a72-9e1c-dbd803c4ae3b",
+  "activeVersionId": null,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2026-09-23T11:18:55.528Z",
+      "createdAt": "2026-09-23T11:18:55.528Z",
+      "role": "workflow:owner",
+      "workflowId": "oHQS4u9AvGSSYbaB",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
