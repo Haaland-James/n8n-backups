@@ -1,0 +1,1856 @@
+{
+  "updatedAt": "2026-07-16T11:21:13.191Z",
+  "createdAt": "2026-07-02T07:39:24.042Z",
+  "id": "R7iC7Ps93gr0spQE",
+  "name": "GFIN — LinkedIn Outreach",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "name": "Every Weekday 08:00 Dubai",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        272
+      ],
+      "id": "364a75f2-7ea7-4f68-ac76-cf8727534c2d"
+    },
+    {
+      "parameters": {},
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        480
+      ],
+      "id": "81f5c18b-ac3a-4102-9b19-ea0a5d807134"
+    },
+    {
+      "parameters": {
+        "jsCode": "const domains = [\"businesswire.com\",\"prnewswire.com\",\"techcrunch.com\",\"crunchbase.com\",\"nasdaq.com\",\"prlog.org\",\"circleacts.org\"];\nconst queries = [\"nonprofit or impact startup announces new funding round or closes Series A\",\"organization expands into new market or opens new office\",\"nonprofit launches new program or new initiative\",\"organization appoints new CEO, CFO, or Chief Development Officer\",\"strategic partnership between company and nonprofit or foundation\",\"nonprofit awarded multi-year or seven-figure grant\"];\nconst since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();\nreturn queries.map(q => ({json: {query: q, body: Object.assign(\n  {query: q, type: \"auto\", numResults: 25, startPublishedDate: since, contents: {text: {maxCharacters: 1500}, summary: true}},\n  (typeof domains !== \"undefined\") ? {includeDomains: domains} : {}\n)}}));"
+      },
+      "name": "Growth Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        64
+      ],
+      "id": "efc58c68-0543-4f6a-853f-7d9b5677a6ec"
+    },
+    {
+      "parameters": {
+        "jsCode": "const domains = [\"layoffwatcher.com\",\"layoffhedge.com\",\"businesswire.com\",\"prnewswire.com\",\"prlog.org\",\"circleacts.org\"];\nconst queries = [\"company announces layoffs, staff reductions, or workforce reduction\",\"organization facing budget shortfall or funding gap\",\"nonprofit program suspended or closed due to lack of funding\",\"organization announces restructuring plan or restructuring charges\",\"organization discloses going concern risk or material uncertainty\",\"nonprofit or charity running a deficit budget\",\"nonprofit launches emergency or urgent fundraising appeal\"];\nconst since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();\nreturn queries.map(q => ({json: {query: q, body: Object.assign(\n  {query: q, type: \"auto\", numResults: 25, startPublishedDate: since, contents: {text: {maxCharacters: 1500}, summary: true}},\n  (typeof domains !== \"undefined\") ? {includeDomains: domains} : {}\n)}}));"
+      },
+      "name": "Rescue Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        368
+      ],
+      "id": "43a81fa1-1d8e-4379-85ea-98a35eaa3af8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// no domain restriction\nconst queries = [\"emergency grant for nonprofit, church, or ministry\",\"capital campaign over budget with cost overruns\",\"bridge financing for mission-driven or impact organization\",\"unexpected windfall grant or donation to community organization\",\"community organization facing financial challenges\"];\nconst since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();\nreturn queries.map(q => ({json: {query: q, body: Object.assign(\n  {query: q, type: \"auto\", numResults: 25, startPublishedDate: since, contents: {text: {maxCharacters: 1500}, summary: true}},\n  (typeof domains !== \"undefined\") ? {includeDomains: domains} : {}\n)}}));"
+      },
+      "name": "Wildcard Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        672
+      ],
+      "id": "c41bee50-1757-4e16-ac56-9d3548e8d455"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.exa.ai/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "name": "Exa: Growth Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        64
+      ],
+      "id": "9ff2b40b-4a81-4074-abb3-5897c25895f9",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ygO9VMOAsLD7Hooq",
+          "name": "Exa API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.exa.ai/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "name": "Exa: Rescue Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        368
+      ],
+      "id": "25282eba-a9f1-41cb-b28c-7ca3011acb44",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ygO9VMOAsLD7Hooq",
+          "name": "Exa API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.exa.ai/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "name": "Exa: Wildcard Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        672
+      ],
+      "id": "5b5f4c1c-326f-4105-a2a8-7cf3dda7e5a6",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ygO9VMOAsLD7Hooq",
+          "name": "Exa API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  if (item.json.error) continue;\n  const results = item.json.results || [];\n  for (const r of results) out.push({json: {...r, signal_type: \"growth\", signal_source: \"core\"}});\n}\nreturn out;"
+      },
+      "name": "Flatten Growth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        64
+      ],
+      "id": "18c21c13-2d78-4267-9b90-f100cd91d64a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  if (item.json.error) continue;\n  const results = item.json.results || [];\n  for (const r of results) out.push({json: {...r, signal_type: \"rescue\", signal_source: \"core\"}});\n}\nreturn out;"
+      },
+      "name": "Flatten Rescue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        368
+      ],
+      "id": "ecbbaeac-5d38-4497-b474-7fe65bcfe22b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  if (item.json.error) continue;\n  const results = item.json.results || [];\n  for (const r of results) out.push({json: {...r, signal_type: null, signal_source: \"wildcard\"}});\n}\nreturn out;"
+      },
+      "name": "Flatten Wildcard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        672
+      ],
+      "id": "414ced06-0a01-4f29-8190-e3291bee0d2d"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "name": "Merge Signals",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        704,
+        368
+      ],
+      "id": "8794b162-2235-4cfd-accb-95c9f42d18e9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const url = j.url || \"\";\n  let domain = \"\"; try { domain = new URL(url).hostname.replace(/^www\\./, \"\"); } catch (e) {}\n  const title = j.title || \"\";\n  const summary = ((j.summary || j.text || \"\") + \"\").slice(0, 300);\n  let st = j.signal_type;\n  if (!st) {\n    const rescueKw = /(layoff|shortfall|deficit|closure|suspended|emergency|challenge|over budget|overrun|bridge financ)/i;\n    st = rescueKw.test(title + \" \" + summary) ? \"rescue\" : \"growth\";\n  }\n  const orgGuess = (title.split(/ \\u2013 | - | \\| |:/)[0] || title).trim().slice(0, 120);\n  if (!orgGuess) continue;\n  const key = (orgGuess + \"|\" + url).toLowerCase();\n  if (seen.has(key)) continue;\n  seen.add(key);\n  const emailMatch = (((j.text || \"\") + \" \" + summary)).match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/);\n  out.push({json: {\n    org_name: orgGuess,\n    contact_name: j.author || null,\n    contact_email: emailMatch ? emailMatch[0] : null,\n    source_url: url,\n    source_domain: domain,\n    signal_summary: summary,\n    signal_type: st,\n    signal_source: j.signal_source || \"core\",\n    discovered_at: new Date().toISOString(),\n    run_id: $execution.id\n  }});\n}\n// 30-day org dedup cache\nconst sd = $getWorkflowStaticData(\"global\");\nsd.seenOrgs = sd.seenOrgs || {};\nconst now = Date.now();\nconst THIRTY = 30 * 24 * 3600 * 1000;\nfor (const k of Object.keys(sd.seenOrgs)) { if (now - sd.seenOrgs[k] > THIRTY) delete sd.seenOrgs[k]; }\nconst fresh = [];\nfor (const it of out) {\n  const k = it.json.org_name.toLowerCase();\n  if (sd.seenOrgs[k] && (now - sd.seenOrgs[k]) < THIRTY) continue;\n  sd.seenOrgs[k] = now;\n  fresh.push(it);\n}\n\n// safety cap: stratified — up to 10 growth, 10 rescue, 10 wildcard per run\nconst buckets = {growth_core: [], rescue_core: [], wildcard: []};\nfor (const it of fresh) {\n  const k = it.json.signal_source === \"wildcard\" ? \"wildcard\" : (it.json.signal_type === \"growth\" ? \"growth_core\" : \"rescue_core\");\n  buckets[k].push(it);\n}\nreturn [...buckets.growth_core.slice(0, 10), ...buckets.rescue_core.slice(0, 10), ...buckets.wildcard.slice(0, 10)];"
+      },
+      "name": "Normalize + Dedup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        368
+      ],
+      "id": "04f7c40c-0690-4481-b89d-dfadda6bc72a"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ $json.contact_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Has Contact Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        368
+      ],
+      "id": "aea2fe97-d7e4-4ba6-8548-1bb0e4098f33"
+    },
+    {
+      "parameters": {
+        "url": "https://api.email-check.app/v1-get-email-details",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.contact_email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Validate Email (email-check.app)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        240
+      ],
+      "id": "790220dd-c068-405c-a325-9ea9e5c46225",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Fpotd2kQ0L3clb5b",
+          "name": "Email-Check.app API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "v1",
+              "leftValue": "={{ $json.validFormat }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "v2",
+              "leftValue": "={{ $json.isDisposable }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Email Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        240
+      ],
+      "id": "3eb2f1ff-0529-4d0f-858c-9f18abc8ef28"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $('Normalize + Dedup').item.json;\nconst score = ($json.validFormat ? 0.5 : 0) + (!$json.isDisposable ? 0.3 : 0) + ($json.validSmtp ? 0.1 : 0) + ($json.validMx ? 0.1 : 0);\nreturn {json: {...lead, email_status: \"valid\", email_score: Math.round(score * 100) / 100, email_is_free: $json.isFree ?? null, email_smtp_ok: $json.validSmtp ?? null}};"
+      },
+      "name": "Tag Email Valid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        144
+      ],
+      "id": "418248a2-b6f6-4117-860d-d08dec0e9a7a"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $('Normalize + Dedup').item.json;\nconst reason = $json.error ? \"api_error\" : ($json.isDisposable ? \"disposable\" : (!$json.validFormat ? \"bad_format\" : \"failed_checks\"));\nreturn {json: {...lead, email_status: \"invalid\", email_score: 0, email_reason: reason}};"
+      },
+      "name": "Tag Email Invalid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        320
+      ],
+      "id": "e150316d-be25-4f4f-9da5-faf558b992bc"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {json: {...$json, email_status: \"missing\", email_score: null}};"
+      },
+      "name": "Tag Email Missing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        544
+      ],
+      "id": "abe953f0-1296-4b20-8f93-b90df4ba9c49"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "name": "Merge Email Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2240,
+        368
+      ],
+      "id": "f648b469-820c-42cc-8e5b-259253e76395"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/linkedin/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "account_id",
+              "value": "=DZFi1PeCTDmiB9H8O0aiPw"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"api\": \"classic\",\n  \"category\": \"companies\",\n  \"keywords\": \"{{ $json.org_name }}\"\n}",
+        "options": {}
+      },
+      "name": "Unipile: Find LinkedIn Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        368
+      ],
+      "id": "ee25933c-f299-4f97-bc5e-9d0647170d09",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/warmup-actions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({profile_query: ($json.items && $json.items[0] ? $json.items[0].id : null), actions: [\"profile_visit\",\"follow\",\"soft_interaction\"]}) }}",
+        "options": {}
+      },
+      "name": "Unipile: Queue Warm-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        368
+      ],
+      "id": "977afdfa-51c9-4c75-a431-1d79307e532c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $('Merge Email Paths').item.json;\nconst resp = $json || {};\nconst failed = !!resp.error;\nconst profileId = resp.items && resp.items[0] ? resp.items[0].id : (resp.id || null);\nreturn {json: {...lead, unipile_profile_id: profileId, warmup_status: failed ? \"failed\" : (profileId ? \"queued\" : \"not_found\")}};"
+      },
+      "name": "Set Warm-up Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        368
+      ],
+      "id": "41b02639-3956-422b-ac1d-3a03e0d1af98"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Lead packet for scoring:\n{{ JSON.stringify($json, null, 2) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are GoFunditNow's Fit Agent. GoFunditNow provides non-dilutive capital to mission-driven organizations (nonprofits, ministries, community orgs, impact startups). Score the lead 0-100 for fit. Decide recommended campaign: growth or rescue (you may override signal_type with justification inside talk_track). talk_track must be a 3-5 bullet AE briefing covering: why this org fits, the tension they face (growth vs rescue), a suggested opening line, and the angle (non-dilutive capital to extend runway vs stabilize core programs). risk_flags: e.g. too small, government entity, already well-capitalized, negative press risk. Return ONLY valid JSON matching the schema."
+        }
+      },
+      "name": "Fit Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        3120,
+        368
+      ],
+      "id": "60a801d9-4467-47de-a264-83f0757ff6e1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        3088,
+        624
+      ],
+      "id": "218278af-ec34-489b-9f96-4d46b535df1d",
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"fit_score\": 85, \"recommended_play\": \"growth\", \"talk_track\": \"- why fit\\n- tension\\n- opening line\\n- angle\", \"risk_flags\": [\"example flag\"]}"
+      },
+      "name": "Fit Output Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        3280,
+        624
+      ],
+      "id": "8e9652a2-0c69-42b5-ab7b-720a7c90cece"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $('Set Warm-up Status').item.json;\nconst fit = $json.output || $json;\nconst fitScore = Number(fit.fit_score) || 0;\nreturn {json: {...lead,\n  fit_score: fitScore,\n  recommended_play: fit.recommended_play || lead.signal_type,\n  talk_track: fit.talk_track || \"\",\n  risk_flags: fit.risk_flags || [],\n  pipeline_stage: (fitScore >= 70 && lead.email_status === \"valid\") ? \"Scout - AE Ready\" : \"Scout - Research Needed\"\n}};"
+      },
+      "name": "Attach Fit Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        368
+      ],
+      "id": "49c7ee24-fd7d-497b-a5f0-8a31c0be4912"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.zohoapis.com/crm/v2/Leads/upsert",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({data: [{Company: $json.org_name, Last_Name: ($json.contact_name || \"Unknown\"), Email: $json.contact_email, Lead_Source: \"GoFunditNow Scout\", Description: (\"SIGNAL [\" + $json.signal_type + \"/\" + $json.signal_source + \"] \" + $json.signal_summary + \"\\n\\nSource: \" + $json.source_url + \"\\nPipeline: \" + $json.pipeline_stage + \"\\nCampaign: \" + ($json.recommended_play === \"growth\" ? \"Growth\" : \"Rescue\") + \"\\nFit score: \" + $json.fit_score + \"\\nEmail: \" + $json.email_status + \" (score \" + $json.email_score + \")\\nWarm-up: \" + $json.warmup_status + \"\\nRun: \" + $json.run_id + \"\\n\\nTALK TRACK:\\n\" + $json.talk_track + \"\\n\\nRISK FLAGS: \" + (($json.risk_flags || []).join(\"; \")))}], duplicate_check_fields: [\"Email\"]}) }}",
+        "options": {}
+      },
+      "name": "Zoho CRM: Upsert Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3632,
+        368
+      ],
+      "id": "68505447-ed57-4c04-83c2-bf0ec627d809",
+      "credentials": {
+        "oAuth2Api": {
+          "id": "LInCWej1etpoph33",
+          "name": "Zoho CRM Access - Jul 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// read leads from Attach Fit Results (Zoho node output is the API response, not the lead)\nconst items = $('Attach Fit Results').all();\nconst c = {leads_total: items.length, growth: 0, rescue: 0, core: 0, wildcard: 0, ae_ready: 0, email_valid: 0, warmup_queued: 0, crm_errors: 0};\nfor (const it of $input.all()) { if (it.json.error) c.crm_errors++; }\nfor (const it of items) {\n  const j = it.json;\n  if (j.signal_type === \"growth\") c.growth++; else c.rescue++;\n  if (j.signal_source === \"wildcard\") c.wildcard++; else c.core++;\n  if (j.pipeline_stage === \"Scout - AE Ready\") c.ae_ready++;\n  if (j.email_status === \"valid\") c.email_valid++;\n  if (j.warmup_status === \"queued\") c.warmup_queued++;\n}\nreturn [{json: {run_id: $execution.id, finished_at: new Date().toISOString(), ...c}}];"
+      },
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        368
+      ],
+      "id": "791005e0-3436-4356-b7af-67d3b6174683"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Run summary:\n{{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "systemMessage": "You are the Supervisor agent for the GoFunditNow Digital Scout pipeline. Given the run summary, decide and report: (1) whether wildcard vs core query frequency should shift based on hit rates, (2) which lead segments to re-search next run, (3) any anomalies (zero results, high invalid-email rate, warm-up failures). Output a short markdown ops report with concrete recommendations. Do not invent data."
+        }
+      },
+      "name": "Supervisor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4064,
+        368
+      ],
+      "id": "67172a25-34eb-498c-a258-4468ffaea027",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## API KEYS — one place, nothing hardcoded\\nAll keys live in n8n Credentials (left sidebar > Overview > Credentials).\\nOpen each credential and paste the key — nodes are already wired to them:\\n\\n1. **Exa API — PASTE KEY** -> paste Exa key (used by all 3 search nodes)\\n2. **Unipile API — PASTE KEY** -> paste Unipile key + replace YOUR_DSN in the 2 Unipile node URLs\\n3. **OpenRouter — PASTE KEY** -> paste OpenRouter key (powers Fit + Supervisor agents, model openai/gpt-4o-mini — change to any OpenRouter model)\\n4. **Zoho CRM OAuth — CONNECT** -> paste Client ID + Secret from Zoho API Console (redirect URI shown in the credential), then click Connect. If your Zoho account is EU/IN, change zohoapis.com to zohoapis.eu / zohoapis.in in the Zoho node\\n5. **Email-Check.app API** -> DONE (live)\\n\\nThen: run Manual Test Trigger end-to-end, check Executions, Publish.",
+        "height": 352,
+        "width": 540
+      },
+      "name": "Note Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        -288
+      ],
+      "id": "1efe4175-f852-4f64-98f0-6582aa392a27"
+    },
+    {
+      "parameters": {
+        "content": "## 1-3) Signal Sourcing\nThree parallel Exa branches:\n- GROWTH (core, domain-locked)\n- RESCUE (core, domain-locked)\n- WILD CARD (no domain filter, signal_type inferred)\nAll HTTP nodes continue on fail so one bad query never kills the run.",
+        "height": 180,
+        "width": 560
+      },
+      "name": "Note Sourcing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -176
+      ],
+      "id": "ef4ec3d4-1dbe-4a26-bf58-602d244b639d"
+    },
+    {
+      "parameters": {
+        "content": "## 4) Normalize + Dedup\nSingle lead schema, per-run dedup + 30-day org cache (workflow static data). Growth/Rescue routing is tag-based (signal_type on every lead) — kept single-path to avoid duplicate execution waves.",
+        "height": 180,
+        "width": 420
+      },
+      "name": "Note Normalize",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        128
+      ],
+      "id": "0a572b10-32db-4b18-828c-e8a9a5c06450"
+    },
+    {
+      "parameters": {
+        "content": "## 5) Email Validation - email-check.app (LIVE)\\nGET api.email-check.app/v1-get-email-details, credential attached.\\nValid = validFormat true AND isDisposable false.\\nNote: validSmtp is unreliable (false even for real Gmail) so it only feeds the soft score, not the gate.\\nInvalid + missing still flow to Fit + CRM ('Research Needed'), never get DMs.",
+        "height": 140,
+        "width": 400
+      },
+      "name": "Note Email",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        48
+      ],
+      "id": "2af7dca5-3e93-4403-a90e-83038626700a"
+    },
+    {
+      "parameters": {
+        "content": "## 6) Digital Warm-up (Unipile)\nFind profile then queue: visit, follow, soft interaction. Failures tagged, never block. Add Wait nodes (30-120s random) between actions if you enable DMs.",
+        "width": 400
+      },
+      "name": "Note Warmup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2432,
+        144
+      ],
+      "id": "be08045f-87e7-4990-aa80-a80c7ab903cb"
+    },
+    {
+      "parameters": {
+        "content": "## 7-8) Fit Agent + Zoho CRM\\nOpenRouter model powers both agents. Structured JSON: fit_score, recommended_play, talk_track, risk_flags.\\nZoho upsert on Email; briefing + tags land in Description. Lead_Source = GoFunditNow Scout.\\nOptional: create Zoho custom fields (Fit_Score, Signal_Type, Campaign) and add them to the JSON body for filterable views.",
+        "width": 400
+      },
+      "name": "Note Fit",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3072,
+        144
+      ],
+      "id": "436c86d0-e00e-4e0a-9683-6d8d0a3527b0"
+    },
+    {
+      "parameters": {
+        "content": "## 9) Supervisor\nReviews run summary: wildcard vs core hit rate, anomalies, re-search recommendations. Extend with Exa/CRM/Unipile tool nodes for full autonomy; add a Slack node after Run Summary for ops alerts.",
+        "height": 180,
+        "width": 420
+      },
+      "name": "Note Supervisor",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3808,
+        144
+      ],
+      "id": "939a218e-98f9-4ca7-92ab-1ad4a9693309"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/chats",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            },
+            {
+              "name": "content-type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "account_id",
+              "value": "DZFi1PeCTDmiB9H8O0aiPw"
+            },
+            {
+              "name": "attendees_ids",
+              "value": "={{ $('Loop Over Items').item.json.linkedin_id }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2464,
+        -16
+      ],
+      "id": "b71b99b3-db2d-4da4-9b2c-f00768c962c4",
+      "name": "UNIPILE EXAMPLE"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        368
+      ],
+      "id": "0cc47df8-74a3-44d3-99d2-0b54b60be57e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "https://api10.unipile.com:14011/api/v1/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "keywords",
+              "value": "={{ ($json.contact_name || $json.org_name) }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "name": "Unipile: Find LinkedIn Profile1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        576
+      ],
+      "id": "c0262edc-5e89-483b-bc40-1c13a3b83c3d",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Invite Counter",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "c79307ea-9dc3-45f3-a080-6c65c9ad233b",
+      "name": "P1: Read Invite Counter1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        288,
+        2640
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "disabled": true,
+      "notes": "TODO: select your invite-counter Google Sheet + tab. Expect columns: week_iso, invites_used."
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 1 - Prioritized LinkedIn Outreach (DRY-RUN)\nInserted after **Attach Fit Results** -> merges back into **Zoho CRM: Upsert Lead**.\n**Flow:** Confidence Gate -> Eligibility Filter (fit_score>=75 & match_ok & no risk_flags) -> Read Counter -> Budget Check (20/wk) -> Switch on network_distance.\nDISTANCE_1 -> Send Message [DISABLED] -> status Messaged.  Other -> Condense Note -> Send Invitation [DISABLED] -> status Pending.\n\n### SEND NODES ARE DISABLED (dry-run). Nothing goes to LinkedIn until you enable them.\n\n### TODO before go-live:\n- [ ] PROFILE MATCH: fix search input (don't feed company/headline as person name); pick people vs companies category; build clean keyword.\n- [ ] PROFILE MATCH: replace naive check in 'P1: Confidence Gate' with real name/company/headline corroboration + tie-breaker for multiple results.\n- [ ] Point 'P1: Read/Write Invite Counter' at your Google Sheet (cols: week_iso, invites_used) + connect Google credential.\n- [ ] Set account_id + attach Unipile Header Auth credential on both send nodes.\n- [ ] Verify LIVE: LinkedIn weekly invite limit (set budget) and invite-note char cap (set NOTE_CAP).\n- [ ] Enable Branch A (message) first, then Branch B (invite) + Write Counter, after reviewing dry-run.",
+        "height": 336,
+        "width": 2260,
+        "color": 5
+      },
+      "id": "c1789766-a29d-42cc-98ac-5acf107a7a7a",
+      "name": "P1: PHASE 1 NOTES1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        2208
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Invite Counter",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [
+            "week_id"
+          ],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "week_id",
+              "displayName": "week_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "week_start",
+              "displayName": "week_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invites_sent",
+              "displayName": "invites_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "weekly_budget",
+              "displayName": "weekly_budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_updated",
+              "displayName": "last_updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_profile_id",
+              "displayName": "last_profile_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b86c7b23-1e04-41f3-a1f6-8b9bed06176a",
+      "name": "P1: Write Invite Counter1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1792,
+        2880
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "disabled": true,
+      "notes": "DISABLED until sheet connected + invites actually sent. Increments invites_used for the current week_iso. Enable together with Send Invitation."
+    },
+    {
+      "parameters": {},
+      "id": "4df43b34-1b7f-47d5-b932-9a8c2b2badc9",
+      "name": "P1: Merge Outreach1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1616,
+        2768
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3d274689-de72-4051-8dea-420680bf48e3",
+              "name": "outreach_status",
+              "value": "Connection Requested - Pending",
+              "type": "string"
+            },
+            {
+              "id": "09c6e876-de52-4e4c-a1d2-9ab8a7b19a02",
+              "name": "outreach_channel",
+              "value": "linkedin_invite",
+              "type": "string"
+            },
+            {
+              "id": "e2318c65-093a-4490-a6a1-2ed041388438",
+              "name": "outreach_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "d96a3574-8acd-4c9a-977b-c7c3dc3f5d98",
+              "name": "provider_id",
+              "value": "={{ $json._p1.profile_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c3fe625d-8bc3-49c1-b601-ebb18b6eb476",
+              "name": "invite_note",
+              "value": "={{ $json._p1.invite_note }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "da33a448-e58e-4a06-8dc4-9df2edf142b0",
+      "name": "P1: Set Status Pending1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1392,
+        2880
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/users/invite",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"account_id\": \"REPLACE_WITH_ACCOUNT_ID\",\n  \"provider_id\": \"{{ $json._p1.profile_id }}\",\n  \"message\": {{ JSON.stringify($json._p1.invite_note || \"\") }}\n}",
+        "options": {}
+      },
+      "id": "0821edef-1dba-4be6-82b1-569054009432",
+      "name": "P1: Send Invitation [DISABLED]1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1168,
+        2880
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "disabled": true,
+      "notes": "DISABLED dry-run. Sends a connection request with short note. Set account_id + attach Unipile Header Auth credential before enabling. On enable, this branch should also increment the invite counter."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// PHASE 1 - Condense talk_track into ONE short personalized invite line.\n// TODO: confirm LinkedIn invite-note char cap live; keep well under it.\nconst NOTE_CAP = 200;\nconst item = $json;\nlet tt = String(item.talk_track || '').replace(/[\\r\\n]+/g,' ').replace(/^[\\-\\*\\s]+/,'').trim();\n// take first sentence / clause\nlet line = tt.split(/(?<=[.!?])\\s/)[0] || tt;\nif (line.length > NOTE_CAP) line = line.slice(0, NOTE_CAP-1).trim() + '\\u2026';\nreturn { ...item, _p1: { ...(item._p1||{}), invite_note: line } };"
+      },
+      "id": "2484fd8d-69c5-4022-b2f9-7014de282490",
+      "name": "P1: Condense Note1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        2880
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "afd9fb15-609d-485c-b578-d1e669289086",
+              "name": "outreach_status",
+              "value": "Messaged",
+              "type": "string"
+            },
+            {
+              "id": "0a954eb4-548f-4950-a684-7e171170d5a5",
+              "name": "outreach_channel",
+              "value": "linkedin_dm",
+              "type": "string"
+            },
+            {
+              "id": "c087ad12-ea5f-4152-9435-763deafafacb",
+              "name": "outreach_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "d4bb97a8-c6c4-4371-b6f1-98e63e9f6092",
+              "name": "provider_id",
+              "value": "={{ $json._p1.profile_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "69958e9f-2273-4d86-946c-0a81d4e34314",
+      "name": "P1: Set Status Messaged1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        2640
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/chats",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"account_id\": \"REPLACE_WITH_ACCOUNT_ID\",\n  \"attendees_ids\": [\"{{ $json._p1.profile_id }}\"],\n  \"text\": {{ JSON.stringify($json.talk_track || \"\") }}\n}",
+        "options": {}
+      },
+      "id": "1e3d5f2a-fa14-4024-9532-57282235753a",
+      "name": "P1: Send Message (1st°) [DISABLED]1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        2640
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "disabled": true,
+      "notes": "DISABLED dry-run. Sends a direct DM to 1st-degree connections. Set account_id + attach Unipile Header Auth credential before enabling."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "92be1bdb-aea5-4f31-876e-8ff6cf0ad386",
+                    "leftValue": "={{ $json._p1.network_distance }}",
+                    "rightValue": "DISTANCE_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Connected (message)"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "1c810de0-397a-4978-8599-d9163bf02e46",
+                    "leftValue": "={{ $json._p1.network_distance }}",
+                    "rightValue": "DISTANCE_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Not connected (invite)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f3207d2a-3392-4ed4-9169-e2f8f9e550a4",
+      "name": "P1: Connection Switch1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        736,
+        2768
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// PHASE 1 - Weekly invite budget check.\nconst WEEKLY_BUDGET = 20; // agreed starting cap\nconst item = $json;\n// Determine current ISO week key\nfunction isoWeek(d){const t=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const ys=new Date(Date.UTC(t.getUTCFullYear(),0,1));return t.getUTCFullYear()+'-W'+String(Math.ceil((((t-ys)/86400000)+1)/7)).padStart(2,'0');}\nconst week = isoWeek(new Date());\n// Read counter from Google Sheet rows (blank until sheet is connected)\nlet used = 0;\ntry {\n  const rows = $('P1: Read Invite Counter1').all().map(r=>r.json);\n  const row = rows.find(x=>String(x.week_iso)===week);\n  used = row ? Number(row.invites_used)||0 : 0;\n} catch(e) { used = 0; }\nconst remaining = Math.max(0, WEEKLY_BUDGET - used);\nreturn { ...item, _p1: { ...(item._p1||{}), week_iso: week, invites_used: used, invites_remaining: remaining, budget_ok: remaining > 0 } };"
+      },
+      "id": "e78e53f2-7c70-49ff-ada2-eb9a4472815e",
+      "name": "P1: Budget Check1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        2768
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "9913587d-856c-41c0-96f0-d897ad61219b",
+              "leftValue": "={{ $json._p1.match_ok }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cb442057-a429-49f7-aed8-634b1e98bf05",
+              "leftValue": "={{ $json.fit_score }}",
+              "rightValue": 75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "3e7608e4-05ba-4997-96bb-003a6b7daf5f",
+              "leftValue": "={{ ($json.risk_flags || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "135cf842-956b-4fc0-ac96-17be0495fb6e",
+      "name": "P1: Eligibility Filter1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        80,
+        2800
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// PHASE 1 - Company-first match gate\n// Scores every company candidate against the lead's org_name and picks a single\n// clear winner. Fails safely to 'Research Needed' when zero/ambiguous.\nconst item = $json;\nconst lead = item.lead || item;\nlet candidates = [];\ntry {\n  const resp = $('Unipile: Find LinkedIn Profile').item.json;\n  candidates = resp.items || resp.data || [];\n} catch (e) { candidates = []; }\n\nfunction norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\\b(inc|llc|ltd|co|corp|company|the|group|holdings|plc|gmbh)\\b/g,' ').replace(/\\s+/g,' ').trim();}\nfunction tokens(s){return norm(s).split(' ').filter(Boolean);}\nfunction jaccard(a,b){const A=new Set(tokens(a)),B=new Set(tokens(b));if(!A.size||!B.size)return 0;let i=0;for(const x of A)if(B.has(x))i++;return i/(A.size+B.size-i);}\n\nconst targetOrg = lead.org_name || '';\nconst targetDomain = (lead.source_domain||'').toLowerCase();\n\nlet scored = candidates.map(c => {\n  const cname = c.name || '';\n  let s = jaccard(targetOrg, cname);\n  // exact normalized name match is a strong boost\n  if (norm(targetOrg) && norm(targetOrg) === norm(cname)) s = Math.max(s, 0.95);\n  // domain corroboration if the candidate exposes a website/url field\n  const cdom = String(c.website||c.domain||c.public_identifier||'').toLowerCase();\n  if (targetDomain && cdom && cdom.includes(targetDomain.split('.')[0])) s += 0.15;\n  return { c, score: Math.min(s,1) };\n}).sort((a,b)=>b.score-a.score);\n\nconst best = scored[0] || null;\nconst runner = scored[1] || null;\nconst bestScore = best ? best.score : 0;\nconst margin = best && runner ? (best.score - runner.score) : (best ? 1 : 0);\n\nconst SCORE_THRESHOLD = 0.6;   // TODO tune during dry-run\nconst MARGIN_MIN = 0.15;       // require a clear single winner\nconst match_ok = !!best && bestScore >= SCORE_THRESHOLD && margin >= MARGIN_MIN;\n\nconst co = best ? best.c : null;\nreturn {\n  ...item,\n  _p1: {\n    match_type: 'company',\n    company_id: co ? (co.id || null) : null,\n    company_name: co ? (co.name || null) : null,\n    company_public_identifier: co ? (co.public_identifier || null) : null,\n    network_distance: co ? (co.network_distance || null) : null,\n    match_confidence: Number(bestScore.toFixed(3)),\n    match_margin: Number(margin.toFixed(3)),\n    candidate_count: candidates.length,\n    match_ok,\n    outreach_status: match_ok ? 'Pending Eligibility' : 'Research Needed'\n  }\n};"
+      },
+      "id": "c4e1bb2a-d47c-4b49-b7ba-08df59514335",
+      "name": "P1: Confidence Gate1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        2800
+      ],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Every Weekday 08:00 Dubai": {
+      "main": [
+        [
+          {
+            "node": "Growth Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rescue Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wildcard Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Growth Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rescue Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wildcard Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Growth Queries": {
+      "main": [
+        [
+          {
+            "node": "Exa: Growth Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rescue Queries": {
+      "main": [
+        [
+          {
+            "node": "Exa: Rescue Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wildcard Queries": {
+      "main": [
+        [
+          {
+            "node": "Exa: Wildcard Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exa: Growth Search": {
+      "main": [
+        [
+          {
+            "node": "Flatten Growth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exa: Rescue Search": {
+      "main": [
+        [
+          {
+            "node": "Flatten Rescue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exa: Wildcard Search": {
+      "main": [
+        [
+          {
+            "node": "Flatten Wildcard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Growth": {
+      "main": [
+        [
+          {
+            "node": "Merge Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Rescue": {
+      "main": [
+        [
+          {
+            "node": "Merge Signals",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Flatten Wildcard": {
+      "main": [
+        [
+          {
+            "node": "Merge Signals",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Signals": {
+      "main": [
+        [
+          {
+            "node": "Normalize + Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize + Dedup": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Contact Email?": {
+      "main": [
+        [
+          {
+            "node": "Validate Email (email-check.app)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Email Missing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Email (email-check.app)": {
+      "main": [
+        [
+          {
+            "node": "Email Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Valid?": {
+      "main": [
+        [
+          {
+            "node": "Tag Email Valid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Email Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Email Valid": {
+      "main": [
+        [
+          {
+            "node": "Merge Email Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Email Invalid": {
+      "main": [
+        [
+          {
+            "node": "Merge Email Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Tag Email Missing": {
+      "main": [
+        [
+          {
+            "node": "Merge Email Paths",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Email Paths": {
+      "main": [
+        [
+          {
+            "node": "Unipile: Find LinkedIn Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unipile: Find LinkedIn Profile": {
+      "main": [
+        [
+          {
+            "node": "Unipile: Queue Warm-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unipile: Queue Warm-up": {
+      "main": [
+        [
+          {
+            "node": "Set Warm-up Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Warm-up Status": {
+      "main": [
+        [
+          {
+            "node": "Fit Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fit Agent": {
+      "main": [
+        [
+          {
+            "node": "Attach Fit Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fit Output Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Fit Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Fit Results": {
+      "main": [
+        []
+      ]
+    },
+    "Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fit Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho CRM: Upsert Lead": {
+      "main": [
+        [
+          {
+            "node": "Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Has Contact Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unipile: Find LinkedIn Profile1": {
+      "main": [
+        [
+          {
+            "node": "Unipile: Queue Warm-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Read Invite Counter1": {
+      "main": [
+        [
+          {
+            "node": "P1: Budget Check1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Write Invite Counter1": {
+      "main": [
+        [
+          {
+            "node": "P1: Merge Outreach1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Set Status Pending1": {
+      "main": [
+        [
+          {
+            "node": "P1: Write Invite Counter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Send Invitation [DISABLED]1": {
+      "main": [
+        [
+          {
+            "node": "P1: Set Status Pending1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Condense Note1": {
+      "main": [
+        [
+          {
+            "node": "P1: Send Invitation [DISABLED]1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Set Status Messaged1": {
+      "main": [
+        [
+          {
+            "node": "P1: Merge Outreach1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Send Message (1st°) [DISABLED]1": {
+      "main": [
+        [
+          {
+            "node": "P1: Set Status Messaged1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Connection Switch1": {
+      "main": [
+        [
+          {
+            "node": "P1: Send Message (1st°) [DISABLED]1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "P1: Condense Note1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Budget Check1": {
+      "main": [
+        [
+          {
+            "node": "P1: Connection Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Eligibility Filter1": {
+      "main": [
+        [
+          {
+            "node": "P1: Read Invite Counter1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "P1: Merge Outreach1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Confidence Gate1": {
+      "main": [
+        [
+          {
+            "node": "P1: Eligibility Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Merge Outreach1": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "7d92bd76-a1d3-481a-aa9c-c6dc7362cb37",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-07-02T07:39:24.042Z",
+      "createdAt": "2026-07-02T07:39:24.042Z",
+      "role": "workflow:owner",
+      "workflowId": "R7iC7Ps93gr0spQE",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
