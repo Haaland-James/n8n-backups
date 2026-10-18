@@ -1,0 +1,88 @@
+{
+  "updatedAt": "2025-12-31T12:20:21.178Z",
+  "createdAt": "2025-12-31T12:20:21.178Z",
+  "id": "53Gzx5m9M93BrUzP",
+  "name": "My workflow 2",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "eb76638b-2f9d-4651-a432-db2820722caa",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc",
+          "mode": "list",
+          "cachedResultName": "Business Card List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 507464578,
+          "mode": "list",
+          "cachedResultName": "Business Card List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit#gid=507464578"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "25c451c1-4b7e-4dc8-9b2f-b1abc4e52288",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "0b454dde-6f1e-434c-9263-afc2bf1718e6",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-12-31T12:20:21.178Z",
+      "createdAt": "2025-12-31T12:20:21.178Z",
+      "role": "workflow:owner",
+      "workflowId": "53Gzx5m9M93BrUzP",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
