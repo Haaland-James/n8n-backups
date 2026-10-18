@@ -1,0 +1,723 @@
+{
+  "updatedAt": "2026-10-13T09:30:36.438Z",
+  "createdAt": "2026-07-31T16:16:10.600Z",
+  "id": "dODxamYt3K6p5B1T",
+  "name": "GFIN Email Outreach",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 11 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "trig-schedule",
+      "name": "Weekdays 11:00 Dubai",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        560
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "trig-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        816,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "options": {}
+      },
+      "id": "read-lead-pool",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1056,
+        640
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gate on the grade written by GFIN Email Pre-Filter.\n//\n// Most target domains run Microsoft 365 or Google Workspace, which refuse to\n// confirm mailbox existence. 'sendable_unverified' means MX is good but the\n// mailbox is unconfirmable - that is the normal case here, not a red flag.\n// The bounce handler is what proves deliverability after the fact.\n\n// TEST MODE: while this is set, ONLY this provider_id can be emailed.\n// 146 leads are already graded sendable, so without this lock a run would\n// contact real prospects. Set to '' to resume normal sending.\nconst TEST_ONLY_PROVIDER_ID = '';\n\nconst ALLOWED = ['sendable', 'sendable_unverified'];\nconst MIN_CONFIDENCE = 60;\n\n// PROVENANCE GATE. A grade alone is not enough. v1 enrichment built both the\n// domain and the address from the same guess ('Servant Leader' ->\n// servantleader.com), so the pre-filter's domain/company similarity check\n// always passed and these graded 'sendable'. Similarity cannot detect this;\n// only provenance can. Refuse any address whose domain was never evidenced.\nconst REQUIRE_EVIDENCED_DOMAIN = true;\n\n// An evidenced DOMAIN is not an evidenced MAILBOX. osint_pattern rows carry a\n// real domain with a {first}.{last} mailbox assembled on top - that is still a\n// guess, and it is where the bounces after 17 Sep came from. Set this false\n// only for a deliberate, small, monitored test of guessed mailboxes.\nconst REQUIRE_OBSERVED_MAILBOX = true;\n\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\nconst out = [];\nlet skipped = { no_email: 0, already_sent: 0, replied: 0, suppressed: 0, not_graded: 0, wrong_grade: 0, low_conf: 0 };\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const grade = String(j.sendability || '').toLowerCase();\n  const status = String(j.email_send_status || '').toLowerCase();\n\n  if (TEST_ONLY_PROVIDER_ID && String(j.provider_id || '') !== TEST_ONLY_PROVIDER_ID) { skipped.not_test_lead = (skipped.not_test_lead || 0) + 1; continue; }\n  if (!ne(j.email)) { skipped.no_email++; continue; }\n  if (ne(j.email_sent_at)) { skipped.already_sent++; continue; }\n  if (ne(j.replied_at)) { skipped.replied++; continue; }\n  if (status === 'unsubscribed' || status === 'bounced' || status === 'invalid_email') { skipped.suppressed++; continue; }\n  if (!ne(grade)) { skipped.not_graded++; continue; }\n  if (!ALLOWED.includes(grade)) { skipped.wrong_grade++; continue; }\n  if (Number(j.email_confidence || 0) < MIN_CONFIDENCE) { skipped.low_conf++; continue; }\n  if (REQUIRE_EVIDENCED_DOMAIN) {\n    const src = String(j.email_source || '').toLowerCase();\n    const dsrc = String(j.company_domain_source || '').trim();\n    if (/unevidenced|pattern_guess/.test(src) && !dsrc) { skipped.unevidenced_domain = (skipped.unevidenced_domain || 0) + 1; continue; }\n  }\n  if (REQUIRE_OBSERVED_MAILBOX) {\n    const src2 = String(j.email_source || '').toLowerCase();\n    const observed = /site_scrape|scrape_verified|_verified|manual/.test(src2);\n    if (!observed) { skipped.mailbox_not_observed = (skipped.mailbox_not_observed || 0) + 1; continue; }\n  }\n\n  out.push({ json: j });\n}\n\nconsole.log(`Sendable: ${out.length}. Skipped: ${JSON.stringify(skipped)}`);\nreturn out;"
+      },
+      "id": "filter-sendable",
+      "name": "Filter Sendable Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cap outbound cold email volume per day (deliverability safety).\nconst DAILY_CAP = 25;\nconst sd = $getWorkflowStaticData('global');\nconst today = new Date().toISOString().slice(0, 10);\nif (sd.emailDate !== today) {\n  sd.emailDate = today;\n  sd.emailsSentToday = 0;\n}\nconst remaining = Math.max(0, DAILY_CAP - (sd.emailsSentToday || 0));\nconsole.log(`Daily cap: ${sd.emailsSentToday || 0}/${DAILY_CAP} sent today, ${remaining} remaining`);\nreturn $input.all().slice(0, remaining);"
+      },
+      "id": "daily-cap-gate",
+      "name": "Daily Send Cap Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-leads",
+      "name": "Loop Over Leads",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1776,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.email-check.app/v1-get-email-details",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "validate-email",
+      "name": "Validate Email (email-check.app)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        912
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Fpotd2kQ0L3clb5b",
+          "name": "Email-Check.app API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "v1",
+              "leftValue": "={{ $json.validFormat }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "v2",
+              "leftValue": "={{ $json.isDisposable }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "email-valid-if",
+      "name": "Email Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Greeting name (use this EXACTLY after 'Hi'): {{ (() => { const L = $('Loop Over Leads').item.json; const n = String(L.name || '').trim(); if (!n) return 'there'; if (/\\b(inc|ltd|llc|plc|corp|corporation|foundation|group|holdings|company|co)\\b/i.test(n)) return 'there'; if (/\\.(com|ai|org|io|net)\\b/i.test(n)) return 'there'; const p = n.split(/\\s+/).filter(Boolean); if (p.length < 2) return 'there'; return p[0].replace(/[^A-Za-z'-]/g, ''); })() }}\n\nLead:\nFull name: {{ $('Loop Over Leads').item.json.name || '' }}\nRole / headline: {{ $('Loop Over Leads').item.json.headline || '' }}\nOrganisation: {{ $('Loop Over Leads').item.json.company_name || '' }}\nSegment: {{ $('Loop Over Leads').item.json.slice || '' }}\nSignal / context: {{ $('Loop Over Leads').item.json.signal_summary || '' }}\nTalk track: {{ $('Loop Over Leads').item.json.talk_track || '' }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You write short cold outreach emails for GoFunditNow (GFIN), which provides non-dilutive capital - funding that takes no equity - to mission-driven organisations: nonprofits, churches and ministries, community organisations, foundations, schools, municipalities and impact-led businesses.\n\nWRITE LIKE A PERSON, NOT A CAMPAIGN.\n\nGREETING\n- The first line is ALWAYS: 'Hi <Greeting name>,' using the 'Greeting name' value given to you, exactly as provided. Do not substitute it, shorten it, or replace it with 'there' if a real name was supplied.\n\nIF THE ROLE AND ORGANISATION FIELDS ARE BOTH EMPTY\n- Write a warm, honest, GENERAL note. Do NOT invent a sector, a job function, or an organisation type. Never guess that they are 'youth-focused', 'running development', or anything else not stated. A short general email is correct; a specific-sounding invented one is a failure.\n\nUSE WHAT YOU ARE GIVEN\n- You are given a role/headline and an organisation. Use them. A good opening line reflects what this person actually does, e.g. 'Running development for a youth-focused nonprofit means living between grant cycles.'\n- Do not write a generic sentence about 'the mission-driven sector' when you have been told their actual role and organisation.\n\nABSOLUTE RULES\n- NEVER mention that you lack information. No 'I don't have specific details', no 'while I don't know much about'. If context is thin, write a warm general note - the reader must never be able to tell what you did or did not know.\n- NEVER invent facts: no made-up funding rounds, grant awards, staff numbers, programmes or achievements.\n- Speaking in general terms about what their role or sector typically involves is fine. Claiming a specific event is not, unless it appears in the Signal or Talk track.\n\nSTRUCTURE - under 120 words total\n1. 'Hi <Greeting name>,'\n2. One warm opening line grounded in their role or organisation.\n3. One or two sentences on GFIN: funding that does not take equity, built for mission-driven organisations. Useful, not urgent.\n4. ONE clear ask: a short call. Aim the whole email at getting that call.\n   - Ask directly and warmly: 'Would 15 minutes next week be useful?' or 'Worth a quick call to see if it fits?'\n   - Do NOT offer an alternative to the call. Never write 'or simply reply', 'feel free to reply', 'let me know either way', 'no reply needed', or 'if it's not relevant'. Give the reader one thing to do.\n   - Do not hedge the ask with apologies or 'I know you're busy'.\n5. Sign off exactly as 'The GoFunditNow Team' on its own line.\n\nDo NOT add any unsubscribe line, opt-out notice, footer, disclaimer, postal address or postscript. An unsubscribe link is appended automatically after your text - never write one yourself. The email ends after the sign-off.\n\nTONE\n- Plain English, short sentences, no exclamation marks, no emojis.\n- Banned: 'I hope this email finds you well', 'I wanted to reach out', 'invaluable', 'game-changing', 'empower', 'unlock', 'passionate', 'excited', 'synergy', 'similar entities', 'and the like'.\n- Do not flatter. Name their organisation at most once.\n\nSUBJECT LINE\n- 3 to 6 words. Start with a CAPITAL letter, then sentence case. No colons, no marketing language.\n- Should read like a person typed it: 'Funding without giving up equity', 'Quick question on funding'.\n- Never 'A Note from GoFunditNow' or similar.\n\nReturn ONLY valid JSON with exactly two fields: subject and body."
+        }
+      },
+      "id": "personalize-email",
+      "name": "Personalize Email",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1088,
+        1168
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "id": "openrouter-email",
+      "name": "OpenRouter Chat Model (Email)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        1312
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"subject\": \"Quick question about {{org name}}\", \"body\": \"Hi Name,\\n\\n...email body...\\n\\nBest,\\nThe GoFunditNow Team\"}"
+      },
+      "id": "email-output-schema",
+      "name": "Email Output Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        1216,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Merge the AI draft onto the lead and build both text and HTML bodies.\n// The unsubscribe link carries this lead's provider_id; clicking it hits the\n// 'GFIN Unsubscribe Handler' webhook, which writes email_send_status =\n// 'unsubscribed' back to the Lead Pool. The send gate already blocks that value.\nconst UNSUB_BASE = 'https://awf.deeplearningintelligence.com/webhook/gfin-unsubscribe';\n\nconst lead = $('Loop Over Leads').item.json;\nconst ai = $json.output || $json;\n\n// Capitalise the first letter here rather than relying on the model to comply.\nconst rawSubject = (ai.subject || 'Quick question on funding').trim();\nconst subject = rawSubject.charAt(0).toUpperCase() + rawSubject.slice(1);\nconst body = (ai.body || '').trim();\n\nconst pid = encodeURIComponent(String(lead.provider_id || ''));\nconst unsubUrl = UNSUB_BASE + '?pid=' + pid;\n\nconst esc = (s) => String(s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst htmlBody = esc(body).replace(/\\n/g, '<br>');\n\nconst html =\n  '<div style=\"font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;' +\n  'font-size:15px;line-height:1.55;color:#222\">' +\n  htmlBody +\n  '<div style=\"margin-top:28px;font-size:12px;color:#999\">' +\n  'Not for you? <a href=\"' + unsubUrl + '\" style=\"color:#999\">Unsubscribe</a>.' +\n  '</div></div>';\n\nconst text = body + '\\n\\n---\\nNot for you? Unsubscribe: ' + unsubUrl;\n\nreturn { json: Object.assign({}, lead, { subject, body, html, text, unsubscribe_url: unsubUrl }) };"
+      },
+      "id": "attach-email-draft",
+      "name": "Attach Email Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "GoFunditNow Team <marketing@gofunditnow.com>",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html || ('<div style=\"font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#222\">' + String($json.body || '').replace(/\\n/g, '<br>') + '</div>') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1632,
+        1168
+      ],
+      "webhookId": "d064c38e-f68b-4076-803a-0a5bb230ce4a",
+      "credentials": {
+        "smtp": {
+          "id": "BJQMSTmcLRliSSAo",
+          "name": "GFIN Marketing SMTP"
+        }
+      },
+      "notes": "onError deliberately unset: if a send fails we must NOT continue to Increment Counter / Mark Email Sent, which would record an unsent email as sent. appendAttribution=false stops n8n adding its own footer."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Emit ONLY the fields to write back, so the Sheets node can auto-map by name.\n// Passing the whole lead through made the node depend on a hand-maintained\n// column schema, which breaks whenever a column is added to the sheet.\nconst sd = $getWorkflowStaticData('global');\nsd.emailsSentToday = (sd.emailsSentToday || 0) + 1;\n\nconst lead = $('Attach Email Draft').first().json;\n\nreturn [{ json: {\n  provider_id: lead.provider_id,\n  email_sent_at: new Date().toISOString(),\n  email_send_status: 'sent'\n}}];"
+      },
+      "id": "increment-counter",
+      "name": "Increment Send Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "mark-email-sent",
+      "name": "Mark Email Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2096,
+        1168
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait-between-sends",
+      "name": "Wait 20-60s Between Sends",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2272,
+        1168
+      ],
+      "webhookId": "908129a0-b1a4-40b0-bd0a-b31bd1550953"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $('Loop Over Leads').item.json;\nreturn { json: { provider_id: lead.provider_id, email_send_status: 'invalid_email' } };"
+      },
+      "id": "tag-email-invalid",
+      "name": "Tag Email Invalid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "mark-email-invalid",
+      "name": "Mark Email Invalid",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1312,
+        1488
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nodes inside the batch loop run once per batch, so $(...).all() returns only\n// the LAST batch - this reported 'emails_sent: 1' on a run that sent 25.\n// Walk every run index to get the true total.\nconst countRuns = (name) => {\n  let n = 0;\n  for (let r = 0; r < 500; r++) {\n    let batch;\n    try { batch = $(name).all(0, r); } catch (e) { break; }\n    if (!batch || batch.length === 0) break;\n    n += batch.length;\n  }\n  return n;\n};\n\nlet sent = 0, invalid = 0;\ntry { sent = countRuns('Mark Email Sent'); } catch (e) {}\ntry { invalid = countRuns('Mark Email Invalid'); } catch (e) {}\nreturn [{ json: { run_id: $execution.id, finished_at: new Date().toISOString(), emails_sent: sent, emails_invalid: invalid } }];"
+      },
+      "id": "run-summary",
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Current setup\n\n**Sender:** `GoFunditNow Team <marketing@gofunditnow.com>` via the **GFIN Marketing SMTP** credential.\n\n**Send gate:** leads must be graded `sendable` or `sendable_unverified` by **GFIN Email Pre-Filter**, with confidence >= 60. Suppressed: already sent, replied, unsubscribed, bounced, invalid_email.\n\n**Why `sendable_unverified` is allowed:** most target domains run Microsoft 365 / Google Workspace, which refuse to confirm whether a mailbox exists. MX-good-but-unconfirmable is the normal case, not a red flag. Deliverability is proven afterwards by **GFIN Bounce and Reply Handler**, which writes `bounced` back and suppresses the lead.\n\n**Pacing:** DAILY_CAP 25/day in 'Daily Send Cap Gate', 30 seconds between sends.\n\n**Unsubscribe:** link is appended automatically in 'Attach Email Draft' and handled by the gfin-unsubscribe webhook. The AI is instructed never to write its own.",
+        "height": 260,
+        "width": 480
+      },
+      "id": "note-setup",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Reads every lead in the shared Lead Pool (populated by both GFIN Linkedin Discovery and GFIN Digital Scout), filters to leads with an email that haven't been emailed or replied yet, caps volume per day, then per lead: re-verifies the email live via email-check.app right before sending (format + not disposable), personalizes subject/body with AI using whatever context is available (signal summary, talk track, headline), sends via SMTP, and writes back email_sent_at / email_send_status so it's never re-sent.",
+        "height": 200,
+        "width": 460
+      },
+      "id": "note-flow",
+      "name": "How This Works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Weekdays 11:00 Dubai": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Filter Sendable Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sendable Leads": {
+      "main": [
+        [
+          {
+            "node": "Daily Send Cap Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Send Cap Gate": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Leads": {
+      "main": [
+        [
+          {
+            "node": "Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Email (email-check.app)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Email (email-check.app)": {
+      "main": [
+        [
+          {
+            "node": "Email Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Valid?": {
+      "main": [
+        [
+          {
+            "node": "Personalize Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Email Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personalize Email": {
+      "main": [
+        [
+          {
+            "node": "Attach Email Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model (Email)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Personalize Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Output Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Personalize Email",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Email Draft": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Increment Send Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Send Counter": {
+      "main": [
+        [
+          {
+            "node": "Mark Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email Sent": {
+      "main": [
+        [
+          {
+            "node": "Wait 20-60s Between Sends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20-60s Between Sends": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Email Invalid": {
+      "main": [
+        [
+          {
+            "node": "Mark Email Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email Invalid": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 2400,
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:Every Day 11:00 Dubai": {
+      "recurrenceRules": []
+    },
+    "global": {
+      "emailDate": "2026-09-18",
+      "emailsSentToday": 25
+    },
+    "node:Weekdays 11:00 Dubai": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "cc0bf63f-061d-42f6-bc35-1bb723ed5854",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-07-31T16:16:10.600Z",
+      "createdAt": "2026-07-31T16:16:10.600Z",
+      "role": "workflow:owner",
+      "workflowId": "dODxamYt3K6p5B1T",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
