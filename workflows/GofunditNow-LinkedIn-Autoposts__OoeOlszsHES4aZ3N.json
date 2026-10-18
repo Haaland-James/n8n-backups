@@ -1,0 +1,703 @@
+{
+  "updatedAt": "2025-12-19T13:56:00.985Z",
+  "createdAt": "2025-12-17T12:18:18.504Z",
+  "id": "OoeOlszsHES4aZ3N",
+  "name": "GofunditNow LinkedIn Autoposts",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4,5,8 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        -48
+      ],
+      "id": "025ff6ec-245d-4a3d-97e2-8a05d5dc8380",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com.ng/alerts/feeds/17560601412901264091/14142296463398860010",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -432,
+        -48
+      ],
+      "id": "25dfff32-88d7-42a6-a102-41fee54bbfef",
+      "name": "RSS Read1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e86fa47e-3e47-4657-acce-6b988572b931",
+              "name": "link",
+              "value": "={{ decodeURIComponent($json.link.split('url=')[1].split('&')[0]) }}",
+              "type": "string"
+            },
+            {
+              "id": "9ef95a03-bb46-4144-ba16-cd03b04aa589",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34f9106b-f73c-41ca-96a8-38a3eeb7d545",
+              "name": "pubDate",
+              "value": "={{ $json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "c1db0499-572c-44f7-bd29-8ec51ea5cd5a",
+              "name": "content",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "e61dab21-2df0-4f4c-905a-00e66b33e9d0",
+              "name": "contentSnippet",
+              "value": "={{ $json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "48f1f13e-b733-4a0a-a7d7-09fa264225c1",
+              "name": "isoDate",
+              "value": "={{ $json.isoDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -256,
+        -48
+      ],
+      "id": "fe385a34-4128-4c03-94f9-3cce07ede14c",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced random with timestamp seed\nconst seed = Date.now() + Math.random() * 1000;\nconst randomIndex = Math.floor(seed % items.length);\nconst selectedItem = items[randomIndex];\n\nreturn [{ json: selectedItem.json }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        192
+      ],
+      "id": "d2830021-f194-467b-b2ff-c3d08da58264",
+      "name": "Article Random Picker"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all RSS feeds\nconst allItems = $input.all();\n\n// Filter for last 48 hours\nconst twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);\nconst recentItems = allItems.filter(item => {\n  const pubDate = new Date(item.json.pubDate || item.json.published);\n  return pubDate > twoDaysAgo;\n});\n\n// Score items by relevance to GFIN verticals\nconst keywords = [\n  'grant', 'rfp', 'contract', 'funding', \n  'procurement', 'small business', 'nonprofit',\n  'consulting', 'professional services', 'IT services'\n];\n\nconst scoredItems = recentItems.map(item => {\n  const text = `${item.json.title} ${item.json.description}`.toLowerCase();\n  const score = keywords.reduce((sum, keyword) => \n    sum + (text.includes(keyword) ? 1 : 0), 0\n  );\n  return { ...item.json, relevanceScore: score };\n});\n\n// Sort by relevance and return top 5\nscoredItems.sort((a, b) => b.relevanceScore - a.relevanceScore);\nreturn scoredItems.slice(0, 5).map(item => ({ json: item }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        192
+      ],
+      "id": "8be91e4a-0283-4347-9bec-717813bc1905",
+      "name": "Find Best Articles"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e6a9e4b-9e38-4b6d-a70d-8fe52a7712ac",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "1ff6654d-eb44-4eb7-a0e0-dfe4126571e1",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "d7b25ce5-8c6f-462c-9866-9f718faf652d",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date().toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -448,
+        192
+      ],
+      "id": "ca0e8776-0291-466c-955e-3ae377ae9891",
+      "name": "Filter for Latest Article"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.title }}\n{{ $json.link }}\n{{ $json.pubDate }}\n{{ $json.content }}",
+        "options": {
+          "systemMessage": "=# AI Funding News Agent - GoFundItNow Content Creation\n\n## Core Identity & Workflow\nYou are an expert funding intelligence agent specializing in discovering, analyzing, and communicating insights about the \"state of funding\" across grants, contracts, RFPs, government procurement, venture capital, and institutional funding. Your mission: create highly valuable, research-backed LinkedIn posts for GoFundItNow's company page that position GFIN as the go-to authority on funding opportunities and trends.\n\n**Available Research Tools:**\n* **Web Search**: Use this tool for real-time funding news, grant announcements, RFP releases, and procurement trends\n* **Perplexity AI**: Use this tool for deep research, fact-checking, and authoritative citations on funding statistics and policy changes\n* **Think Tool**: Use this tool for Step-by-Step Thinking. Take a deep breath. Consider the funding landscape, audience needs, and strategic positioning. Aim for insights that drive engagement and showcase GFIN's expertise.\n\n**Workflow**: Research → Analyze → Create → Format for LinkedIn\n\n---\n\n## Research & Citation Requirements\n\n### Mandatory Research Process\n1. **Funding Intelligence Scan**: Search for:\n   - Federal/state grant announcements (grants.gov, SAM.gov, state portals)\n   - Major RFP releases across industries\n   - Venture capital funding rounds relevant to SMBs and nonprofits\n   - Foundation funding announcements\n   - Government procurement policy changes\n   - Industry-specific funding trends (construction, IT, workforce, energy, healthcare)\n\n2. **Perplexity Deep Dive**: \n   - Verify all funding amounts and deadlines\n   - Gather context on funding priorities and eligibility\n   - Find expert commentary on funding trends\n   - Identify implications for GFIN's target audience (SMBs, nonprofits, consulting firms)\n\n### Authority Framework (Non-Negotiable Requirements)\n* **Credibility**: Every funding announcement must include verified source links\n* **Timeliness**: Focus on opportunities announced within the last 24-48 hours\n* **Relevance**: Filter for opportunities matching GFIN's core verticals:\n  - Federal, state, and local government contracts\n  - Foundation and nonprofit grants\n  - SMB-accessible opportunities (not just Fortune 500 contracts)\n  - Industries: Professional services, consulting, engineering, IT, workforce development, construction, energy\n* **Actionability**: Include practical takeaways for GFIN's audience\n\n---\n\n## Content Structure & LinkedIn Optimization\n\n### Post Types & Formats\n\n**1. Daily Funding Alert** (Monday-Thursday)\nStructure:\n```\n🎯 [Attention-grabbing headline with $ amount or opportunity type]\n\n[2-3 sentence context about why this matters]\n\nKey Details:\n💰 Amount: [funding amount]\n📅 Deadline: [date]\n🎯 Focus: [industry/sector]\n✅ Eligibility: [key requirements]\n\n[1-2 sentence insight on strategic implications or tips]\n\nLink: [source URL]\n\n#Funding #Grants #RFPs #GoFundItNow [+ 2-3 relevant hashtags]\n```\n\n**2. Weekly Funding Roundup** (Friday)\nStructure:\n```\n📊 This Week in Funding: [Week of Date]\n\nTop opportunities that caught our attention:\n\n1️⃣ [Opportunity name] - $X million\n   Focus: [brief description]\n   Why it matters: [insight]\n\n2️⃣ [Opportunity name] - $X million\n   Focus: [brief description]\n   Why it matters: [insight]\n\n3️⃣ [Opportunity name] - $X million\n   Focus: [brief description]\n   Why it matters: [insight]\n\n💡 Trend of the week: [broader pattern or insight]\n\n[Call to action related to GFIN capabilities]\n\n#FundingRoundup #Procurement #GrantOpportunities #GoFundItNow\n```\n\n**3. Trend Analysis** (Bi-weekly)\nStructure:\n```\n📈 Funding Trend Alert: [Trend Name]\n\nWhat we're seeing:\n[2-3 sentences on the pattern]\n\nThe numbers:\n• [Statistic 1 with source]\n• [Statistic 2 with source]\n• [Statistic 3 with source]\n\nWhat this means for you:\n[3-4 actionable implications for SMBs/nonprofits]\n\nHow GFIN helps: [Brief tie-in to platform capabilities]\n\nSources: [hyperlinked citations]\n\n#FundingTrends #GrantStrategy #GoFundItNow\n```\n\n**4. Opportunity Spotlight** (2-3x per week)\nStructure:\n```\n🔍 Opportunity Spotlight\n\n[Organization] just announced [specific opportunity]\n\nFast Facts:\n💵 [Amount]\n🎯 [Target audience]\n📆 [Deadline]\n🔗 [Requirement highlights]\n\nWhy this is interesting:\n[2-3 sentences on strategic value or unique aspects]\n\nGFIN Pro Tip: [How GFIN features can help with this type of opportunity]\n\nApply here: [link]\n\n#FundingOpportunity #[Industry] #GoFundItNow\n```\n\n---\n\n## Writing Standards & Optimization\n\n### LinkedIn-Specific Requirements\n* **Hook within first 2 lines** (before \"see more\" cutoff)\n* **Emojis for visual scanning**: Use strategically (2-4 per post max)\n* **Hashtag strategy**: 4-6 relevant hashtags at end\n  - Always include: #GoFundItNow\n  - Rotate: #Grants #RFPs #Procurement #FundingOpportunities #SmallBusiness #Nonprofit #GovCon #B2G\n* **Link placement**: Include source links within post text or as first comment\n* **Length**: \n  - Daily alerts: 150-200 words\n  - Weekly roundups: 250-300 words\n  - Trend analysis: 200-250 words\n\n### Voice & Tone\n* **Authoritative yet accessible**: You're the expert making complex funding info digestible\n* **Action-oriented**: Always include next steps or strategic implications\n* **Conversational professionalism**: LinkedIn business tone, not stuffy\n* **Value-first**: Lead with \"what's in it for them\" before promoting GFIN\n\n### Content Priorities\n1. **Federal opportunities** $1M+ (always cover these)\n2. **State/local opportunities** relevant to multiple states or unique programs\n3. **Foundation funding** $500K+ with broad eligibility\n4. **VC funding rounds** that signal market trends in GFIN verticals\n5. **Policy changes** affecting funding access or procurement rules\n6. **Industry-specific surges** (e.g., \"DOE announces $50M for clean energy\")\n\n## CRITICAL OUTPUT RULE:\n- Output ONLY the LinkedIn post content\n- Start IMMEDIATELY with the emoji (🎯, 📊, 🔍, etc.)\n- NO introductory phrases like \"Here is a prepared post...\" or \"I can also...\"\n- NO meta-commentary or explanations\n- NO questions to the user\n- NO suggestions for alternatives\n- Just the post content, nothing before or after\n\n---\n\n## Mandatory Process Flow\n\n### 1. Research Phase (Every Morning)\nExecute searches for:\n- \"federal grants announced\" + today's date\n- \"RFP released\" + [key industries]\n- \"funding opportunity\" + SAM.gov\n- \"venture capital funding\" + [GFIN verticals]\n- \"government contract awarded\" + [relevant sectors]\n\nUse Perplexity to:\n- Verify all dollar amounts and deadlines\n- Find 2-3 expert quotes or agency statements\n- Gather context on strategic priorities (e.g., \"Why is DOE prioritizing this now?\")\n\n### 2. Selection Criteria\nChoose opportunities that:\n✅ Are announced within last 48 hours\n✅ Have clear dollar amounts ($100K minimum)\n✅ Match GFIN's target audience (SMBs, nonprofits, mid-market)\n✅ Span GFIN's key verticals\n✅ Have unique angles or strategic implications\n\n❌ Skip opportunities that:\n- Are Fortune 500-only\n- Lack clear eligibility or details\n- Are too niche (single city/county only)\n- Have already closed or expired\n\n### 3. Content Creation Standards\n**DO include:**\n- Specific dollar amounts hyperlinked to source\n- Deadlines prominently displayed\n- Quick eligibility overview\n- Strategic \"why this matters\" insight\n- Connection to GFIN capabilities (subtle, not salesy)\n- Relevant emojis for visual hierarchy\n- 4-6 targeted hashtags\n\n**DO NOT include:**\n- Jargon without explanation\n- Overly promotional GFIN language (no more than 1 sentence about GFIN per post)\n- Unverified claims or statistics\n- Pessimistic or negative framing\n- Excessive hashtags (7+ looks spammy)\n\n### 4. GFIN Value Integration (Subtle CTAs)\nRotate these approaches across posts:\n\n**Soft tie-ins:**\n- \"This is exactly the type of opportunity GFIN helps teams discover and qualify for.\"\n- \"Complex RFP? GFIN's AI can help you structure a compliant response.\"\n- \"From discovery to submission, GFIN streamlines the entire funding workflow.\"\n\n**Value-add statements:**\n- \"Pro Tip: When reviewing opportunities like this, check [specific compliance requirement]. GFIN automates this check.\"\n- \"These multi-part RFPs benefit from structured response templates—something GFIN excels at.\"\n\n**Direct CTAs (use sparingly, 1x per week max):**\n- \"Want to never miss opportunities like this? Visit GoFundItNow.com\"\n- \"Struggling with proposal automation? Learn how GFIN helps at [link]\"\n\n---\n\n## Post-Creation Checklist\n\nBefore finalizing each post, verify:\n\n☑️ **Accuracy**: All amounts, deadlines, and facts verified via source links  \n☑️ **Relevance**: Directly valuable to SMBs, nonprofits, or consultants  \n☑️ **Clarity**: Jargon explained, eligibility clear  \n☑️ **Formatting**: Emojis for scanning, proper line breaks  \n☑️ **Links**: Source URLs included and working  \n☑️ **Hashtags**: 4-6 relevant tags, including #GoFundItNow  \n☑️ **GFIN mention**: Present but not overpowering (1 sentence max)  \n☑️ **Hook**: First 2 lines are compelling before \"see more\"  \n☑️ **Length**: Within target range for post type  \n\n---\n\n## Example Output Templates\n\n### Template A: Federal Grant Alert\n```\n🎯 JUST ANNOUNCED: $45M in Small Business Innovation Grants\n\nThe SBA just opened applications for the SBIR Phase II program, targeting tech innovation in federal priority areas.\n\nKey Details:\n💰 Amount: Up to $1.5M per award\n📅 Deadline: March 15, 2025\n🎯 Focus: AI, cybersecurity, clean energy, healthcare IT\n✅ Eligibility: Small businesses with Phase I completion\n\nThis is a major opportunity for tech-forward SMBs to scale solutions with federal backing—and these awards often lead to larger procurement contracts.\n\nGFIN Pro Tip: SBIR proposals require detailed technical narratives and commercialization plans. Our AI can help structure both while ensuring compliance with SBA requirements.\n\nApply: [link]\n\n#SBIR #SmallBusiness #FederalGrants #Innovation #GoFundItNow #GovCon\n```\n\n### Template B: Weekly Roundup\n```\n📊 This Week in Funding: December 16-20, 2024\n\nTop opportunities our team flagged:\n\n1️⃣ DOE Clean Energy RFP - $200M\n   Focus: Grid modernization and renewable integration\n   Why it matters: Largest energy infrastructure opportunity of Q4, open to consortiums\n\n2️⃣ Ford Foundation Nonprofit Grants - $15M\n   Focus: Economic mobility programs\n   Why it matters: Rare unrestricted funding for 501(c)(3)s with proven impact\n\n3️⃣ GSA IT Services BPA - $500M ceiling\n   Focus: Cloud migration and cybersecurity\n   Why it matters: Multi-award vehicle open to small businesses\n\n💡 Trend of the week: Federal agencies are frontloading Q1 RFPs to avoid continuing resolution delays. If you've been building capture relationships, now's the time to activate.\n\nHow GFIN helps: From opportunity discovery to proposal assembly, we streamline the entire response cycle so you can move fast when windows open.\n\n#FundingRoundup #Grants #RFPs #GoFundItNow #Procurement\n```\n\n---\n\n## Content Calendar Strategy\n\n**Monday**: Federal opportunity spotlight (grant or contract)  \n**Tuesday**: Foundation/nonprofit funding news or state/local opportunity  \n**Wednesday**: Trend analysis or policy update  \n**Thursday**: Industry-specific opportunity (rotate: IT, construction, energy, workforce, etc.)  \n**Friday**: Weekly roundup (3-5 opportunities + trend insight)\n\n**Monthly themes** (rotate):\n- **Week 1**: Federal focus (SAM.gov, grants.gov highlights)\n- **Week 2**: Nonprofit/foundation funding\n- **Week 3**: Industry deep-dive (pick one vertical)\n- **Week 4**: Year-end/quarter-end funding surges and tips\n\n---\n\n## Success Metrics to Track\n\nFor each post, note:\n- Impressions and reach\n- Engagement rate (likes, comments, shares)\n- Link clicks (to source or GFIN site)\n- Follower growth correlation\n- Top-performing post types (alert vs. roundup vs. trend)\n\nAdjust content mix based on what resonates most with the GoFundItNow audience.\n\n---\n\n## Final Reminder: GFIN's Mission Alignment\n\nEvery post should reinforce that **GoFundItNow makes funding access faster, clearer, and more achievable**. You're not just sharing news—you're positioning GFIN as the essential tool for anyone navigating the complex world of grants, contracts, and institutional funding.\n\nYour content should make readers think: *\"I need to stay on top of this—and GFIN can help me do it.\"*\n\n---\n\n**Ready to create high-impact funding intelligence content for LinkedIn? Let's begin with today's research and opportunity scan.**"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        176,
+        192
+      ],
+      "id": "b5ccfd9f-acff-4158-aefe-5d910eb77eaa",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        352
+      ],
+      "id": "f863c958-99f8-4458-9e7c-c6d39761fc5b",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "mFLDConUMZiZTnjt",
+          "name": "Open AI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "messages": {
+          "message": [
+            {
+              "content": "You are an expert funding intelligence agent specializing in discovering, analyzing, and communicating insights about the \"state of funding\" across grants, contracts, RFPs, government procurement, venture capital, and institutional funding. Your mission: create highly valuable, research-backed LinkedIn posts for GoFundItNow's company page that position GFIN as the go-to authority on funding opportunities and trends."
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexityTool",
+      "typeVersion": 1,
+      "position": [
+        320,
+        368
+      ],
+      "id": "8c227d83-f329-4d7e-ba45-7cf4868c5ad4",
+      "name": "Message a model in Perplexity",
+      "credentials": {
+        "perplexityApi": {
+          "id": "LpLeMg9qsbXRSroV",
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        1296
+      ],
+      "id": "76f6059d-ae0c-4d83-bbd7-ea0c55b0311f",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const feedItem = item.json;\n  let score = 0;\n  \n  // Skip if no title or link\n  if (!feedItem.title || !feedItem.link) {\n    item.json.relevanceScore = 0;\n    continue;\n  }\n  \n  // Score based on how recent\n  const pubDate = new Date(feedItem.pubDate || feedItem.date);\n  const now = new Date();\n  const hoursOld = (now - pubDate) / (1000 * 60 * 60);\n  \n  if (hoursOld <= 24) score += 5;\n  else if (hoursOld <= 48) score += 3;\n  else score += 1;\n  \n  // Score based on keywords\n  const title = (feedItem.title || '').toLowerCase();\n  const description = (feedItem.description || '').toLowerCase();\n  const content = title + ' ' + description;\n  \n  const keywords = [\n    'grant', 'funding', 'rfp', 'contract', 'procurement',\n    'small business', 'nonprofit', 'federal', 'opportunity',\n    'million', 'billion'\n  ];\n  \n  keywords.forEach(keyword => {\n    if (content.includes(keyword)) score += 2;\n  });\n  \n  // Add score to the item\n  item.json.relevanceScore = score;\n}\n\n// Sort by score\nitems.sort((a, b) => (b.json.relevanceScore || 0) - (a.json.relevanceScore || 0));\n\n// Return top 15\nreturn items.slice(0, 15);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        480
+      ],
+      "id": "ca9573b7-bd77-47ba-81c0-e0ba531493a8",
+      "name": "Find Best Articles2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -480,
+        1296
+      ],
+      "id": "5bbdd378-49a6-4276-b7e4-b7530dea010b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const feedItem = item.json;\n  let score = 0;\n  \n  // Skip if no title or link\n  if (!feedItem.title || !feedItem.link) {\n    item.json.relevanceScore = 0;\n    continue;\n  }\n  \n  // Score based on how recent\n  const pubDate = new Date(feedItem.pubDate || feedItem.date);\n  const now = new Date();\n  const hoursOld = (now - pubDate) / (1000 * 60 * 60);\n  \n  if (hoursOld <= 24) score += 5;\n  else if (hoursOld <= 48) score += 3;\n  else score += 1;\n  \n  // Score based on keywords\n  const title = (feedItem.title || '').toLowerCase();\n  const description = (feedItem.description || '').toLowerCase();\n  const content = title + ' ' + description;\n  \n  const keywords = [\n    'grant', 'funding', 'rfp', 'contract', 'procurement',\n    'small business', 'nonprofit', 'federal', 'opportunity',\n    'million', 'billion'\n  ];\n  \n  keywords.forEach(keyword => {\n    if (content.includes(keyword)) score += 2;\n  });\n  \n  // Add score to the item\n  item.json.relevanceScore = score;\n}\n\n// Sort by score\nitems.sort((a, b) => (b.json.relevanceScore || 0) - (a.json.relevanceScore || 0));\n\n// Return top 15\nreturn items.slice(0, 15);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        1296
+      ],
+      "id": "4a24d174-2d29-49a8-bb8a-89bde6e9e290",
+      "name": "Find Best Articles3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get article data\nconst article = $input.item.json;\n\n// Try to extract image from different possible fields\nlet imageUrl = null;\n\n// Check common RSS image fields\nif (article['media:content']) {\n  imageUrl = article['media:content'].$.url;\n} else if (article.enclosure && article.enclosure.url) {\n  imageUrl = article.enclosure.url;\n} else if (article['media:thumbnail']) {\n  imageUrl = article['media:thumbnail'].$.url;\n} else if (article.image) {\n  imageUrl = article.image;\n}\n\n// If no image in RSS, try to extract from content/description\nif (!imageUrl && article.content) {\n  const imgMatch = article.content.match(/<img[^>]+src=\"([^\">]+)\"/);\n  if (imgMatch) imageUrl = imgMatch[1];\n}\n\nif (!imageUrl && article.description) {\n  const imgMatch = article.description.match(/<img[^>]+src=\"([^\">]+)\"/);\n  if (imgMatch) imageUrl = imgMatch[1];\n}\n\nreturn {\n  json: {\n    ...article,\n    imageUrl: imageUrl\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        1296
+      ],
+      "id": "55aaffca-5a5a-423b-b4df-78420607a4f0",
+      "name": "Find Best Articles4"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4909acf2-0ae5-4d8d-b258-4650138c1aed",
+              "name": "title",
+              "value": "={{ $('Article Random Picker').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "da54db59-2018-44a8-805a-da6f2c1e2fc8",
+              "name": "link",
+              "value": "={{ $('Article Random Picker').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "91c320fa-ccb9-4249-83e5-c55b378444d0",
+              "name": "Linkedin Post",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        480
+      ],
+      "id": "409e694a-91f9-4f17-97bc-3a47fd5d4d14",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Article Random Picker').item.json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        176,
+        704
+      ],
+      "id": "a3c50a16-1ba5-4e59-8859-9e86d1ca6529",
+      "name": "Fetch Article",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        688
+      ],
+      "id": "a9965538-c725-44ff-ad52-f4de289d5f9f",
+      "name": "Find the Best Image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4909acf2-0ae5-4d8d-b258-4650138c1aed",
+              "name": "title",
+              "value": "={{ $('Article Random Picker').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "da54db59-2018-44a8-805a-da6f2c1e2fc8",
+              "name": "link",
+              "value": "={{ $('Article Random Picker').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "91c320fa-ccb9-4249-83e5-c55b378444d0",
+              "name": "Linkedin Post",
+              "value": "={{ $('AI Agent').item.json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "7b1a6b04-debc-43d8-aafe-252546dd7468",
+              "name": "image",
+              "value": "={{ $json.imageUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        592,
+        688
+      ],
+      "id": "05e250c5-7859-4ff5-8b50-8d5c1efd3843",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.unsplash.com/search/photos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$json.title.substring(0, 50)}}"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            },
+            {
+              "name": "oritentation",
+              "value": "landscape"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Client-ID vHWsxLZy0eZ8yNZfpkAaQziqU_Lcc3QlP24mRmSoju4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        1296
+      ],
+      "id": "b46a8ab9-64f6-4801-8b46-e1afb5fe3224",
+      "name": "Unspalsh Image Retriever",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "postAs": "organization",
+        "organization": "13247139",
+        "text": "={{ $json['Linkedin Post'] }}",
+        "shareMediaCategory": "IMAGE",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        624,
+        912
+      ],
+      "id": "8191a37f-dcff-45a7-b8e2-7ccd2cac96e4",
+      "name": "Create a post",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "EOU4g5lQSZ7RBgQO",
+          "name": "Damu's Linkedin Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.image }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        912
+      ],
+      "id": "d8dce2ec-1f8a-465a-80a2-30dd0d611422",
+      "name": "Fetch Article Image"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Best Articles": {
+      "main": [
+        [
+          {
+            "node": "Article Random Picker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter for Latest Article": {
+      "main": [
+        [
+          {
+            "node": "Find Best Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Filter for Latest Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article Random Picker": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model in Perplexity": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Find Best Articles2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Best Articles2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "Fetch Article": {
+      "main": [
+        [
+          {
+            "node": "Find the Best Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Best Image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unspalsh Image Retriever": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch Article Image": {
+      "main": [
+        [
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "df7d88a8-9f42-4d36-bbb3-95a0741a1311",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-12-17T12:18:18.504Z",
+      "createdAt": "2025-12-17T12:18:18.504Z",
+      "role": "workflow:owner",
+      "workflowId": "OoeOlszsHES4aZ3N",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
