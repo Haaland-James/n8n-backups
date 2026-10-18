@@ -1,0 +1,57 @@
+{
+  "updatedAt": "2025-12-19T09:54:53.878Z",
+  "createdAt": "2025-11-23T01:09:10.201Z",
+  "id": "dOoHlMBKWonWRuWT",
+  "name": "My workflow",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://api10.unipile.com:14011/api/v1/accounts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        64,
+        96
+      ],
+      "id": "5daace5a-b7e0-4aa9-8d71-5209e0dd8f62",
+      "name": "HTTP Request"
+    }
+  ],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "5deafb52-f332-40f9-b063-40a6c1f7ecb2",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-23T01:09:10.201Z",
+      "createdAt": "2025-11-23T01:09:10.201Z",
+      "role": "workflow:owner",
+      "workflowId": "dOoHlMBKWonWRuWT",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
