@@ -1,0 +1,1416 @@
+{
+  "updatedAt": "2026-08-03T13:56:23.523Z",
+  "createdAt": "2026-07-16T08:58:26.310Z",
+  "id": "n4lKsSDteXqvRrsX",
+  "name": "GFIN Lead Outreach",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "4616c1fe-ebf1-46eb-8f4f-2ca8de2cfa60",
+      "name": "Every Day 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2288,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1528241279,
+          "mode": "list",
+          "cachedResultName": "Counters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1528241279"
+        },
+        "options": {}
+      },
+      "id": "55b9c641-3517-4c60-b08d-7699ba89dbca",
+      "name": "Read Counters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2096,
+        368
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Point at GFIN Outreach → Counters tab. Enable 'Always Output Data' in Settings."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Budget Gate — decide how many DMs and invites we can send today.\n// Reads current counters, resets them if the day/week has rolled over,\n// and outputs a single item with the available budget.\n\nconst rows = $input.all();\nconst counters = rows[0]?.json || {};\n\nfunction todayISO() {\n  const d = new Date();\n  const y = d.getUTCFullYear();\n  const m = String(d.getUTCMonth() + 1).padStart(2, '0');\n  const day = String(d.getUTCDate()).padStart(2, '0');\n  return `${y}-${m}-${day}`;\n}\n\nfunction mondayISO() {\n  const d = new Date();\n  const day = d.getUTCDay(); // 0=Sun, 1=Mon\n  const diff = day === 0 ? -6 : 1 - day;\n  d.setUTCDate(d.getUTCDate() + diff);\n  const y = d.getUTCFullYear();\n  const m = String(d.getUTCMonth() + 1).padStart(2, '0');\n  const dd = String(d.getUTCDate()).padStart(2, '0');\n  return `${y}-${m}-${dd}`;\n}\n\nconst today = todayISO();\nconst weekStart = mondayISO();\n\n// Reset daily count if new day\nlet dmsSentToday = Number(counters.dms_sent_today) || 0;\nif (counters.date !== today) dmsSentToday = 0;\n\n// Reset weekly count if new week\nlet invitesSentThisWeek = Number(counters.invites_sent_this_week) || 0;\nlet invitesSentToday_derived = 0; // we'll track daily invites via a separate counter if needed later\nif (counters.week_start !== weekStart) invitesSentThisWeek = 0;\n\nconst dmDailyCap       = Number(counters.dm_daily_cap)       || 20;\nconst inviteDailyCap   = Number(counters.invite_daily_cap)   || 20;\nconst inviteWeeklyCap  = Number(counters.invite_weekly_cap)  || 100;\n\nconst dmsAvailable     = Math.max(0, dmDailyCap - dmsSentToday);\nconst invitesAvailable = Math.max(\n  0,\n  Math.min(inviteDailyCap, inviteWeeklyCap - invitesSentThisWeek)\n);\n\nreturn [{\n  json: {\n    today,\n    week_start: weekStart,\n    dms_sent_today: dmsSentToday,\n    invites_sent_this_week: invitesSentThisWeek,\n    dm_daily_cap: dmDailyCap,\n    invite_daily_cap: inviteDailyCap,\n    invite_weekly_cap: inviteWeeklyCap,\n    dms_available: dmsAvailable,\n    invites_available: invitesAvailable,\n    stop_dms: dmsAvailable === 0,\n    stop_invites: invitesAvailable === 0,\n    stop_all: dmsAvailable === 0 && invitesAvailable === 0\n  }\n}];\n"
+      },
+      "id": "bf3caa53-ccd4-48b2-96a1-b439d0aff336",
+      "name": "Budget Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1920,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.stop_all }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "39faef93-9e74-4ec2-9578-08014d2655f3",
+      "name": "Have Capacity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1744,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "New"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "235bf193-73cd-4a22-86f7-fd16f485dc31",
+      "name": "Read New Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2272,
+        592
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Point at GFIN Outreach → Lead Pool tab. Filter: status = New."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cap the leads pulled to today's budget.\n// Split into DM-eligible (1st°) and Invite-eligible (everyone else).\n// Prioritize 1st° first because DMs are lower-risk than invites.\n\nconst leads = $input.all();\nconst gate = $('Budget Gate').first().json;\n\nconst dmsAvailable     = gate.dms_available;\nconst invitesAvailable = gate.invites_available;\n\nconst dmCandidates = leads\n  .filter(l => l.json.network_distance === 'DISTANCE_1')\n  .slice(0, dmsAvailable)\n  .map(l => ({ json: { ...l.json, outreach_type: 'dm' } }));\n\nconst inviteCandidates = leads\n  .filter(l => l.json.network_distance !== 'DISTANCE_1')\n  .slice(0, invitesAvailable)\n  .map(l => ({ json: { ...l.json, outreach_type: 'invite' } }));\n\nreturn [...dmCandidates, ...inviteCandidates];\n"
+      },
+      "id": "27d280a8-2b1f-4469-b768-1ebc87cd1db3",
+      "name": "Cap & Tag Outreach Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2032,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Lead:\nName: {{ $json.name }}\nHeadline: {{ $json.headline }}\nSlice (ICP category): {{ $json.slice }}\nLocation: {{ $json.location }}\n\nGenerate TWO short outreach texts for GoFunditNow (a US grant-finding service that helps nonprofits, small businesses, faith orgs, and municipalities discover grant and funding opportunities).\n\nRules:\n- Ground everything in their actual headline. NO fabricated stats or claims.\n- One specific reason GoFunditNow is relevant to THIS person's role. Not generic.\n- Warm, professional, direct. No \"Hope you're well.\" No fake compliments.\n- One soft CTA (e.g. \"open to a quick note?\" or \"worth a 10-min look?\").\n\nOutput STRICT JSON only, no markdown fences, no preamble:\n{\n  \"dm_text\": \"150–250 chars, for existing 1st-degree connection\",\n  \"note_text\": \"MAX 200 chars, for connection request note — much shorter than DM\"\n}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Lead: {{ $json.name }}\nHeadline: {{ $json.headline }}\nICP category: {{ $json.slice }}\nLocation: {{ $json.location }}\nLead first name: {{ $json.name.split(' ')[0] }}\n\nWrite two LinkedIn outreach texts for GoFunditNow (a US service that surfaces grants and funding opportunities for nonprofits, small businesses, faith orgs, and municipalities).\n\nMANDATORY RULES:\n1. Reference something SPECIFIC from their headline (their org name, a program, a domain focus). If their headline just says \"Nonprofit Advancement\" with no specifics, acknowledge the ambiguity with something honest like \"saw you work in nonprofit advancement — curious what area.\"\n2. NEVER use these phrases (they read as spam): \"you know\", \"you understand\", \"in the nonprofit realm\", \"you may benefit\", \"you might find\", \"worth a 10-min look\", \"worth a look\", \"streamline\", \"tailored funding\".\n3. Do not tell the recipient what their job is. They know.\n4. One concrete reason GoFunditNow could help THEIR specific org — not \"nonprofits like yours.\"\n5. CTA is a real question they can say yes/no to.\n6. Sound like a human sent it, not a template.\n7. If nothing specific can be said, generate empty strings — DO NOT fill with generic filler.\n\n\n\n\n\n\n\n\nOutput STRICT JSON, no markdown:\n{\n  \"dm_text\": \"150-250 chars for 1st-degree connections\",\n  \"note_text\": \"MAX 200 chars for connection requests — MUST NOT be empty if you generated a dm_text\"\n}\n"
+        }
+      },
+      "id": "c734753b-f1d6-4c18-bcfb-ce60d70eea9e",
+      "name": "Personalize (AI Agent)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1648,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"dm_text\": \"Hi Jane — saw you run development at Water For People. GoFunditNow tracks new federal + foundation grants in WASH weekly. Open to a quick look?\",\n  \"note_text\": \"Hi Jane, GoFunditNow tracks WASH-relevant grants weekly. Curious if a quick look might be useful?\"\n}"
+      },
+      "id": "512ff907-7553-41bb-8264-813a02467fb1",
+      "name": "Personalize Output Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge AI-generated messages back with the original lead data.\n// The AI Agent output arrives on `.output` — parse it and enforce length caps.\n\nconst items = $input.all();\n\nreturn items.map((item, i) => {\n  const leadItem = $('Cap & Tag Outreach Type').all()[i];\n  const lead = leadItem?.json || {};\n\n  let ai = item.json.output || item.json;\n  if (typeof ai === 'string') {\n    try { ai = JSON.parse(ai.replace(/```json|```/g, '').trim()); }\n    catch { ai = {}; }\n  }\n\n  const dmText = (ai.dm_text || '').slice(0, 300);\n  const noteText = (ai.note_text || '').slice(0, 200); // hard cap 200 chars for invite note\n\n  return {\n    json: {\n      ...lead,\n      dm_text: dmText,\n      note_text: noteText\n    }\n  };\n});\n"
+      },
+      "id": "df7e069c-ec6e-47f0-90a9-540187c18c82",
+      "name": "Attach Messages to Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2560,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.outreach_type }}",
+                    "rightValue": "dm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e32d1b8d-b204-4a43-a1e6-29337078d01c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.outreach_type }}",
+                    "rightValue": "invite",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d51297f9-2238-4177-8544-0c1a92edda60"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8c1f36d9-42f9-4ab7-b5d2-2c9b47bf064c",
+      "name": "DM or Invite?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2096,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 120) + 60 }}"
+      },
+      "id": "4076cea6-08f1-48f8-ac0f-1a9b01828fbf",
+      "name": "Wait 60–180s (DM)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        928
+      ],
+      "webhookId": "a54b790f-45ce-47aa-a157-68cb5daa4df3"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 120) + 60 }}"
+      },
+      "id": "3aced81d-5bf0-4317-aecd-819be67204ce",
+      "name": "Wait 60–180s (Invite)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        1280
+      ],
+      "webhookId": "bf23b85c-d6f7-4ac6-8e27-49fa9f05a229"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/chats",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"account_id\": \"DZFi1PeCTDmiB9H8O0aiPw\",\n  \"attendees_ids\": [\"{{ $json.provider_id }}\"],\n  \"text\": {{ JSON.stringify($json.dm_text) }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c4a3f0a2-6d29-41fe-b2c4-5828d93127d1",
+      "name": "Send DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1616,
+        928
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eJ9XWVCSFb4xtALu",
+          "name": "Unipile API — PASTE KEY"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "DISABLED. Attach Header Auth (X-API-KEY) + set account_id. Enable ONLY after dry-run review."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/users/invite",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"account_id\": \"DZFi1PeCTDmiB9H8O0aiPw\",\n  \"provider_id\": \"{{ $json.provider_id }}\",\n  \"message\": {{ JSON.stringify($json.note_text) }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "cf846f4f-d2af-4477-b961-66f0d553ed42",
+      "name": "Send Invite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1616,
+        1280
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "DISABLED. Enable Branch A (DM) first for one week, THEN enable this."
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $('Attach Messages to Lead').item.json.provider_id }}",
+            "status": "Messaged",
+            "last_action": "=dm",
+            "outreach_sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "01149255-aaeb-4884-9608-7a878d85807b",
+      "name": "Mark Messaged",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1376,
+        928
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "IMPORTANT: Add 'outreach_sent_at' and 'last_action' columns to your Lead Pool sheet if not already present."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "c3fb9358-5d36-45f1-bf6f-a340af798cfc",
+      "name": "Merge Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1136,
+        1056
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Count how many DMs and invites were actually sent (based on merged results).\n// Add those counts to the pre-existing counter values.\n\nconst gate = $('Budget Gate').first().json;\nconst results = $input.all();\n\nlet dmsSent = 0;\nlet invitesSent = 0;\n\nfor (const r of results) {\n  const type = r.json.last_action;\n  if (type === 'dm') dmsSent++;\n  else if (type === 'invite') invitesSent++;\n}\n\nreturn [{\n  json: {\n    date: gate.today,\n    week_start: gate.week_start,\n    dms_sent_today: gate.dms_sent_today + dmsSent,\n    invites_sent_this_week: gate.invites_sent_this_week + invitesSent,\n    dm_daily_cap: gate.dm_daily_cap,\n    invite_daily_cap: gate.invite_daily_cap,\n    invite_weekly_cap: gate.invite_weekly_cap,\n    dms_sent_this_run: dmsSent,\n    invites_sent_this_run: invitesSent\n  }\n}];\n"
+      },
+      "id": "e02ebc10-9f99-46ea-9545-c69e7c2f113a",
+      "name": "Compute New Counters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        1056
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1528241279,
+          "mode": "list",
+          "cachedResultName": "Counters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1528241279"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "dms_sent_today": "={{ $json.dms_sent_today }}",
+            "invites_sent_this_week": "={{ $json.invites_sent_this_week }}",
+            "week_start": "={{ $json.week_start }}",
+            "dm_daily_cap": "={{ $json.dm_daily_cap }}",
+            "invite_weekly_cap": "={{ $json.invite_weekly_cap }}",
+            "invite_daily_cap": "={{ $json.invite_daily_cap }}"
+          },
+          "matchingColumns": [
+            "date"
+          ],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dms_sent_today",
+              "displayName": "dms_sent_today",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "week_start",
+              "displayName": "week_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invites_sent_this_week",
+              "displayName": "invites_sent_this_week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dm_daily_cap",
+              "displayName": "dm_daily_cap",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invite_weekly_cap",
+              "displayName": "invite_weekly_cap",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invite_daily_cap",
+              "displayName": "invite_daily_cap",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f601d1d7-6258-4ebe-ac00-8a28261e1dcf",
+      "name": "Write Counters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -656,
+        1056
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Point at GFIN Outreach → Counters tab. Match on 'date'."
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "id": "5b7054ae-90d2-4f36-93ce-b6542728b46f",
+      "name": "OpenRouter Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        752
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      },
+      "notes": "Attach OpenRouter credential. Model can be swapped if quality is off."
+    },
+    {
+      "parameters": {
+        "content": "## GFIN — LinkedIn Outreach\n\n**Purpose:** Reads `Lead Pool` where status=New, sends DMs (1st°) and invites (2nd/3rd°) subject to daily/weekly caps.\n\n**Sheets used:**\n1. `Lead Pool` — reads status=New, updates to Messaged/Invited\n2. `Counters` — daily DM count, weekly invite count, caps (all editable)\n\n**Before first run:**\n- Attach Unipile Header Auth (X-API-KEY) + set account_id on both send HTTP nodes\n- Point all Sheet nodes at correct tabs\n- Attach OpenRouter credential on Personalize AI node\n- Verify both send nodes remain DISABLED\n\n**Dry-run:**\n- Manual Test Trigger\n- Watch: Budget Gate output tells you today's send capacity\n- Watch: Personalize AI output — inspect DM text and invite note quality per lead\n- Watch: Switch branch counts — how many go to DM vs Invite\n- Nothing sends because send nodes are disabled\n\n**To go live:**\n1. Enable `Send DM` node ONLY (start with Branch A, 1st° only)\n2. Run for a week, monitor Lead Pool status column\n3. If no LinkedIn warnings, enable `Send Invite` node\n\n**Caps starting values (edit in Counters sheet):**\n- dm_daily_cap = 20\n- invite_daily_cap = 20\n- invite_weekly_cap = 100",
+        "height": 700,
+        "width": 480,
+        "color": 4
+      },
+      "id": "f690ce60-dbaf-40fe-9776-271282c64633",
+      "name": "README2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2304,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $('Attach Messages to Lead').item.json.provider_id }}",
+            "status": "Invited",
+            "outreach_sent_at": "={{ $now.toISO() }}",
+            "last_action": "invite"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "0256ffe5-faf9-478c-a28d-3110a9ce9047",
+      "name": "Mark Invited",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1376,
+        1280
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e2423966-5214-4711-b1d7-a4ffb379d2a8",
+      "name": "Loop Over Slices",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2336,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Lead:\nName: {{ $json.name }}\nHeadline: {{ $json.headline }}\nSlice (ICP category): {{ $json.slice }}\nLocation: {{ $json.location }}\n\nGenerate TWO short outreach texts for GoFunditNow (a US grant-finding service that helps nonprofits, small businesses, faith orgs, and municipalities discover grant and funding opportunities).\n\nRules:\n- Ground everything in their actual headline. NO fabricated stats or claims.\n- One specific reason GoFunditNow is relevant to THIS person's role. Not generic.\n- Warm, professional, direct. No \"Hope you're well.\" No fake compliments.\n- One soft CTA (e.g. \"open to a quick note?\" or \"worth a 10-min look?\").\n\nOutput STRICT JSON only, no markdown fences, no preamble:\n{\n  \"dm_text\": \"150–250 chars, for existing 1st-degree connection\",\n  \"note_text\": \"MAX 200 chars, for connection request note — much shorter than DM\"\n}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Lead: {{ $json.name }}\nHeadline: {{ $json.headline }}\nICP category: {{ $json.slice }}\nLocation: {{ $json.location }}\n\nWrite two LinkedIn outreach texts for GoFunditNow (a US service that surfaces grants and funding opportunities for nonprofits, small businesses, faith orgs, and municipalities).\n\nMANDATORY RULES:\n1. Reference something SPECIFIC from their headline (their org name, a program, a domain focus). If their headline just says \"Nonprofit Advancement\" with no specifics, acknowledge the ambiguity with something honest like \"saw you work in nonprofit advancement — curious what area.\"\n2. NEVER use these phrases (they read as spam): \"you know\", \"you understand\", \"in the nonprofit realm\", \"you may benefit\", \"you might find\", \"worth a 10-min look\", \"worth a look\", \"streamline\", \"tailored funding\".\n3. Do not tell the recipient what their job is. They know.\n4. One concrete reason GoFunditNow could help THEIR specific org — not \"nonprofits like yours.\"\n5. CTA is a real question they can say yes/no to.\n6. Sound like a human sent it, not a template.\n7. If nothing specific can be said, generate empty strings — DO NOT fill with generic filler.\n\n\n\n\n\n\n\n\nOutput STRICT JSON only, no markdown:\n{\n  \"note_text\": \"Hi [FIRST_NAME]. Saw the news! Are you looking for more Grants or Contracts? GoFundItNow.com has access to over 90K active funding opportunities worth over $8.4 Billion. We have a live demo scheduled for Thursday at 8:30am EST. What's your business email, I'll send you the invite.\",\n  \"dm_text\": \"Hi [FIRST_NAME]. Saw the news! Are you looking for more Grants or Contracts? GoFundItNow.com has access to over 90K active funding opportunities worth over $8.4 Billion. We have a live demo scheduled for Thursday at 8:30am EST. What's your business email, I'll send you the invite.\"\n}\n\nReplace [FIRST_NAME] with the lead's first name from above. Output the message EXACTLY as written - do not paraphrase, do not add or remove words. Only substitute the name.\n\nOutput STRICT JSON, no markdown:\n{\n  \"dm_text\": \"150-250 chars for 1st-degree connections\",\n  \"note_text\": \"MAX 200 chars for connection requests — MUST NOT be empty if you generated a dm_text\"\n}"
+        }
+      },
+      "id": "342cdb10-b746-4692-b5ba-47359b91b156",
+      "name": "Personalize (AI Agent)1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -960,
+        608
+      ],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Every Day 10:00": {
+      "main": [
+        [
+          {
+            "node": "Read Counters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Counters": {
+      "main": [
+        [
+          {
+            "node": "Budget Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Budget Gate": {
+      "main": [
+        [
+          {
+            "node": "Have Capacity?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Have Capacity?": {
+      "main": [
+        [
+          {
+            "node": "Read New Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read New Leads": {
+      "main": [
+        [
+          {
+            "node": "Cap & Tag Outreach Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cap & Tag Outreach Type": {
+      "main": [
+        [
+          {
+            "node": "Personalize (AI Agent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personalize (AI Agent)": {
+      "main": [
+        [
+          {
+            "node": "Attach Messages to Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personalize Output Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Personalize (AI Agent)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Messages to Lead": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Slices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DM or Invite?": {
+      "main": [
+        [
+          {
+            "node": "Wait 60–180s (DM)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 60–180s (Invite)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60–180s (DM)": {
+      "main": [
+        [
+          {
+            "node": "Send DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60–180s (Invite)": {
+      "main": [
+        [
+          {
+            "node": "Send Invite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send DM": {
+      "main": [
+        [
+          {
+            "node": "Mark Messaged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Invite": {
+      "main": [
+        [
+          {
+            "node": "Mark Invited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Messaged": {
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Branches": {
+      "main": [
+        [
+          {
+            "node": "Compute New Counters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute New Counters": {
+      "main": [
+        [
+          {
+            "node": "Write Counters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Personalize (AI Agent)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Invited": {
+      "main": [
+        [
+          {
+            "node": "Compute New Counters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Slices": {
+      "main": [
+        [],
+        [
+          {
+            "node": "DM or Invite?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Counters": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Slices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:Every Day 10:00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "24852767-aebc-4a29-bff5-80e0e46d49cc",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-07-16T08:58:26.310Z",
+      "createdAt": "2026-07-16T08:58:26.310Z",
+      "role": "workflow:owner",
+      "workflowId": "n4lKsSDteXqvRrsX",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
