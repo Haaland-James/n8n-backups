@@ -1,0 +1,423 @@
+{
+  "updatedAt": "2026-10-13T14:28:55.255Z",
+  "createdAt": "2026-10-13T13:16:04.846Z",
+  "id": "tgpMK8SVZTyjHtSl",
+  "name": "GFIN Domain Pattern Learner",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "note",
+      "name": "How This Works",
+      "parameters": {
+        "content": "## GFIN Domain Pattern Learner\n\nLearns **how an organisation builds its email addresses**, so the other nine or ten leads at that organisation can be filled in later.\n\n576 of our 1,097 leads sit in just 57 organisations. Learn one format, cover ten people.\n\n### How a pattern is learned\n\nIt searches the organisation's own site for a staff directory, then harvests **every** name-and-address pair it can see — not just our lead's. One directory page with twenty staff on it settles the format in a single request.\n\nPairs are not matched by guessing which name sits nearest which address. Every name on the page is tested against every address, and a pair is only accepted when the address can actually be **derived** from that name. `Ryan Kaup` + `rkaup@` is accepted as `{f}{last}`. A name and address that cannot be reconciled are simply not a pair. The test validates itself.\n\n### It refuses to guess\n\n- fewer than 2 agreeing pairs → `insufficient`\n- pairs that disagree with each other → `conflicted`\n- only 2+ agreeing, and 60%+ of all pairs → `learned`\n\nOne address proves nothing: `rj.lott@pullman-wa.gov` and `rkaup@apachejunctionaz.gov` are both real, and they are different formats.\n\n---\n\n**This workflow writes nothing to Lead Pool.** It only fills the `Domain Patterns` tab. Constructing addresses from these patterns is a separate workflow, kept separate so it can stay switched off until the bounce evidence justifies it.",
+        "height": 640,
+        "width": 560
+      },
+      "position": [
+        -620,
+        -420
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "trigger",
+      "name": "Manual Test Trigger",
+      "parameters": {},
+      "position": [
+        -620,
+        320
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "id": "read-patterns",
+      "name": "Read Domain Patterns",
+      "onError": "stopWorkflow",
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Domain Patterns",
+          "mode": "list",
+          "value": 1564591157
+        }
+      },
+      "position": [
+        -400,
+        320
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "id": "read-leads",
+      "name": "Read Lead Pool",
+      "onError": "stopWorkflow",
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Lead Pool",
+          "mode": "list",
+          "value": 1474100927
+        }
+      },
+      "position": [
+        -180,
+        320
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5
+    },
+    {
+      "id": "collect-domains",
+      "name": "Collect Domains",
+      "parameters": {
+        "jsCode": "// Build the list of domains worth learning, busiest first. A domain only\n// counts when something actually evidenced it — a v1 domain was built out of\n// company_name and is not evidence of anything.\nconst MAX_DOMAINS_PER_RUN = 25;\nconst RELEARN_EVERYTHING = false;   // true re-learns domains already stored\n\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\nconst clean = (d) => String(d || '').toLowerCase().trim()\n  .replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '').replace(/[^a-z0-9.\\-]/g, '');\nconst hostOf = (u) => { const m = String(u || '').match(/^[a-zA-Z][a-zA-Z0-9+.\\-]*:\\/\\/([^\\/?#:]+)/); return m ? m[1].replace(/^www\\./i, '').toLowerCase() : ''; };\n\n// Domains already in the store, so we do not pay for them twice.\nconst known = new Set();\ntry {\n  for (const p of $('Read Domain Patterns').all()) {\n    const d = clean(p.json.domain);\n    const st = String(p.json.pattern_status || '').toLowerCase();\n    // 'insufficient' is worth another look once the finder has added more\n    // evidence. 'learned' and 'conflicted' are settled for now.\n    if (d && (st === 'learned' || st === 'conflicted')) known.add(d);\n  }\n} catch (e) {}\n\nconst EVIDENCED = /firecrawl|search|site_scrape|scrape_verified|_verified|manual|reused/i;\n\n// Never learn or apply a pattern for a mailbox provider. gmail.com turned up\n// in the first run with 2 leads on it.\nconst FREE_MAIL = new Set(['gmail.com','googlemail.com','yahoo.com','ymail.com','hotmail.com','outlook.com','live.com','msn.com','aol.com','icloud.com','me.com','mac.com','protonmail.com','proton.me','gmx.com','mail.com','zoho.com','yandex.com','comcast.net','verizon.net','att.net','sbcglobal.net','bellsouth.net','cox.net','charter.net','earthlink.net']);\n\n// Lead Pool stores credentials in the name field: cut at the first comma.\nconst cleanName = (n) => String(n || '').split(',')[0]\n  .replace(/\\([^)]*\\)/g, ' ')\n  .replace(/\\b(dr|rev|minister|bishop|mr|mrs|ms|prof|sr|jr)\\.?\\s+/gi, ' ')\n  .replace(/[^A-Za-zÀ-ɏ\\s'\\-]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nconst byDomain = new Map();\n\nfor (const item of $input.all()) {\n  const r = item.json;\n  let dom = '';\n\n  // Strongest first: the host of a page we actually read an address off.\n  if (ne(r.email_source_url)) dom = hostOf(r.email_source_url);\n\n  // Then an address whose provenance says someone observed it.\n  if (!dom && ne(r.email) && EVIDENCED.test(String(r.email_source || ''))) {\n    dom = clean(String(r.email).split('@')[1] || '');\n  }\n\n  // Then a company_domain that an evidenced source wrote.\n  if (!dom && ne(r.company_domain) && EVIDENCED.test(String(r.company_domain_source || ''))) {\n    dom = clean(r.company_domain);\n  }\n\n  if (!dom || !dom.includes('.')) continue;\n  if (FREE_MAIL.has(dom)) continue;\n\n  if (!byDomain.has(dom)) byDomain.set(dom, { domain: dom, org_sample: String(r.company_name || '').trim(), leads_at_domain: 0, seed_pairs: [] });\n  const e = byDomain.get(dom);\n  e.leads_at_domain += 1;\n  if (!e.org_sample && ne(r.company_name)) e.org_sample = String(r.company_name).trim();\n\n  // Free evidence: an address the finder already read off a page, with the\n  // person's name beside it, is a confirmed pair. Seed it rather than paying\n  // for a search to rediscover what we already know.\n  if (ne(r.email) && EVIDENCED.test(String(r.email_source || ''))) {\n    const em = String(r.email).trim();\n    if ((em.split('@')[1] || '').toLowerCase() === dom) {\n      const person = cleanName(r.name);\n      if (person.split(' ').filter(Boolean).length >= 2) e.seed_pairs.push(person + '|' + em);\n    }\n  }\n}\n\n// Fold in every pair the finder banked while it was already searching these\n// sites. These cost nothing - the request was paid for by the finder, which\n// used to see a whole staff directory and bin everything except our lead.\nlet harvested = 0;\ntry {\n  for (const h of $('Read Observed Addresses').all()) {\n    const d = clean(h.json.domain);\n    if (!d || !byDomain.has(d)) continue;\n    const nm = String(h.json.person_name || '').trim();\n    const em = String(h.json.email || '').trim();\n    if (!nm || !em) continue;\n    const e = byDomain.get(d);\n    const sig = nm + '|' + em;\n    if (e.seed_pairs.indexOf(sig) === -1) { e.seed_pairs.push(sig); harvested++; }\n  }\n} catch (err) {}\nconsole.log('Pairs folded in from the finder harvest: ' + harvested);\n\nfor (const e of byDomain.values()) e.pair_count = e.seed_pairs.length;\n\nlet domains = Array.from(byDomain.values());\nconst beforeFilter = domains.length;\nif (!RELEARN_EVERYTHING) domains = domains.filter(d => !known.has(d.domain));\n\n// Busiest domains first — that is where a learned format pays for itself.\ndomains.sort((a, b) => b.leads_at_domain - a.leads_at_domain);\n\nconsole.log('Evidenced domains found: ' + beforeFilter + ', already learned: ' + known.size + ', to learn now: ' + Math.min(domains.length, MAX_DOMAINS_PER_RUN));\nconsole.log('Domains already holding 2+ pairs before any search: ' + domains.filter(d => d.pair_count >= 2).length);\nconsole.log('Top of queue: ' + domains.slice(0, 10).map(d => d.domain + '(' + d.leads_at_domain + ')').join(', '));\n\nreturn domains.slice(0, MAX_DOMAINS_PER_RUN).map(d => ({ json: d }));"
+      },
+      "position": [
+        40,
+        320
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "loop-domains",
+      "name": "Loop Over Domains",
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        260,
+        320
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "firecrawlApi": {
+          "id": "pbeixWGwR0rjalUn",
+          "name": "Firecrawl account"
+        }
+      },
+      "id": "harvest",
+      "maxTries": 3,
+      "name": "Firecrawl: Harvest Directory",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "jsonBody": "={{ JSON.stringify({ query: '\"@' + $json.domain + '\" email', limit: 10, sources: ['web'], includeDomains: [$json.domain] }) }}",
+        "method": "POST",
+        "nodeCredentialType": "firecrawlApi",
+        "options": {
+          "timeout": 45000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://api.firecrawl.dev/v2/search"
+      },
+      "position": [
+        500,
+        440
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "learn",
+      "name": "Learn Pattern",
+      "parameters": {
+        "jsCode": "// Work out how this organisation builds addresses, from any name+address\n// pairs on its own site. The lead's own address is not required.\n//\n// Pairs are NOT matched by proximity. Every name found is tested against every\n// address found, and a pair is accepted only when the local part can actually\n// be DERIVED from that name. That makes the match self-validating: the thing\n// that proves the pair is the same thing that names the format.\nconst dom = $('Loop Over Domains').item.json;\nconst res = $json || {};\nconst now = new Date().toISOString();\nconst domain = String(dom.domain || '').toLowerCase();\n\nconst web = (res.data && Array.isArray(res.data.web)) ? res.data.web\n  : (Array.isArray(res.data) ? res.data : []);\n\nconst base = {\n  domain: domain,\n  org_sample: dom.org_sample || '',\n  leads_at_domain: dom.leads_at_domain || 0,\n  learned_at: now\n};\n\nconst seeds = Array.isArray(dom.seed_pairs) ? dom.seed_pairs : [];\n\n// Only give up when the search produced nothing AND we hold no pairs already.\nif ((res.error || !web.length) && !seeds.length) {\n  let msg = res.error ? 'search error' : 'search returned zero results';\n  try { if (res.error) msg += ': ' + (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)).slice(0, 250); } catch (e) {}\n  return { json: Object.assign({}, base, { pattern: '', pattern_status: res.error ? 'search_error' : 'no_results', agreeing_pairs: 0, total_pairs: 0, conflicting_patterns: '', sample_pairs: '', source_urls: '', notes: msg }) };\n}\n\nconst EMAIL_RE = /[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}/g;\n// Two or three capitalised words, optionally with a middle initial.\nconst NAME_RE = /\\b([A-Z][a-z]{1,15})\\s+(?:[A-Z]\\.?\\s+)?([A-Z][a-zA-Z'\\-]{1,20})\\b/g;\nconst ROLE_LOCALS = new Set(['info','admin','administrator','contact','support','hello','office','mail','team','sales','billing','help','webmaster','postmaster','enquiries','inquiries','general','donations','volunteer','assistance','press','media','marketing','hr','careers','jobs','service','services','reception','secretary','accounts','finance','legal','privacy','abuse','security','feedback','subscribe','newsletter','communications','development','grants','outreach','clerk','cityhall','planning','ecdev','econdev','economicdevelopment','citycouncil','council','commdev','records','permits','utilities','court','library','museum','parks','police','fire','water','sewer','ticket','tickets','events','info1','mailbox']);\n// Words that look like names but are page furniture.\nconst NOT_A_NAME = new Set(['staff','directory','contact','city','town','county','department','office','email','phone','main','street','road','avenue','suite','public','works','human','resources','economic','community','development','police','fire','parks','recreation','skip','main','content','read','more','view','all','site','map','privacy','policy','terms','use','home','page','search','menu','close','open','click','here','learn','copyright','rights','reserved','government','services','business','residents','how','do','i','quick','links','records','division','board','committee','center','centre','foundation','church','temple','synagogue','school','university','college','hospital','clinic','district','authority','commission','association','society','institute','trust','fund','group','team','staff1','our','people','meet','about']);\n\nfunction normalise(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }\n\n// Every way an organisation might build a local part from a name.\nfunction formatsFor(first, last) {\n  const f = first[0], l = last[0];\n  return [\n    ['{f}{last}', f + last],\n    ['{first}.{last}', first + '.' + last],\n    ['{first}{last}', first + last],\n    ['{f}.{last}', f + '.' + last],\n    ['{first}_{last}', first + '_' + last],\n    ['{first}-{last}', first + '-' + last],\n    ['{first}{l}', first + l],\n    ['{last}{f}', last + f],\n    ['{last}.{first}', last + '.' + first],\n    ['{last}{first}', last + first],\n    ['{first}', first],\n    ['{last}', last],\n    ['{f}{l}', f + l]\n  ];\n}\n\n// ---------- harvest ----------\nconst emails = new Map();   // lower email -> {email, local, url}\nconst names = new Map();    // 'first last' -> {first, last}\nconst urls = new Set();\n\n// Seed with pairs the finder already proved, before looking at search results.\nfor (const sp of seeds) {\n  const bits = String(sp).split('|');\n  const nm = (bits[0] || '').trim(), em = (bits[1] || '').trim();\n  if (!nm || !em) continue;\n  const lower = em.toLowerCase();\n  if (!emails.has(lower)) emails.set(lower, { email: em, local: lower.split('@')[0] || '', url: 'lead_pool:already_observed' });\n  const p = nm.toLowerCase().split(/\\s+/).filter(Boolean);\n  if (p.length >= 2) names.set(p[0] + ' ' + p[p.length - 1], { first: p[0], last: p[p.length - 1] });\n}\n\nfor (const r of web) {\n  const url = r.url || '';\n  const text = [r.title, r.description, r.snippet, r.markdown].filter(Boolean).join(' \\n ');\n  if (!text) continue;\n\n  const foundEmails = text.match(EMAIL_RE) || [];\n  for (const raw of foundEmails) {\n    const em = raw.replace(/[.,;:)\\]]+$/, '');\n    const lower = em.toLowerCase();\n    const local = lower.split('@')[0] || '';\n    const d = lower.split('@')[1] || '';\n    if (d !== domain && !d.endsWith('.' + domain)) continue;   // only this org's own addresses\n    if (ROLE_LOCALS.has(local)) continue;                      // role boxes teach nothing\n    if (!emails.has(lower)) { emails.set(lower, { email: em, local: local, url: url }); urls.add(url); }\n  }\n\n  let m;\n  NAME_RE.lastIndex = 0;\n  while ((m = NAME_RE.exec(text)) !== null) {\n    const first = m[1].toLowerCase(), last = m[2].toLowerCase();\n    if (NOT_A_NAME.has(first) || NOT_A_NAME.has(last)) continue;\n    if (first.length < 2 || last.length < 2) continue;\n    names.set(first + ' ' + last, { first: first, last: last });\n  }\n}\n\n// ---------- pair by derivability ----------\nconst tally = {};\nconst accepted = [];\n\nfor (const [lower, e] of emails) {\n  const localNorm = normalise(e.local);\n  let hit = null;\n  for (const [key, n] of names) {\n    for (const [label, built] of formatsFor(n.first, n.last)) {\n      // Compare normalised so '{first}.{last}' and '{first}{last}' do not\n      // collide: check the raw local part first, then the normalised one.\n      if (e.local.toLowerCase() === built) { hit = { label: label, name: key }; break; }\n      if (!hit && localNorm === normalise(built) && label.indexOf('.') === -1 && label.indexOf('_') === -1 && label.indexOf('-') === -1) { hit = { label: label, name: key }; }\n    }\n    if (hit && hit.exact !== false) break;\n  }\n  if (!hit) continue;\n  // A bare '{first}' or '{last}' is too weak to establish a house style on its\n  // own; count it but never let it win.\n  tally[hit.label] = (tally[hit.label] || 0) + 1;\n  accepted.push(hit.name + '=' + e.email);\n}\n\nconst WEAK = new Set(['{first}', '{last}', '{f}{l}']);\nconst ranked = Object.keys(tally).sort((a, b) => {\n  const wa = WEAK.has(a) ? 1 : 0, wb = WEAK.has(b) ? 1 : 0;\n  if (wa !== wb) return wa - wb;\n  return tally[b] - tally[a];\n});\n\nconst total = accepted.length;\nconst best = ranked[0] || '';\nconst agreeing = best ? tally[best] : 0;\nconst conflicts = ranked.slice(1).map(k => k + ':' + tally[k]).join(', ');\n\nlet status;\nif (total === 0) status = 'no_pairs';\nelse if (agreeing < 2) status = 'insufficient';\nelse if (agreeing / total < 0.6) status = 'conflicted';\n// '{first}' is normally too weak to call a house style, but Temple Beth Am\n// returned 7 of 8 pairs on it (davida@, reyna@, jacob@...). At that weight of\n// agreement it is the format, not a coincidence.\nelse if (WEAK.has(best) && !(agreeing >= 4 && agreeing / total >= 0.8)) status = 'conflicted';\nelse status = 'learned';\n\nreturn { json: Object.assign({}, base, {\n  pattern: status === 'learned' ? best : '',\n  pattern_status: status,\n  agreeing_pairs: agreeing,\n  total_pairs: total,\n  conflicting_patterns: conflicts,\n  sample_pairs: accepted.slice(0, 8).join('; ').slice(0, 450),\n  source_urls: Array.from(urls).slice(0, 4).join(' | ').slice(0, 450),\n  notes: status === 'learned' ? '' : ('emails seen: ' + emails.size + ', names seen: ' + names.size + ', pairs: ' + total)\n}) };",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        740,
+        440
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "id": "write-pattern",
+      "name": "Write Pattern",
+      "onError": "stopWorkflow",
+      "parameters": {
+        "columns": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "domain"
+          ],
+          "schema": []
+        },
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "operation": "appendOrUpdate",
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Domain Patterns",
+          "mode": "list",
+          "value": 1564591157
+        }
+      },
+      "position": [
+        980,
+        440
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5
+    },
+    {
+      "id": "pace",
+      "name": "Pace Requests",
+      "parameters": {
+        "amount": 7,
+        "unit": "seconds"
+      },
+      "position": [
+        1220,
+        440
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "webhookId": "8f8782b3-5923-4aef-82ef-d9947c5ab540"
+    },
+    {
+      "id": "summary",
+      "name": "Run Summary",
+      "parameters": {
+        "jsCode": "// Learn Pattern runs inside the batch loop, so $(...).all() returns only the\n// last batch. Walk every run index for the true total.\nlet rows = [];\nfor (let r = 0; r < 2000; r++) {\n  let batch;\n  try { batch = $('Learn Pattern').all(0, r); } catch (e) { break; }\n  if (!batch || batch.length === 0) break;\n  rows.push(...batch.map(i => i.json));\n}\n\nconst tally = {};\nfor (const r of rows) {\n  const k = r.pattern_status || 'unknown';\n  tally[k] = (tally[k] || 0) + 1;\n}\n\nconst learned = rows.filter(r => r.pattern_status === 'learned')\n  .sort((a, b) => (b.leads_at_domain || 0) - (a.leads_at_domain || 0))\n  .map(r => ({ domain: r.domain, pattern: r.pattern, from_pairs: r.agreeing_pairs + '/' + r.total_pairs, leads_this_unlocks: r.leads_at_domain }));\n\nconst leadsUnlocked = learned.reduce((n, r) => n + (r.leads_this_unlocks || 0), 0);\n\nreturn [{ json: {\n  run_id: $execution.id,\n  finished_at: new Date().toISOString(),\n  domains_examined: rows.length,\n  by_status: tally,\n  patterns_learned: learned.length,\n  leads_these_patterns_cover: leadsUnlocked,\n  learned: learned\n}}];"
+      },
+      "position": [
+        500,
+        180
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "read-observed",
+      "name": "Read Observed Addresses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -400,
+        160
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Observed Addresses",
+          "mode": "list",
+          "value": 2090882799
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Collect Domains": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Domains",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Firecrawl: Harvest Directory": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Learn Pattern",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Learn Pattern": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write Pattern",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Loop Over Domains": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Run Summary",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Firecrawl: Harvest Directory",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Read Domain Patterns",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Pace Requests": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Domains",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Collect Domains",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Write Pattern": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Pace Requests",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Domain Patterns": {
+      "main": [
+        [
+          {
+            "node": "Read Observed Addresses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Observed Addresses": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600,
+    "errorWorkflow": "VZWpZqNvzymxhVcm"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "8031b7b3-42de-45f3-bc81-84f280833721",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-10-13T13:16:04.846Z",
+      "createdAt": "2026-10-13T13:16:04.846Z",
+      "role": "workflow:owner",
+      "workflowId": "tgpMK8SVZTyjHtSl",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
