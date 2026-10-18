@@ -1,0 +1,399 @@
+{
+  "updatedAt": "2026-10-13T10:59:56.201Z",
+  "createdAt": "2026-09-09T03:07:49.443Z",
+  "id": "ZOO7V4y2yF96P7bi",
+  "name": "GFIN Email Pre-Filter",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "note-setup",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        -260
+      ],
+      "parameters": {
+        "content": "## Setup\n\n**Add these Lead Pool columns:** `email_check_result`  `email_is_role`  `sendability`  `email_verified_at`  `domain_age_years`\n\nCredential is the existing **Email-Check.app API** header auth (header name must be `x-api-key`).\n\nRun Manual Test Trigger first, check the sendability spread, then activate.\n\n---\n\n### Why pre-filter, not verify\n\nMost of this pool is on Microsoft 365 / Google Workspace, which refuse to confirm mailbox existence. Tested: `steven.rivera@abc-usa.org` (MX = mail.protection.outlook.com) returns `validSmtp: null`. No service can do better.\n\nSo this removes what is provably bad and grades the rest:\n- `sendable` — SMTP confirmed (rare)\n- `sendable_unverified` — MX good, mailbox unconfirmable. **The bulk of your pool. This is normal.**\n- `role_account` / `risky_new_domain` / `likely_invalid` / `do_not_send`\n\nDeliverability proof comes from the bounce handler.",
+        "height": 560,
+        "width": 460
+      }
+    },
+    {
+      "id": "trigger-schedule",
+      "name": "Every Day 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        340
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "read-lead-pool",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -100,
+        420
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "select-emails",
+      "name": "Select Emails To Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const MAX_PER_RUN = 200;\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\nconst out = [];\nfor (const item of $input.all()) {\n  const r = item.json;\n  if (!ne(r.email)) continue;\n  if (!ne(r.provider_id)) continue;\n  if (ne(r.sendability)) continue;\n  if (ne(r.email_sent_at)) continue;\n  const st = String(r.email_send_status || '').toLowerCase();\n  if (st === 'unsubscribed' || st === 'bounced') continue;\n  out.push({ json: r });\n}\n\nconsole.log(`Pre-filter queue: ${out.length} candidates, checking ${Math.min(out.length, MAX_PER_RUN)}`);\nreturn out.slice(0, MAX_PER_RUN);"
+      }
+    },
+    {
+      "id": "loop-emails",
+      "name": "Loop Over Emails",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        340,
+        420
+      ],
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      }
+    },
+    {
+      "id": "check-email",
+      "name": "email-check.app: Validate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        520
+      ],
+      "parameters": {
+        "url": "https://api.email-check.app/v1-get-email-details",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "verifyMx",
+              "value": "true"
+            },
+            {
+              "name": "verifySmtp",
+              "value": "true"
+            },
+            {
+              "name": "detectName",
+              "value": "true"
+            },
+            {
+              "name": "checkDomainAge",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Fpotd2kQ0L3clb5b",
+          "name": "Email-Check.app API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "grade-email",
+      "name": "Grade Sendability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Grade on what can actually be proven, then sanity-check the DOMAIN ITSELF.\n//\n// v1 enrichment parsed job titles as company names and built domains from them:\n//   'Nonprofit Leader'      -> anne.friedman@leader.com\n//   'Program Director'      -> kellianne@programdirector.org\n//   'The New York Foundling' -> pauline.alama@the.com\n// Those domains are real and decades old, so format + MX both pass and they\n// would grade sendable. Emailing them means cold-pitching uninvolved companies.\n\nconst REQUIRE_COMPANY_MATCH = true;   // set false to allow sends where company_name is blank\n\nconst lead = $('Loop Over Emails').item.json;\nconst v = $json || {};\n\nconst email = String(lead.email || '').toLowerCase().trim();\nconst local = email.split('@')[0] || '';\nconst domain = (email.split('@')[1] || '').toLowerCase();\nconst domainRoot = domain\n  .replace(/\\.(com|org|net|edu|gov|io|co|us|uk|ca|info|biz|ngo|charity)(\\.[a-z]{2})?$/, '')\n  .replace(/[^a-z0-9]/g, '');\n\n// ---------- role accounts ----------\nconst ROLE = ['info','admin','administrator','contact','support','hello','office','mail','team','sales','billing','help','noreply','no-reply','webmaster','postmaster','enquiries','inquiries','general','donations','volunteer',\n  // added 13 Oct: assistance@ and press@ were grading sendable_unverified\n  'assistance','press','media','pr','marketing','hr','careers','jobs','service','services','customerservice','reception','secretary','accounts','finance','legal','privacy','abuse','security','feedback','subscribe','newsletter','communications','development','grants','outreach'];\nconst isRole = ROLE.includes(local) || /^(info|admin|contact|support|office|hello|press|media|assistance|enquir|inquir)[._-]/.test(local);\n\n// ---------- junk domain guard ----------\n// Words that describe a JOB, not an employer.\nconst ROLE_WORDS = new Set(['director','directors','leader','leaders','leadership','manager','management','executive','officer','president','founder','cofounder','co','ceo','coo','cfo','cto','chair','chairman','board','consultant','consulting','strategist','specialist','coordinator','administrator','administration','program','programs','development','fundraising','fundraiser','grant','grants','writer','writing','nonprofit','non','profit','volunteer','entrepreneur','inventor','professional','freelance','independent','self','employed','retired','advisor','adviser','principal','owner','partner','associate','analyst','engineer','designer','marketing','sales','operations','recruiter','student','intern','philanthropy','philanthropist','relations','affairs','outreach','engagement','strategy','strategic']);\n\nconst STOPWORDS = new Set(['the','of','for','and','a','an','at','in','on','to','inc','llc','ltd','corp','corporation','co','company','group','holdings','plc','org','organization','organisation']);\n\nconst rawTokens = String(lead.company_name || '')\n  .toLowerCase()\n  .replace(/[^a-z0-9\\s]/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean);\n\nconst meaningful = rawTokens.filter(t => !STOPWORDS.has(t));\nconst distinctive = meaningful.filter(t => !ROLE_WORDS.has(t));\n\nconst hasCompany = rawTokens.length > 0;\n// A 'company' made only of job words is a job title, not an employer.\nconst companyIsJobTitle = hasCompany && distinctive.length === 0;\n\n// Does the domain plausibly belong to this organisation?\nconst acronym = rawTokens.map(t => t[0]).join('');\nconst meaningfulAcronym = meaningful.map(t => t[0]).join('');\nconst joined = meaningful.join('');\n\nlet domainMatches = false;\nif (domainRoot) {\n  if (distinctive.some(t => t.length >= 4 && domainRoot.includes(t))) domainMatches = true;\n  else if (distinctive.some(t => t.length === 3 && domainRoot === t)) domainMatches = true;\n  else if (domainRoot === acronym && acronym.length >= 3) domainMatches = true;\n  else if (domainRoot === meaningfulAcronym && meaningfulAcronym.length >= 3) domainMatches = true;\n  else if (joined && (joined.includes(domainRoot) || domainRoot.includes(joined))) domainMatches = true;\n}\n\n// ---------- API signals ----------\nconst validFormat = v.validFormat === true;\nconst validMx = v.validMx === true;\nconst isDisposable = v.isDisposable === true;\nconst smtp = (v.validSmtp === true) ? 'confirmed' : (v.validSmtp === false ? 'rejected' : 'unknown');\n\nlet ageYears = null;\ntry { if (v.domainAge && v.domainAge.ageInYears != null) ageYears = Number(v.domainAge.ageInYears); } catch (e) {}\nconst newDomain = ageYears !== null && ageYears < 0.25;\n\nconst apiFailed = !!v.error || (v.validFormat === undefined && v.validMx === undefined);\n\n// ---------- provenance guard ----------\n// The domainMatches test above compares the domain to company_name. v1 built\n// company_domain AND email FROM company_name, so a fabricated domain always\n// 'matches' it. String similarity structurally cannot catch that -- only\n// provenance can. Trust a domain only where something actually evidenced it.\nconst emailSrc = String(lead.email_source || '').toLowerCase();\nconst domainSrc = String(lead.company_domain_source || '').trim();\nconst unevidencedDomain = /unevidenced|pattern_guess/.test(emailSrc) && !domainSrc;\n\n// Three tiers of provenance, not two:\n//   OBSERVED  - someone saw this address written down (site scrape, verified page)\n//   GUESSED   - the DOMAIN is real but the MAILBOX was assembled from a name\n//               pattern (osint_pattern). This is where the remaining bounces\n//               live: arthritis.org is real, brian.simard@ was invented.\n//   FABRICATED- the domain was invented too (pattern_guess) -> junk_domain above\nconst mailboxObserved = /site_scrape|scrape_verified|_verified|manual/.test(emailSrc);\nconst guessedMailbox = !mailboxObserved && /pattern|guess/.test(emailSrc);\n\n// ---------- decision ----------\nlet sendability, confidence, note = '';\n\nif (apiFailed) { sendability = 'unknown'; confidence = 0; }\nelse if (!validFormat) { sendability = 'do_not_send'; confidence = 0; }\nelse if (isDisposable) { sendability = 'do_not_send'; confidence = 0; }\nelse if (!validMx) { sendability = 'do_not_send'; confidence = 0; }\nelse if (companyIsJobTitle) { sendability = 'junk_domain'; confidence = 0; note = 'company_name is a job title'; }\nelse if (hasCompany && !domainMatches) { sendability = 'junk_domain'; confidence = 0; note = 'domain unrelated to company_name'; }\nelse if (unevidencedDomain) { sendability = 'junk_domain'; confidence = 0; note = 'domain never evidenced - pattern guess'; }\nelse if (!hasCompany && REQUIRE_COMPANY_MATCH) { sendability = 'hold_no_company'; confidence = 0; note = 'no company_name to verify domain against'; }\nelse if (smtp === 'rejected') { sendability = 'likely_invalid'; confidence = 10; }\nelse if (isRole) { sendability = 'role_account'; confidence = 40; }\nelse if (newDomain) { sendability = 'risky_new_domain'; confidence = 35; }\n// 'sendable' (smtp=confirmed, confidence 90) is RETIRED. Six of the sixteen\n// bounces on 14-17 Sep carried exactly that grade. The SMTP probe was\n// confirming catch-all domains - servers that accept every recipient at the\n// edge and reject afterwards - not real mailboxes. It read as the safest\n// grade while carrying no more assurance than the one below it, so everything\n// with good MX now grades the same and the bounce handler decides the rest.\nelse if (guessedMailbox) { sendability = 'guessed_mailbox'; confidence = 30; note = 'real domain, mailbox never observed (' + emailSrc + ')'; }\nelse { sendability = 'sendable_unverified'; confidence = 60; }\n\nreturn { json: {\n  provider_id: lead.provider_id,\n  email_check_result: apiFailed ? 'error' : `format=${validFormat} mx=${validMx} smtp=${smtp} disposable=${isDisposable}${note ? ' | ' + note : ''}`,\n  email_is_role: isRole,\n  email_verified: smtp === 'confirmed',\n  email_confidence: confidence,\n  sendability: sendability,\n  domain_age_years: ageYears === null ? '' : ageYears,\n  email_verified_at: new Date().toISOString()\n}};"
+      }
+    },
+    {
+      "id": "write-grade",
+      "name": "Write Grade To Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1020,
+        520
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "wait-batch",
+      "name": "Pace Requests",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1240,
+        520
+      ],
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "webhookId": "8281b18a-b90d-4b14-8ba9-1ab9cb6438a7"
+    },
+    {
+      "id": "run-summary",
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        320
+      ],
+      "parameters": {
+        "jsCode": "// Grade Sendability runs once per batch, so $(...).all() only returns the LAST\n// batch. Walk every run index to get the true total.\nlet rows = [];\nfor (let r = 0; r < 500; r++) {\n  let batch;\n  try { batch = $('Grade Sendability').all(0, r); } catch (e) { break; }\n  if (!batch || batch.length === 0) break;\n  rows.push(...batch.map(i => i.json));\n}\n\nconst tally = {};\nfor (const r of rows) {\n  const k = r.sendability || 'unknown';\n  tally[k] = (tally[k] || 0) + 1;\n}\n\nreturn [{ json: { run_id: $execution.id, finished_at: new Date().toISOString(), graded_this_run: rows.length, by_sendability: tally }}];"
+      }
+    }
+  ],
+  "connections": {
+    "Every Day 09:00": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Select Emails To Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Emails To Check": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Emails": {
+      "main": [
+        [
+          {
+            "node": "Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "email-check.app: Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "email-check.app: Validate": {
+      "main": [
+        [
+          {
+            "node": "Grade Sendability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grade Sendability": {
+      "main": [
+        [
+          {
+            "node": "Write Grade To Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Grade To Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Pace Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pace Requests": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600,
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:Every Day 09:00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "2b50063f-869f-4b2d-a01a-54e397fd0866",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-09-09T03:07:49.443Z",
+      "createdAt": "2026-09-09T03:07:49.443Z",
+      "role": "workflow:owner",
+      "workflowId": "ZOO7V4y2yF96P7bi",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
