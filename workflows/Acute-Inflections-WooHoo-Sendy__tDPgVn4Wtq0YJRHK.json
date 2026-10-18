@@ -1,0 +1,204 @@
+{
+  "updatedAt": "2026-07-29T16:51:15.796Z",
+  "createdAt": "2026-06-06T17:01:21.827Z",
+  "id": "tDPgVn4Wtq0YJRHK",
+  "name": "Acute Inflections WooHoo -> Sendy",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acute-inflections",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        256
+      ],
+      "id": "abdb1e6f-034a-49de-bab4-511589888e38",
+      "name": "Webhook",
+      "webhookId": "95a48496-aef1-47bc-a25f-c535e11b5788"
+    },
+    {
+      "parameters": {
+        "email": "={{ $json.body.email }}",
+        "listId": "An7636e3zevZVz8ka6yWr4vg",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        160,
+        224
+      ],
+      "id": "0d38a5df-b5a7-408d-bd39-31fd637c6707",
+      "name": "Add a subscriber - Website Mailing List Sign Ups",
+      "credentials": {
+        "sendyApi": {
+          "id": "6gImDX9tZStKu3wx",
+          "name": "Sendy account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "email": "={{ $json.body.email }}",
+        "listId": "cMja5LEcTknUCf9C892u5ffA",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        448,
+        400
+      ],
+      "id": "b185963e-8d7f-4e89-be2a-f2d920994533",
+      "name": "Add a subscriber - Test List",
+      "credentials": {
+        "sendyApi": {
+          "id": "6gImDX9tZStKu3wx",
+          "name": "Sendy account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.wheel }}",
+                    "rightValue": "44584",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d522eb00-1b0e-443a-b41c-3734f3d1a21f"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "efcec76d-75ac-4edc-a4ab-7009e1818e5a",
+                    "leftValue": "={{ $json.body.wheel }}",
+                    "rightValue": "106517",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -176,
+        256
+      ],
+      "id": "fd5ff46e-4c33-40e3-a469-ac26686de568",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "email": "={{ $json.body.email }}",
+        "listId": "An7636e3zevZVz8ka6yWr4vg",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        144,
+        416
+      ],
+      "id": "ad332a6e-5756-4804-8b2f-0925e2db1fa3",
+      "name": "Add a subscriber - Website Mailing List Sign Ups1",
+      "credentials": {
+        "sendyApi": {
+          "id": "6gImDX9tZStKu3wx",
+          "name": "Sendy account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Add a subscriber - Website Mailing List Sign Ups",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add a subscriber - Website Mailing List Sign Ups1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "d415beca-bcd9-4557-b215-73115986dd45",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-06-06T17:01:21.827Z",
+      "createdAt": "2026-06-06T17:01:21.827Z",
+      "role": "workflow:owner",
+      "workflowId": "tDPgVn4Wtq0YJRHK",
+      "projectId": "rRufABRTEAwQJInN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
