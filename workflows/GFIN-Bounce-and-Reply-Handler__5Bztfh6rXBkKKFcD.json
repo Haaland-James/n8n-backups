@@ -1,0 +1,686 @@
+{
+  "updatedAt": "2026-10-13T11:00:10.728Z",
+  "createdAt": "2026-09-09T03:12:32.256Z",
+  "id": "5Bztfh6rXBkKKFcD",
+  "name": "GFIN Bounce and Reply Handler",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup\n\n**1. Add one Lead Pool column:** `bounced_at`\n\n**2. Create the IMAP credential and select it on the trigger node** (it is intentionally left blank). Same mailbox your SMTP credential 'GFIN Email - James' sends from. Typical webmail/cPanel settings:\n- Host: `mail.yourdomain.com` (often same host as SMTP)\n- Port `993`, SSL/TLS on\n- Same user + password as SMTP\n\nName it **GFIN Email IMAP**.\n\n**3. Test** by emailing that address yourself, then activate.\n\n---\n\n### Why this exists\n\nM365 and Workspace accept every recipient at the edge and bounce later, so no pre-send check proves deliverability. **The bounce is the verification.**\n\n- Hard bounce (5.x.x) to `bounced` + `do_not_send`, permanently suppressed\n- Soft bounce (4.x.x) recorded, not suppressed\n- Human reply to `reply_text` + `replied_at` + status Replied\n- Auto-reply / OOO ignored\n\nAlso closes the reply-tracking gap: 806 LinkedIn touches, 0 replies recorded.",
+        "height": 640,
+        "width": 460
+      },
+      "id": "note-setup",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "downloadAttachments": true,
+        "options": {
+          "forceReconnect": 15,
+          "trackLastMessageId": false
+        }
+      },
+      "id": "imap-trigger",
+      "name": "IMAP: GFIN Mailbox",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        400
+      ],
+      "credentials": {
+        "imap": {
+          "id": "j0bgqB1JwcHrJDHC",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Work out what an inbound message actually is.\n// Field names vary by IMAP format setting, so read defensively.\n\nconst m = $json || {};\nconst pick = (...keys) => {\n  for (const k of keys) {\n    if (m[k] !== undefined && m[k] !== null && String(m[k]).trim() !== '') return String(m[k]);\n  }\n  return '';\n};\n\nconst fromRaw = pick('from', 'From', 'sender', 'returnPath').toLowerCase();\nconst subject = pick('subject', 'Subject');\nconst body = pick('textPlain', 'text', 'textHtml', 'html', 'snippet');\nconst blob = `${subject}\\n${body}`;\n\nconst emailRe = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g;\nconst senderMatch = fromRaw.match(emailRe);\nconst senderEmail = senderMatch ? senderMatch[0].toLowerCase() : '';\n\nconst daemonSender = /(mailer-daemon|postmaster|no-?reply|delivery-?status|bounce)@/i.test(fromRaw);\nconst bounceSubject = /(undelivered|undeliverable|delivery status notification|delivery has failed|failure notice|returned to sender|mail delivery failed|delivery incomplete)/i.test(subject);\nconst isBounce = daemonSender || bounceSubject;\n\nconst isAutoReply = /(out of office|out-of-office|automatic reply|auto-?reply|autoresponse|vacation|currently away|on annual leave|maternity leave)/i.test(subject);\n\n// Addresses that are OURS. A forwarded bounce (\"Fwd: Delivery Status\n// Notification\") carries our own address in the quoted header block BEFORE the\n// failed recipient, so any \"first email in the body\" rule returns us, not them.\nconst OURS = /@(gofunditnow\\.com|googlemail\\.com|google\\.com)$/i;\nconst notOurs = (v) => !!v && !OURS.test(v);\n\nlet target = '';\nconst finalRcpt = blob.match(/final-recipient:\\s*rfc822;\\s*<?([^\\s<>]+@[^\\s<>]+)>?/i);\nconst origRcpt = blob.match(/original-recipient:\\s*rfc822;\\s*<?([^\\s<>]+@[^\\s<>]+)>?/i);\nconst failedPhrase = blob.match(/(?:to|recipient|address)\\s*:?\\s*<?([^\\s<>]+@[^\\s<>]+)>?[^\\n]{0,80}?(?:could not be|couldn't be|was not|wasn't|failed|rejected|does not exist|unknown)/i);\n\n// Gmail: \"Your message wasn't delivered to *someone@example.org*\"\nconst gmailPhrase = blob.match(/(?:wasn'?t|was not|could not be|couldn'?t be) delivered to\\s*[*<]?([^\\s<>*]+@[^\\s<>*]+)/i);\n// Gmail policy block: \"Your message to X has been blocked\"\nconst blockedPhrase = blob.match(/your message to\\s*[*<]?([^\\s<>*]+@[^\\s<>*]+)[>*]?\\s*has been blocked/i);\n// Postfix: a line beginning \"<someone@example.org>:\"\nconst postfixLine = blob.match(/^\\s*<([^\\s<>]+@[^\\s<>]+)>:/im);\n\nif (finalRcpt && notOurs(finalRcpt[1])) target = finalRcpt[1];\nelse if (origRcpt && notOurs(origRcpt[1])) target = origRcpt[1];\nelse if (gmailPhrase && notOurs(gmailPhrase[1])) target = gmailPhrase[1];\nelse if (blockedPhrase && notOurs(blockedPhrase[1])) target = blockedPhrase[1];\nelse if (postfixLine && notOurs(postfixLine[1])) target = postfixLine[1];\nelse if (failedPhrase && notOurs(failedPhrase[1])) target = failedPhrase[1];\nelse if (isBounce) {\n  const all = (body.match(emailRe) || []).map(e => e.toLowerCase());\n  target = all.find(e => !/(mailer-daemon|postmaster|no-?reply)/.test(e) && notOurs(e)) || '';\n}\n\ntarget = String(target || '').toLowerCase().replace(/[.,;>*]+$/, '');\n\nconst statusCode = blob.match(/status:\\s*([45])\\.(\\d+)\\.(\\d+)/i);\nconst hardPhrases = /(550|551|553|554|5\\.1\\.1|does not exist|no such user|user unknown|unknown user|mailbox unavailable|recipient rejected|address rejected|invalid recipient|no mailbox)/i;\nconst softPhrases = /(451|452|421|4\\.2\\.2|mailbox full|over quota|quota exceeded|temporarily|try again later|greylist)/i;\n\nlet isHard = false;\nif (statusCode) isHard = statusCode[1] === '5';\nelse if (hardPhrases.test(blob)) isHard = true;\nelse if (softPhrases.test(blob)) isHard = false;\nelse isHard = false;  // Unrecognised bounce format: record it, but do NOT\n// permanently suppress. A wrong 'hard' kills a real lead forever; a wrong\n// 'soft' just means we try again and learn from the next bounce.\n\nlet kind = 'ignore';\nif (isBounce && target) kind = isHard ? 'hard_bounce' : 'soft_bounce';\nelse if (isAutoReply) kind = 'auto_reply';\nelse if (senderEmail && !daemonSender && notOurs(senderEmail)) kind = 'human_reply';\n\nreturn { json: {\n  kind,\n  target_email: kind === 'human_reply' ? senderEmail : target,\n  sender_email: senderEmail,\n  subject,\n  snippet: body.slice(0, 500),\n  received_at: new Date().toISOString()\n}};"
+      },
+      "id": "classify",
+      "name": "Classify Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "not-ignored",
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "ignore",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "has-target",
+              "leftValue": "={{ $json.target_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "actionable",
+      "name": "Actionable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        112,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "id": "read-lead-pool",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        352,
+        320
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map each classified message onto its Lead Pool row by email address.\n\nconst pool = $input.all().map(i => i.json);\nlet msgs = [];\ntry {\n  msgs = $('Classify Message').all().map(i => i.json).filter(m => m.kind !== 'ignore' && m.target_email);\n} catch (e) {}\n\nconst byEmail = new Map();\nfor (const r of pool) {\n  const e = String(r.email || '').trim().toLowerCase();\n  if (e && r.provider_id && !byEmail.has(e)) byEmail.set(e, r);\n}\n\nconst out = [];\nfor (const m of msgs) {\n  const row = byEmail.get(String(m.target_email).toLowerCase());\n  if (!row) {\n    console.log(`No Lead Pool row for ${m.target_email} (${m.kind}) - skipped`);\n    continue;\n  }\n\n  const base = { provider_id: row.provider_id };\n\n  if (m.kind === 'hard_bounce') {\n    out.push({ json: { ...base, email_send_status: 'bounced', sendability: 'do_not_send', email_confidence: 0, bounced_at: m.received_at }});\n  } else if (m.kind === 'soft_bounce') {\n    out.push({ json: { ...base, email_send_status: 'soft_bounce', bounced_at: m.received_at }});\n  } else if (m.kind === 'human_reply') {\n    out.push({ json: { ...base, reply_text: `[${m.subject}] ${m.snippet}`.slice(0, 900), replied_at: m.received_at, status: 'Replied', last_action: 'email_reply' }});\n  }\n}\n\nconsole.log(`Bounce/reply handler: ${msgs.length} actionable, ${out.length} matched`);\nreturn out;"
+      },
+      "id": "match-lead",
+      "name": "Match To Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_status",
+              "displayName": "enriched_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain_source",
+              "displayName": "company_domain_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_candidates",
+              "displayName": "email_candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lead_source",
+              "displayName": "lead_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_sent_at",
+              "displayName": "email_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_send_status",
+              "displayName": "email_send_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_check_result",
+              "displayName": "email_check_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_is_role",
+              "displayName": "email_is_role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sendability",
+              "displayName": "sendability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified_at",
+              "displayName": "email_verified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain_age_years",
+              "displayName": "domain_age_years",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "bounced_at",
+              "displayName": "bounced_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "write-outcome",
+      "name": "Write Outcome To Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        832,
+        320
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX.Junk",
+        "downloadAttachments": true,
+        "options": {
+          "forceReconnect": 15,
+          "trackLastMessageId": false
+        }
+      },
+      "id": "5ebedbd3-fe41-432f-85c5-d38f9a64c053",
+      "name": "IMAP: Junk Folder",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        576
+      ],
+      "credentials": {
+        "imap": {
+          "id": "j0bgqB1JwcHrJDHC",
+          "name": "IMAP account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP: GFIN Mailbox": {
+      "main": [
+        [
+          {
+            "node": "Classify Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Message": {
+      "main": [
+        [
+          {
+            "node": "Actionable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actionable?": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Match To Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match To Lead": {
+      "main": [
+        [
+          {
+            "node": "Write Outcome To Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMAP: Junk Folder": {
+      "main": [
+        [
+          {
+            "node": "Classify Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "errorWorkflow": "VZWpZqNvzymxhVcm"
+  },
+  "staticData": {
+    "node:IMAP: GFIN Mailbox": {},
+    "node:IMAP: Junk Folder": {}
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "9d7911e9-d377-42a3-be25-a2cdca3a8ebe",
+  "activeVersionId": null,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2026-09-09T03:12:32.256Z",
+      "createdAt": "2026-09-09T03:12:32.256Z",
+      "role": "workflow:owner",
+      "workflowId": "5Bztfh6rXBkKKFcD",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
