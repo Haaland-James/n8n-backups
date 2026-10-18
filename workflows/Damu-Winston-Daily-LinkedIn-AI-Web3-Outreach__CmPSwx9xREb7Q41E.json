@@ -1,0 +1,619 @@
+{
+  "updatedAt": "2026-08-08T03:00:54.384Z",
+  "createdAt": "2026-02-12T11:56:08.657Z",
+  "id": "CmPSwx9xREb7Q41E",
+  "name": "Damu Winston - Daily LinkedIn AI/Web3 Outreach",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "node-0001",
+      "name": "Daily Schedule 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -96,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk",
+          "mode": "list",
+          "cachedResultName": "Damu Linkedin Connects",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1467141209,
+          "mode": "list",
+          "cachedResultName": "Damu Linkedin Connect",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit#gid=1467141209"
+        },
+        "options": {}
+      },
+      "id": "node-0002",
+      "name": "Fetch Source List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        304
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = [\n  'web3', 'web 3', 'artificial intelligence',\n  'blockchain', 'tokenization', 'tokenisation'\n];\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const headline = (item.json.headline || '').toLowerCase();\n  const matched = keywords.some(kw => headline.includes(kw));\n  if (matched) {\n    results.push({\n      json: {\n        linkedin_id: String(item.json.linkedin_id || ''),\n        first_name: item.json.first_name || '',\n        last_name: item.json.last_name || '',\n        display_name: item.json.display_name || '',\n        profile_url: item.json.profile_url || '',\n        headline: item.json.headline || ''\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "node-0003",
+      "name": "Filter Web3 AI Blockchain Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk",
+          "mode": "list",
+          "cachedResultName": "Damu Linkedin Connects",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1834680732,
+          "mode": "list",
+          "cachedResultName": "Damu 2026 Outreach Campaign",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit#gid=1834680732"
+        },
+        "options": {}
+      },
+      "id": "node-0004",
+      "name": "Fetch Outreach Sent List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        496
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "profile_url",
+              "field2": "profile_url"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-0005",
+      "name": "Remove Already Contacted",
+      "type": "n8n-nodes-base.compareDatasets",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 12
+      },
+      "id": "node-0006",
+      "name": "Limit to 12 Per Day",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        960,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-0007",
+      "name": "Check Contacts To Send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        336
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const firstName = item.json.first_name || item.json.display_name || 'there';\n  const message = 'Hey ' + firstName + ',\\n\\nI know you\\'re in the Web3/Tokenization space, but what are you doing in the AI space?\\n\\nLet\\'s reconnect - I\\'d love to hear what you\\'re up to.\\n\\nVisit www.DamuWinston.com and try \"Ask my voice AI\" to coordinate a time for us to connect.\\n\\nLooking forward to it!';\n\n  results.push({\n    json: {\n      ...item.json,\n      message: message,\n      sent_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "node-0008",
+      "name": "Compose Outreach Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        336
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk",
+          "mode": "list",
+          "cachedResultName": "Damu Linkedin Connects",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1834680732,
+          "mode": "list",
+          "cachedResultName": "Damu 2026 Outreach Campaign",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Slp9XXNiMwrnxeBCtOuStzENmZ9uva29QECe3ioTnQk/edit#gid=1834680732"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "last_name": "={{ $('Loop Over Items').item.json.last_name }}",
+            "first_name": "={{ $('Loop Over Items').item.json.first_name }}",
+            "profile_url": "={{ $('Loop Over Items').item.json.profile_url }}",
+            "headline": "={{ $('Loop Over Items').item.json.headline }}",
+            "message_sent": "={{ $('Loop Over Items').item.json.message }}",
+            "status": "sent",
+            "date_sent": "={{ $now }}",
+            "linkedin_id": "={{ $('Loop Over Items').item.json.linkedin_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "message_id": "={{ $json.message_id }}"
+          },
+          "matchingColumns": [
+            "linkedin_id"
+          ],
+          "schema": [
+            {
+              "id": "linkedin_id",
+              "displayName": "linkedin_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "profile_url",
+              "displayName": "profile_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_sent",
+              "displayName": "message_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_sent",
+              "displayName": "date_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "node-0010",
+      "name": "Add to Sent List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2096,
+        336
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "node-0011",
+      "name": "No New Contacts Today",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/chats",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "uygnTjsD.wT45fRI2zXKHjOU8iflhmhuomTmW+MxAQ2BobCoE4XU="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            },
+            {
+              "name": "content-type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "account_id",
+              "value": "DZFi1PeCTDmiB9H8O0aiPw"
+            },
+            {
+              "name": "attendees_ids",
+              "value": "={{ $json.linkedin_id }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1840,
+        352
+      ],
+      "id": "1234166b-a454-4d67-9ee6-be8b80bfde64",
+      "name": "Send Message",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1616,
+        336
+      ],
+      "id": "9253ad63-a94e-4f79-9cea-6ba42f8e305b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 50
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        592
+      ],
+      "id": "5417b21e-4979-4df8-9d89-05f46bb519ae",
+      "name": "Wait",
+      "webhookId": "5ad0b999-6de2-47f1-9130-1679aa0522e2"
+    }
+  ],
+  "connections": {
+    "Daily Schedule 9am": {
+      "main": [
+        [
+          {
+            "node": "Fetch Source List",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Outreach Sent List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Source List": {
+      "main": [
+        [
+          {
+            "node": "Filter Web3 AI Blockchain Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Web3 AI Blockchain Contacts": {
+      "main": [
+        [
+          {
+            "node": "Remove Already Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Outreach Sent List": {
+      "main": [
+        [
+          {
+            "node": "Remove Already Contacted",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Remove Already Contacted": {
+      "main": [
+        [
+          {
+            "node": "Limit to 12 Per Day",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    "Limit to 12 Per Day": {
+      "main": [
+        [
+          {
+            "node": "Check Contacts To Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Contacts To Send": {
+      "main": [
+        [
+          {
+            "node": "Compose Outreach Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Contacts Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Outreach Message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Message": {
+      "main": [
+        [
+          {
+            "node": "Add to Sent List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Sent List": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "executionTimeout": 600,
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "timeSavedPerExecution": 10,
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Daily Schedule 9am": {
+      "recurrenceRules": [
+        23
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "3d5c34d6-4ce6-4cdc-ba87-8d5e00a867bd",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-12T11:56:08.657Z",
+      "createdAt": "2026-02-12T11:56:08.657Z",
+      "role": "workflow:owner",
+      "workflowId": "CmPSwx9xREb7Q41E",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
