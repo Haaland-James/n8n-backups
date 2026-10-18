@@ -1,1 +1,306 @@
-{}
+{
+  "0SayL_h6s2TBQ-vr4oqMp": {
+    "name": "Damu Get Calendar Times (n8n)",
+    "file_path": "workflows/Damu-Get-Calendar-Times-n8n__0SayL_h6s2TBQ-vr4oqMp.json"
+  },
+  "0TZB6GPeYnXgn0yU": {
+    "name": "Backups",
+    "file_path": "workflows/Backups__0TZB6GPeYnXgn0yU.json"
+  },
+  "2juFrfjUpzEFpDo1": {
+    "name": "WithAGI Linkedin Posts Automation",
+    "file_path": "workflows/WithAGI-Linkedin-Posts-Automation__2juFrfjUpzEFpDo1.json"
+  },
+  "3OHnzKlRjM6obY5Q": {
+    "name": "THE SUMERIAN — LTX PRODUCTION PIPELINE v1",
+    "file_path": "workflows/THE-SUMERIAN-LTX-PRODUCTION-PIPELINE-v1__3OHnzKlRjM6obY5Q.json"
+  },
+  "4fnrVC5umM0aDR76": {
+    "name": "THE SUMERIAN — REVIEW & SHOT STATUS v1",
+    "file_path": "workflows/THE-SUMERIAN-REVIEW-SHOT-STATUS-v1__4fnrVC5umM0aDR76.json"
+  },
+  "53Gzx5m9M93BrUzP": {
+    "name": "My workflow 2",
+    "file_path": "workflows/My-workflow-2__53Gzx5m9M93BrUzP.json"
+  },
+  "5Bztfh6rXBkKKFcD": {
+    "name": "GFIN Bounce and Reply Handler",
+    "file_path": "workflows/GFIN-Bounce-and-Reply-Handler__5Bztfh6rXBkKKFcD.json"
+  },
+  "5Ol3q7Tzt0qrQQc5": {
+    "name": "THE SUMERIAN — PRODUCTION FORMS v1.1",
+    "file_path": "workflows/THE-SUMERIAN-PRODUCTION-FORMS-v1.1__5Ol3q7Tzt0qrQQc5.json"
+  },
+  "6BY9Pvb6vNAmR6hZ": {
+    "name": "JOTFC Linkedin AutoPosts",
+    "file_path": "workflows/JOTFC-Linkedin-AutoPosts__6BY9Pvb6vNAmR6hZ.json"
+  },
+  "6VOiuqVZVozXTkxc": {
+    "name": "Sendy Automation",
+    "file_path": "workflows/Sendy-Automation__6VOiuqVZVozXTkxc.json"
+  },
+  "6xyg2IcuMow3DTDx": {
+    "name": "GFIN Lead Enrichment v2 (OSINT)",
+    "file_path": "workflows/GFIN-Lead-Enrichment-v2-OSINT__6xyg2IcuMow3DTDx.json"
+  },
+  "8BHSMxHncB7YD4O4XYkrU": {
+    "name": "GFIN Linkedin Post Automation",
+    "file_path": "workflows/GFIN-Linkedin-Post-Automation__8BHSMxHncB7YD4O4XYkrU.json"
+  },
+  "8rBhmKEpGqU1nQx4": {
+    "name": "Backkup",
+    "file_path": "workflows/Backkup__8rBhmKEpGqU1nQx4.json"
+  },
+  "9glI5P7LGr1NgWru": {
+    "name": "Damu Linkedin Outreach (Podcast) - Unipile",
+    "file_path": "workflows/Damu-Linkedin-Outreach-Podcast-Unipile__9glI5P7LGr1NgWru.json"
+  },
+  "BQIZWBjlwYwyQcx7": {
+    "name": "GFIN Unsubscribe Handler",
+    "file_path": "workflows/GFIN-Unsubscribe-Handler__BQIZWBjlwYwyQcx7.json"
+  },
+  "CVdTuzx5JHdVq88P": {
+    "name": "GFIN - Discovery via Map",
+    "file_path": "workflows/GFIN-Discovery-via-Map__CVdTuzx5JHdVq88P.json"
+  },
+  "CmPSwx9xREb7Q41E": {
+    "name": "Damu Winston - Daily LinkedIn AI/Web3 Outreach",
+    "file_path": "workflows/Damu-Winston-Daily-LinkedIn-AI-Web3-Outreach__CmPSwx9xREb7Q41E.json"
+  },
+  "D4OL1IRYzsDaUhyY": {
+    "name": "THE SUMERIAN — Cloudinary tqef1lo7 Read-only Verification",
+    "file_path": "workflows/THE-SUMERIAN-Cloudinary-tqef1lo7-Read-only-Verification__D4OL1IRYzsDaUhyY.json"
+  },
+  "DKFJLjdh8Qomb4oz": {
+    "name": "Elementor Forms to Apollo",
+    "file_path": "workflows/Elementor-Forms-to-Apollo__DKFJLjdh8Qomb4oz.json"
+  },
+  "DjUnPTviVq9NAjh1sudxw": {
+    "name": "GFIN Webinar - Email Workflow",
+    "file_path": "workflows/GFIN-Webinar-Email-Workflow__DjUnPTviVq9NAjh1sudxw.json"
+  },
+  "DjfDZvylRVZx5Fuw": {
+    "name": "GFIN Data",
+    "file_path": "workflows/GFIN-Data__DjfDZvylRVZx5Fuw.json"
+  },
+  "EIrSvecHyxvZubeq": {
+    "name": "SEO Blog Writer Agent v2",
+    "file_path": "workflows/SEO-Blog-Writer-Agent-v2__EIrSvecHyxvZubeq.json"
+  },
+  "Fg1WkpxxIVgMKHd2": {
+    "name": "Linkedin Outreach - Unipile",
+    "file_path": "workflows/Linkedin-Outreach-Unipile__Fg1WkpxxIVgMKHd2.json"
+  },
+  "HfILQNdAdfaVnvEP": {
+    "name": "GFIN — Lead Discovery Account 2 (Nigerian)",
+    "file_path": "workflows/GFIN-Lead-Discovery-Account-2-Nigerian__HfILQNdAdfaVnvEP.json"
+  },
+  "IGP3MiEqqdKccTrB": {
+    "name": "GFIN Digital Scout",
+    "file_path": "workflows/GFIN-Digital-Scout__IGP3MiEqqdKccTrB.json"
+  },
+  "La24lhzWPVqsffWq": {
+    "name": "Damu — Image Resolver (sub-workflow)",
+    "file_path": "workflows/Damu-Image-Resolver-sub-workflow__La24lhzWPVqsffWq.json"
+  },
+  "LgYRaGcFWI7ZK7gL": {
+    "name": "Retrieve Linkedin Connection",
+    "file_path": "workflows/Retrieve-Linkedin-Connection__LgYRaGcFWI7ZK7gL.json"
+  },
+  "MX8SnJQlZHQlttyq": {
+    "name": "GFIN Growth Live Monitor",
+    "file_path": "workflows/GFIN-Growth-Live-Monitor__MX8SnJQlZHQlttyq.json"
+  },
+  "MYAkzzM17sdcV54Z": {
+    "name": "GFIN — Blog to LinkedIn v2 (JSON payload parse)",
+    "file_path": "workflows/GFIN-Blog-to-LinkedIn-v2-JSON-payload-parse__MYAkzzM17sdcV54Z.json"
+  },
+  "NdsMrCikMeJk2djp": {
+    "name": "Damu Linkedin Connect Invite Outreach (Speakers",
+    "file_path": "workflows/Damu-Linkedin-Connect-Invite-Outreach-Speakers__NdsMrCikMeJk2djp.json"
+  },
+  "OfAmN5BuQQ1uTKZu": {
+    "name": "GFIN Email Finder",
+    "file_path": "workflows/GFIN-Email-Finder__OfAmN5BuQQ1uTKZu.json"
+  },
+  "OoeOlszsHES4aZ3N": {
+    "name": "GofunditNow LinkedIn Autoposts",
+    "file_path": "workflows/GofunditNow-LinkedIn-Autoposts__OoeOlszsHES4aZ3N.json"
+  },
+  "QHtg7jHbZVmN1ACb": {
+    "name": "GFIN Linkedin Lead Discovery",
+    "file_path": "workflows/GFIN-Linkedin-Lead-Discovery__QHtg7jHbZVmN1ACb.json"
+  },
+  "QN7EefWvQ9ge9X7G": {
+    "name": "(Z-H) Update WordPress from Zoho Flow",
+    "file_path": "workflows/Z-H-Update-WordPress-from-Zoho-Flow__QN7EefWvQ9ge9X7G.json"
+  },
+  "R1NGJk7tAKO9bkxm": {
+    "name": "LinkedIn Lead Generation: Auto DM System with Comment Triggers using Unipile & NocoDB",
+    "file_path": "workflows/LinkedIn-Lead-Generation-Auto-DM-System-with-Comment-Triggers-using-Unipile-Noco__R1NGJk7tAKO9bkxm.json"
+  },
+  "R7iC7Ps93gr0spQE": {
+    "name": "GFIN — LinkedIn Outreach",
+    "file_path": "workflows/GFIN-LinkedIn-Outreach__R7iC7Ps93gr0spQE.json"
+  },
+  "Rc56XH2Ca27VZlbb": {
+    "name": "GFIN Email Verification",
+    "file_path": "workflows/GFIN-Email-Verification__Rc56XH2Ca27VZlbb.json"
+  },
+  "SRLHmyb4nh8ncHKrp-2Ug": {
+    "name": "Zoho Writer to Calendar/Bookings Sync",
+    "file_path": "workflows/Zoho-Writer-to-Calendar-Bookings-Sync__SRLHmyb4nh8ncHKrp-2Ug.json"
+  },
+  "SwVlN40ENygVXcvj": {
+    "name": "THE SUMERIAN — LTX PRODUCTION PIPELINE v1.1",
+    "file_path": "workflows/THE-SUMERIAN-LTX-PRODUCTION-PIPELINE-v1.1__SwVlN40ENygVXcvj.json"
+  },
+  "TVfwNVRfvHFzD0ve": {
+    "name": "11 Labs",
+    "file_path": "workflows/11-Labs__TVfwNVRfvHFzD0ve.json"
+  },
+  "VZWpZqNvzymxhVcm": {
+    "name": "Error WorkFlow",
+    "file_path": "workflows/Error-WorkFlow__VZWpZqNvzymxhVcm.json"
+  },
+  "W6yY8UBCiSp5pYht": {
+    "name": "GFIN — Blog to LinkedIn v3 (all articles, straight to Buffer)",
+    "file_path": "workflows/GFIN-Blog-to-LinkedIn-v3-all-articles-straight-to-Buffer__W6yY8UBCiSp5pYht.json"
+  },
+  "WkFw3YINOwKx5Ff2": {
+    "name": "Backup n8n workflows to GitHub (patched)",
+    "file_path": "workflows/Backup-n8n-workflows-to-GitHub-patched__WkFw3YINOwKx5Ff2.json"
+  },
+  "XT7Q3o9JOryCVe0I": {
+    "name": "GFIN Lead Enrichment v2 (OSINT)",
+    "file_path": "workflows/GFIN-Lead-Enrichment-v2-OSINT__XT7Q3o9JOryCVe0I.json"
+  },
+  "Xznf1uqAkbujdyw5": {
+    "name": "GFIN — LinkedIn Reply & Acceptance Handler",
+    "file_path": "workflows/GFIN-LinkedIn-Reply-Acceptance-Handler__Xznf1uqAkbujdyw5.json"
+  },
+  "ZOO7V4y2yF96P7bi": {
+    "name": "GFIN Email Pre-Filter",
+    "file_path": "workflows/GFIN-Email-Pre-Filter__ZOO7V4y2yF96P7bi.json"
+  },
+  "ah0vPAzTvJxMueDu": {
+    "name": "Damu Winston Linkedin AutoPosts",
+    "file_path": "workflows/Damu-Winston-Linkedin-AutoPosts__ah0vPAzTvJxMueDu.json"
+  },
+  "bRanYEUjZdMbYDfZ": {
+    "name": "Damu Winston AI Content Discovery - Complete System",
+    "file_path": "workflows/Damu-Winston-AI-Content-Discovery-Complete-System__bRanYEUjZdMbYDfZ.json"
+  },
+  "dODxamYt3K6p5B1T": {
+    "name": "GFIN Email Outreach",
+    "file_path": "workflows/GFIN-Email-Outreach__dODxamYt3K6p5B1T.json"
+  },
+  "dOoHlMBKWonWRuWT": {
+    "name": "My workflow",
+    "file_path": "workflows/My-workflow__dOoHlMBKWonWRuWT.json"
+  },
+  "ewc8xUJWEPK6dXzy": {
+    "name": "Damu — Fill Missing Images",
+    "file_path": "workflows/Damu-Fill-Missing-Images__ewc8xUJWEPK6dXzy.json"
+  },
+  "gFZczSwCivAZ9DqF": {
+    "name": "# CAS (Content Automation System) V1.0",
+    "file_path": "workflows/CAS-Content-Automation-System-V1.0__gFZczSwCivAZ9DqF.json"
+  },
+  "hpnvWSfWggxlImBB": {
+    "name": "(Z-H) Update Contract Status on Signing",
+    "file_path": "workflows/Z-H-Update-Contract-Status-on-Signing__hpnvWSfWggxlImBB.json"
+  },
+  "j9NiqxS7dXLJ9Vkv": {
+    "name": "Sample Workflow",
+    "file_path": "workflows/Sample-Workflow__j9NiqxS7dXLJ9Vkv.json"
+  },
+  "k84jFeIisFGU6pZc": {
+    "name": "TMP — SUMERIAN v1.1 archive-section test (safe to archive)",
+    "file_path": "workflows/TMP-SUMERIAN-v1.1-archive-section-test-safe-to-archive__k84jFeIisFGU6pZc.json"
+  },
+  "kRSx8nCIzhLjhYPW": {
+    "name": "TEMP — Lead Pool Audit Probe",
+    "file_path": "workflows/TEMP-Lead-Pool-Audit-Probe__kRSx8nCIzhLjhYPW.json"
+  },
+  "lXrhRGpHyIVAjScI": {
+    "name": "Damu — Sheet to Buffer",
+    "file_path": "workflows/Damu-Sheet-to-Buffer__lXrhRGpHyIVAjScI.json"
+  },
+  "n4lKsSDteXqvRrsX": {
+    "name": "GFIN Lead Outreach",
+    "file_path": "workflows/GFIN-Lead-Outreach__n4lKsSDteXqvRrsX.json"
+  },
+  "oHQS4u9AvGSSYbaB": {
+    "name": "THE SUMERIAN — PRODUCTION FORMS v1",
+    "file_path": "workflows/THE-SUMERIAN-PRODUCTION-FORMS-v1__oHQS4u9AvGSSYbaB.json"
+  },
+  "oJq4ttJlJwnpySvc": {
+    "name": "Damu — Image Search & Upload",
+    "file_path": "workflows/Damu-Image-Search-Upload__oJq4ttJlJwnpySvc.json"
+  },
+  "oKWa58SZWlZhPiVM": {
+    "name": "(Z-H) Get New Registration - Send to Zoho Flow",
+    "file_path": "workflows/Z-H-Get-New-Registration-Send-to-Zoho-Flow__oKWa58SZWlZhPiVM.json"
+  },
+  "rp9D09FrUU1JmhyB": {
+    "name": "Linkedin Xmas Message Outreach Message",
+    "file_path": "workflows/Linkedin-Xmas-Message-Outreach-Message__rp9D09FrUU1JmhyB.json"
+  },
+  "sAIdIZWVVDyWhwj0": {
+    "name": "Acute Inflections WooHoo -> Sendy",
+    "file_path": "workflows/Acute-Inflections-WooHoo-Sendy__sAIdIZWVVDyWhwj0.json"
+  },
+  "sCHO1DVXcoxw6k9D": {
+    "name": "Damu Winston - LinkedIn Influencer Content to Post",
+    "file_path": "workflows/Damu-Winston-LinkedIn-Influencer-Content-to-Post__sCHO1DVXcoxw6k9D.json"
+  },
+  "sWX3WkL3YxqxLaM3": {
+    "name": "Afrobeat San Diego",
+    "file_path": "workflows/Afrobeat-San-Diego__sWX3WkL3YxqxLaM3.json"
+  },
+  "tDPgVn4Wtq0YJRHK": {
+    "name": "Acute Inflections WooHoo -> Sendy",
+    "file_path": "workflows/Acute-Inflections-WooHoo-Sendy__tDPgVn4Wtq0YJRHK.json"
+  },
+  "tgZ1f2WHdkSncFa8": {
+    "name": "LinkedIn Comment Auto-Responder",
+    "file_path": "workflows/LinkedIn-Comment-Auto-Responder__tgZ1f2WHdkSncFa8.json"
+  },
+  "tgpMK8SVZTyjHtSl": {
+    "name": "GFIN Domain Pattern Learner",
+    "file_path": "workflows/GFIN-Domain-Pattern-Learner__tgpMK8SVZTyjHtSl.json"
+  },
+  "udbczkgkeLXeScPfXQmcg": {
+    "name": "My workflow 3",
+    "file_path": "workflows/My-workflow-3__udbczkgkeLXeScPfXQmcg.json"
+  },
+  "ufZuWDDf1Iq5Y8dE": {
+    "name": "GFIN Lead Enrichment",
+    "file_path": "workflows/GFIN-Lead-Enrichment__ufZuWDDf1Iq5Y8dE.json"
+  },
+  "vtWHlS80QN9AdSO2": {
+    "name": "THE SUMERIAN — REVIEW & SHOT STATUS v1.1",
+    "file_path": "workflows/THE-SUMERIAN-REVIEW-SHOT-STATUS-v1.1__vtWHlS80QN9AdSO2.json"
+  },
+  "w3xXoIcA5UAWrlvk": {
+    "name": "Insta Test",
+    "file_path": "workflows/Insta-Test__w3xXoIcA5UAWrlvk.json"
+  },
+  "wMQS2aZiAJXNECoe": {
+    "name": "Linkedin Simple Outreach Scrapper",
+    "file_path": "workflows/Linkedin-Simple-Outreach-Scrapper__wMQS2aZiAJXNECoe.json"
+  },
+  "xJZNkqw88GkPXK4z": {
+    "name": "JOTFC Wordpress Post Auto Blog",
+    "file_path": "workflows/JOTFC-Wordpress-Post-Auto-Blog__xJZNkqw88GkPXK4z.json"
+  },
+  "y9e9fGnkiN9SneQF": {
+    "name": "News API Module - Winston Damu",
+    "file_path": "workflows/News-API-Module-Winston-Damu__y9e9fGnkiN9SneQF.json"
+  },
+  "yfebY4oWL81tD17H": {
+    "name": "GFIN Junk Email Cleanup",
+    "file_path": "workflows/GFIN-Junk-Email-Cleanup__yfebY4oWL81tD17H.json"
+  }
+}
