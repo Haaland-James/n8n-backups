@@ -1,0 +1,5000 @@
+{
+  "updatedAt": "2026-09-23T11:48:28.444Z",
+  "createdAt": "2026-09-23T11:45:15.377Z",
+  "id": "vtWHlS80QN9AdSO2",
+  "name": "THE SUMERIAN — REVIEW & SHOT STATUS v1.1",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a248b502-8b21-43e3-a761-67115d69dbac",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -260
+      ],
+      "parameters": {
+        "content": "## REVIEW ACTIONS (human only) — webhook entry only\n**Human → PRODUCTION FORMS v1.1 (Shot Review Form) → protected webhook → R01A.** No form lives here.\nAPPROVE → APPROVED · REJECT → REJECTED · REQUEST_REVISION → REVISION_REQUESTED + ChatGPT brief (same shot_id, version + 1, authorized=false). Never regenerates.",
+        "width": 1750,
+        "height": 620,
+        "color": 5
+      }
+    },
+    {
+      "id": "904d9a07-3fc0-4ba6-b73c-04b5ed02a5f0",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        420
+      ],
+      "parameters": {
+        "content": "## SHOT STATUS LOOKUP\nGET ?shot_id=…&version=… → every version, **archive_url preferred** (archive_provider, archive_asset_id, public_id).",
+        "width": 1000,
+        "height": 380,
+        "color": 7
+      }
+    },
+    {
+      "id": "b7d5e008-12c3-42ed-9ae6-d0024f244187",
+      "name": "R01A — Receive Review (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "9979a04f-5a52-446d-b580-195a9c214ea3",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sumerian/review",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "1141f5f3-bb4e-4a99-b287-7eeeaa77fc69",
+      "name": "R02 — Validate Review Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// R02 — Validate Review Action\nconst i = $input.first().json;\nconst src = i.body !== undefined ? (typeof i.body === 'string' ? (() => { try { return JSON.parse(i.body); } catch (e) { return { __bad: e.message }; } })() : i.body) : i;\nconst form = i['Shot ID'] !== undefined;\nconst r = form ? { shot_id: i['Shot ID'], version: Number(i['Version']), review_action: i['Review Action'], notes: i['Notes'] || '', reviewer: i['Reviewer'] || '' } : src;\nconst errors = [];\nif (r.__bad) errors.push({ field: '$body', message: 'Body is not valid JSON: ' + r.__bad });\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (!r.__bad) {\n  if (typeof r.shot_id !== 'string' || !SHOT_RE.test(r.shot_id.trim())) errors.push({ field: 'shot_id', message: 'shot_id must look like SUM-S01-E01-SC01-SH001.' });\n  if (!(Number.isInteger(r.version) && r.version >= 1)) errors.push({ field: 'version', message: 'version must be a positive integer.' });\n  if (!['APPROVE', 'REJECT', 'REQUEST_REVISION'].includes(r.review_action)) errors.push({ field: 'review_action', message: 'review_action must be APPROVE, REJECT or REQUEST_REVISION.' });\n  if (r.review_action === 'REQUEST_REVISION' && !(typeof r.notes === 'string' && r.notes.trim())) errors.push({ field: 'notes', message: 'REQUEST_REVISION requires notes describing what to change.' });\n}\nconst shot_id = typeof r.shot_id === 'string' ? r.shot_id.trim() : null;\nreturn [{ json: { valid: errors.length === 0, errors, http_status: 400, source: form ? 'form' : 'webhook',\n  review: { shot_id, version: r.version, review_action: r.review_action, notes: typeof r.notes === 'string' ? r.notes.trim() : '', reviewer: r.reviewer || '' } } }];\n"
+      }
+    },
+    {
+      "id": "c48f3cf1-3398-4078-acb6-d7a929191545",
+      "name": "R02A — Review Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "01c64633-aa3a-43e9-89f7-aab8c0197520",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e0a0fafc-5b36-472b-90ab-a58e7e8ec493",
+      "name": "R03 — Load Shot Versions",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shot_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.review.shot_id }}"
+            }
+          ]
+        },
+        "limit": 100
+      }
+    },
+    {
+      "id": "99077dff-97f1-4a6c-bf25-0516fc87937b",
+      "name": "R04 — Apply Review Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// R04 — Apply Review Decision\n// Only a human review action can produce APPROVED. REQUEST_REVISION never triggers regeneration in v1.\nconst v = $('R02 — Validate Review Action').first().json.review;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key);\nconst row = rows.find((x) => Number(x.version) === v.version);\nconst maxVersion = rows.reduce((a, x) => Math.max(a, Number(x.version) || 0), 0);\nconst now = new Date().toISOString();\nconst REVIEWABLE = ['REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'REVISION_REQUESTED'];\nconst MAP = { APPROVE: 'APPROVED', REJECT: 'REJECTED', REQUEST_REVISION: 'REVISION_REQUESTED' };\n\nif (!row) return [{ json: { allowed: false, http_status: 404, body: { result: 'ERROR', error_status: 'NOT_FOUND', message: `No production record for ${v.shot_id} version ${v.version}.` } } }];\nconst clipUrl = row.archive_url || row.output_url || '';\nif (!REVIEWABLE.includes(row.approval_status) || !clipUrl) {\n  return [{ json: { allowed: false, http_status: 409, body: { result: 'ERROR', error_status: 'NOT_REVIEWABLE',\n    message: `${row.generation_key} is ${row.approval_status}/${row.generation_status}; only generated and archived clips (REVIEW_REQUIRED) can be reviewed.' + (row.approval_status === 'ARCHIVE_FAILED' || row.approval_status === 'ARCHIVING' ? ' Repair the archive first (Archive Repair form / archive-retry webhook); do not regenerate.' : '') + '` } } }];\n}\nlet history = [];\ntry { history = JSON.parse(row.review_history || '[]'); } catch (e) { history = []; }\nconst newState = MAP[v.review_action];\nhistory.push({ at: now, action: v.review_action, from: row.approval_status, to: newState, notes: v.notes, reviewer: v.reviewer });\n\nconst body = {\n  result: 'REVIEW_RECORDED', shot_id: row.shot_id, version: Number(row.version), generation_key: row.generation_key,\n  previous_status: row.approval_status, approval_status: newState, notes: v.notes,\n  archive_url: row.archive_url || null, archive_provider: row.archive_provider || null, output_url: clipUrl, reviewed_at: now,\n  regeneration_triggered: false,\n};\nif (v.review_action === 'REQUEST_REVISION') {\n  body.chatgpt_revision_brief = {\n    instruction: 'Produce a revised shot manifest. Keep shot_id unchanged, set version to next_version, set generation_authorized to false (the human authorizes later), apply the review notes to the prompt fields only where needed, and do NOT set force_regenerate (creative revisions always use a new version).',\n    shot_id: row.shot_id, previous_version: Number(row.version), next_version: maxVersion + 1,\n    review_notes: v.notes, previous_prompt: row.submitted_prompt, previous_archive_url: row.archive_url || row.output_url || null, previous_manifest: (() => { try { return JSON.parse(row.manifest_json); } catch (e) { return null; } })(),\n  };\n}\nreturn [{ json: { allowed: true, http_status: 200, update: { generation_key: row.generation_key, approval_status: newState, review_notes: v.notes, reviewed_at: now, review_history: JSON.stringify(history).slice(0, 20000) }, body } }];\n"
+      }
+    },
+    {
+      "id": "2de91bf5-08f8-4150-9c49-1ddbf07c827c",
+      "name": "R04A — Transition Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a18716d6-a62d-4c84-836c-296f669bf841",
+              "leftValue": "={{ $json.allowed }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9fdc924f-a5a5-4af3-b336-b39d5741ad2f",
+      "name": "R05 — Save Review Decision",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "condition": "eq",
+              "keyValue": "={{ $('R04 — Apply Review Decision').first().json.update.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "approval_status": "={{ $('R04 — Apply Review Decision').first().json.update.approval_status }}",
+            "review_notes": "={{ $('R04 — Apply Review Decision').first().json.update.review_notes }}",
+            "reviewed_at": "={{ $('R04 — Apply Review Decision').first().json.update.reviewed_at }}",
+            "review_history": "={{ $('R04 — Apply Review Decision').first().json.update.review_history }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source_output_url",
+              "displayName": "source_output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_url",
+              "displayName": "archive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_provider",
+              "displayName": "archive_provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_asset_id",
+              "displayName": "archive_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_public_id",
+              "displayName": "archive_public_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archived_at",
+              "displayName": "archived_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_attempts",
+              "displayName": "archive_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "75d45317-642c-4799-a8d3-c78356deaf95",
+      "name": "R06 — Return Review Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('R04 — Apply Review Decision').first().json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ 200 }}"
+        }
+      }
+    },
+    {
+      "id": "04ab3f72-1ba7-4155-85ad-b2148c00deac",
+      "name": "R07 — Return Review Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "5609e3ec-da66-47a9-8f84-8fcde15dbaed",
+      "name": "R02B — Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify(({ result: 'ERROR', error_status: 'VALIDATION_ERROR', errors: $json.errors }), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      }
+    },
+    {
+      "id": "8b2fbff6-5cbc-4074-bc39-af972b4c5c57",
+      "name": "S01 — Shot Status Lookup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "082abfaf-9cd5-427d-b448-b2ca4f693b9a",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sumerian/shot-status",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "f1501b7b-7c57-4822-92cd-1b77904205e4",
+      "name": "S02 — Load Shot Versions",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        240,
+        560
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shot_id",
+              "condition": "eq",
+              "keyValue": "={{ ($json.query.shot_id || '__none__') }}"
+            }
+          ]
+        },
+        "limit": 100
+      }
+    },
+    {
+      "id": "78e08069-565b-4098-803a-ca4e92f4a4f4",
+      "name": "S03 — Format Shot Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ],
+      "parameters": {
+        "jsCode": "// S03 — Format Shot Status\nconst q = $('S01 — Shot Status Lookup').first().json.query || {};\nconst version = q.version ? Number(q.version) : null;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key)\n  .filter((x) => version === null || Number(x.version) === version)\n  .sort((a, b) => Number(a.version) - Number(b.version));\nconst slim = rows.map((x) => ({\n  shot_id: x.shot_id, version: Number(x.version), generation_type: x.generation_type, generation_status: x.generation_status,\n  approval_status: x.approval_status, ltx_job_id: x.ltx_job_id || null, ltx_model: x.ltx_model, ltx_resolution: x.ltx_resolution,\n  duration_seconds: x.duration_seconds, estimated_cost_usd: x.estimated_cost_usd, submitted_at: x.submitted_at || null,\n  completed_at: x.completed_at || null,\n  archive_url: x.archive_url || null, archive_provider: x.archive_provider || null, archive_asset_id: x.archive_asset_id || null,\n  archive_public_id: x.archive_public_id || null, archived_at: x.archived_at || null, archive_attempts: x.archive_attempts || 0,\n  preferred_url: x.archive_url || null, source_output_url: x.source_output_url || null, output_url: x.output_url || null, error_status: x.error_status || null,\n  error_detail: x.error_detail || null, review_notes: x.review_notes || null, reviewed_at: x.reviewed_at || null,\n}));\nreturn [{ json: { http_status: q.shot_id ? 200 : 400, body: q.shot_id ? { shot_id: q.shot_id, versions: slim, count: slim.length } : { result: 'ERROR', message: 'Pass ?shot_id=SUM-S01-E01-SC01-SH001 (optional &version=N).' } } }];\n"
+      }
+    },
+    {
+      "id": "2d655b87-a28b-454b-a9c7-77e3158a4361",
+      "name": "S04 — Return Shot Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "da3a29ec-61ab-41f0-b608-9207a1aaf45e",
+      "name": "Note 16",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        840
+      ],
+      "parameters": {
+        "content": "## LTX CREDENTIAL CHECK (zero cost)\nGET a non-existent job id. **404 not_found = key valid**, 401 = key invalid. Never submits a generation.",
+        "width": 1000,
+        "height": 380,
+        "color": 6
+      }
+    },
+    {
+      "id": "7f2c7f51-8193-4d01-996a-74a80cf91ef0",
+      "name": "A01 — LTX Auth Check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        980
+      ],
+      "webhookId": "a5fc16aa-857d-40cd-aa18-510b87fb8982",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sumerian/ltx-auth-check",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "c3a3a512-bc40-4e0c-aba0-811381972b6c",
+      "name": "A02 — GET Nonexistent LTX Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        980
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://api.ltx.io/v2/text-to-video/sumerian-auth-check-00000000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "XN6vJybDVjx2WZbc",
+          "name": "LTX VIDEO API — THE SUMERIAN"
+        }
+      }
+    },
+    {
+      "id": "a8b60c93-b71f-4d39-be5c-04ba45394d5d",
+      "name": "A03 — Interpret Auth Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        980
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json; const s = r.statusCode; let b = r.body; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) {} }\nconst t = b && b.error ? b.error.type : null;\nconst ok = s === 404;\nreturn [{ json: { http_status: 200, body: { ltx_credential_valid: ok ? true : (s === 401 || s === 403 ? false : null), ltx_http_status: s || null, ltx_error_type: t, interpretation: ok ? 'Key accepted (404 for a dummy job id). No generation was submitted; no cost.' : (s === 401 || s === 403 ? 'Key rejected. Re-enter it in the credential \"LTX VIDEO API — THE SUMERIAN\".' : 'Inconclusive; see ltx_http_status.'), checked_at: new Date().toISOString() } } }];"
+      }
+    },
+    {
+      "id": "4f7d50a3-d7a4-4710-af21-2f3f9af1b8da",
+      "name": "A04 — Return Auth Check",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        980
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "8ecd043b-995c-47a4-9eca-311e5a38d3c1",
+      "name": "Note 21",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        1260
+      ],
+      "parameters": {
+        "content": "## ARCHIVE REPAIR (no LTX call)\nFor ARCHIVE_FAILED / ARCHIVING clips: re-uploads the stored temporary LTX URL to Cloudinary (max 3 attempts), then REVIEW_REQUIRED. If the LTX URL already expired this fails cleanly; recover the file manually.",
+        "width": 2700,
+        "height": 560,
+        "color": 3
+      }
+    },
+    {
+      "id": "f51e7962-7416-4915-a311-381a17962d75",
+      "name": "X01 — Receive Archive Repair (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1400
+      ],
+      "webhookId": "e5ecf8c3-a3a4-4883-80d5-8c4f452b81bf",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sumerian/archive-retry",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "id": "b0bec7ce-7ec3-41f2-9fed-81925d447d17",
+      "name": "X02 — Validate Archive Repair Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "// X02 — Validate Archive Repair Request\n// Re-archives an ALREADY GENERATED clip from its temporary LTX URL. Never calls LTX.\nconst i = $input.first().json;\nlet r = i.body !== undefined ? i.body : i;\nif (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) { r = { __bad: e.message }; } }\nconst errors = [];\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (r.__bad) errors.push({ field: '$body', message: 'Body is not valid JSON: ' + r.__bad });\nelse {\n  if (typeof r.shot_id !== 'string' || !SHOT_RE.test(r.shot_id.trim())) errors.push({ field: 'shot_id', message: 'shot_id must look like SUM-S01-E01-SC01-SH001.' });\n  if (!(Number.isInteger(Number(r.version)) && Number(r.version) >= 1)) errors.push({ field: 'version', message: 'version must be a positive integer.' });\n}\nconst shot_id = typeof r.shot_id === 'string' ? r.shot_id.trim() : null;\nconst version = Number(r.version);\nreturn [{ json: { valid: errors.length === 0, errors, request: { shot_id, version, generation_key: `${shot_id}::v${version}` } } }];\n"
+      }
+    },
+    {
+      "id": "b1d03215-3db5-491f-9eab-dd5756764ffa",
+      "name": "X02A — Request Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        1400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e47af16-889d-4c5f-9524-4de272bf404f",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e9b1f8da-6e51-4fa1-bc04-433d0c2f7653",
+      "name": "X02B — Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        1600
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify(({ result: 'ERROR', error_status: 'VALIDATION_ERROR', errors: $json.errors }), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      }
+    },
+    {
+      "id": "a81e5823-4611-44e6-a01d-8f39332061aa",
+      "name": "X03 — Load Production Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        720,
+        1400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "condition": "eq",
+              "keyValue": "={{ $json.request.generation_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "d7b03965-4e8a-46bd-85fe-ca683c26a505",
+      "name": "X04 — Check Repair Eligibility",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "// X04 — Check Archive Repair Eligibility\n// Only a clip that LTX already COMPLETED, whose archive failed or was interrupted, can be re-archived.\nconst req = $('X02 — Validate Archive Repair Request').first().json.request;\nconst row = $input.all().map((x) => x.json).find((x) => x && x.generation_key === req.generation_key) || null;\nif (!row) return [{ json: { eligible: false, http_status: 404, body: { result: 'ERROR', error_status: 'NOT_FOUND', message: `No production record for ${req.generation_key}.` } } }];\nconst src = row.source_output_url || '';\nconst problems = [];\nif (row.generation_status !== 'COMPLETED') problems.push(`generation_status is ${row.generation_status}, not COMPLETED`);\nif (!['ARCHIVE_FAILED', 'ARCHIVING'].includes(row.approval_status)) problems.push(`approval_status is ${row.approval_status}; only ARCHIVE_FAILED / ARCHIVING clips need repair`);\nif (!/^https:\\/\\//.test(src)) problems.push('no temporary LTX URL (source_output_url) is stored');\nif (problems.length) return [{ json: { eligible: false, http_status: 409, body: { result: 'ERROR', error_status: 'NOT_ELIGIBLE_FOR_ARCHIVE_REPAIR', generation_key: row.generation_key, message: problems.join('; ') + '.' } } }];\nlet manifest = {};\ntry { manifest = JSON.parse(row.manifest_json || '{}'); } catch (e) { manifest = {}; }\nreturn [{ json: { eligible: true, row_generation_key: row.generation_key, prior_attempts: Number(row.archive_attempts) || 0,\n  archive_ctx: { shot_id: row.shot_id, version: Number(row.version), generation_key: row.generation_key, season_id: row.season_id,\n    episode_id: row.episode_id, scene_id: row.scene_id, generation_type: row.generation_type, ltx_job_id: row.ltx_job_id,\n    source_url: src, force_regenerate: manifest.force_regenerate === true, test: row.episode_id === 'TEST' } } }];\n"
+      }
+    },
+    {
+      "id": "81f9f99e-7500-48a5-a235-d558340b8c5b",
+      "name": "X04A — Eligible?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        1400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3d1d5e9f-daf6-495a-a73e-7bb14b5aef0f",
+              "leftValue": "={{ $json.eligible }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d0442c9-2e8a-4491-b182-215fc5acea4c",
+      "name": "X04B — Return Not Eligible",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        1600
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    },
+    {
+      "id": "e3896cc8-32e2-4a22-ab59-0c368fd9d292",
+      "name": "X05 — Prepare Archive Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "// Prepare Archive Request — shared by the pipeline (13A2) and the archive-repair path (X05).\n// Input: $json.archive_ctx = { shot_id, version, generation_key, season_id, episode_id, scene_id, generation_type,\n//                              ltx_job_id, source_url, force_regenerate, test }\n// Deterministic Cloudinary identity. Every version is a separate, never-overwritten asset.\nconst c = (typeof __ARC_INPUT !== 'undefined') ? __ARC_INPUT : $input.first().json;\nconst a = c.archive_ctx;\nconst pad3 = (n) => String(n).padStart(3, '0');\nconst num = (s, prefix) => { const m = String(s || '').match(new RegExp('^' + prefix + '(\\\\d+)$', 'i')); return m ? m[1].padStart(2, '0') : String(s || 'x').toLowerCase().replace(/[^a-z0-9]+/g, '-'); };\nconst root = a.test ? 'the-sumerian/_pipeline-tests' : 'the-sumerian';\nconst folder = [root, 'season-' + num(a.season_id, 'S'), 'episode-' + num(a.episode_id, 'E'), 'scene-' + num(a.scene_id, 'SC'), a.shot_id, 'v' + pad3(a.version)].join('/');\nlet asset = `${a.shot_id}_v${pad3(a.version)}`;\n// An exceptional force_regenerate rerun gets its own asset so the earlier archived output is never replaced.\nif (a.force_regenerate && a.ltx_job_id) asset += '_rerun-' + String(a.ltx_job_id).replace(/[^A-Za-z0-9]/g, '').slice(0, 8);\nconst public_id = `${folder}/${asset}`;\nconst esc = (v) => String(v == null ? '' : v).replace(/([=|\\\\])/g, '\\\\$1');\nconst context = [\n  ['shot_id', a.shot_id], ['version', a.version], ['generation_key', a.generation_key], ['ltx_job_id', a.ltx_job_id],\n  ['generation_type', a.generation_type], ['project', 'THE SUMERIAN'], ['pipeline', 'LTX PRODUCTION PIPELINE v1.1'],\n].map(([k, v]) => `${k}=${esc(v)}`).join('|');\nconst tags = ['the-sumerian', a.shot_id, `${a.shot_id}_v${pad3(a.version)}`, 'v' + pad3(a.version),\n  'season-' + num(a.season_id, 'S'), 'episode-' + num(a.episode_id, 'E'), 'scene-' + num(a.scene_id, 'SC'),\n  String(a.generation_type || '').toLowerCase().replace(/_/g, '-'), 'ltx', a.test ? 'pipeline-test' : 'production'].filter(Boolean).join(',');\n\nreturn [{ json: { ...c, archive: {\n  provider: 'CLOUDINARY', attempt: 0, max_attempts: 3, retry_wait_seconds: 10,\n  expected_public_id: public_id, asset_folder: folder,\n  params: { file: a.source_url, public_id, asset_folder: folder, overwrite: 'false', tags, context },\n  history: [],\n} } }];\n"
+      }
+    },
+    {
+      "id": "2f3c3bf1-e032-4837-89d1-9ae5c90f5c0d",
+      "name": "X06 — Count Archive Attempt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "// Count Archive Attempt — loop head of the bounded archive retry (max 3 Cloudinary attempts; never an LTX call).\nconst c = $input.first().json;\nreturn [{ json: { ...c, archive: { ...c.archive, attempt: (c.archive.attempt || 0) + 1, attempt_started_at: new Date().toISOString() } } }];\n"
+      }
+    },
+    {
+      "id": "7399c11c-611d-4eae-bce2-90ac73d55482",
+      "name": "X07 — Archive Clip to Cloudinary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        1400
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/yto9u5lp/video/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json.archive.params.file }}"
+            },
+            {
+              "name": "public_id",
+              "value": "={{ $json.archive.params.public_id }}"
+            },
+            {
+              "name": "asset_folder",
+              "value": "={{ $json.archive.params.asset_folder }}"
+            },
+            {
+              "name": "overwrite",
+              "value": "={{ $json.archive.params.overwrite }}"
+            },
+            {
+              "name": "tags",
+              "value": "={{ $json.archive.params.tags }}"
+            },
+            {
+              "name": "context",
+              "value": "={{ $json.archive.params.context }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 180000
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "8dI2AtXqAs8ycaPw",
+          "name": "Cloudinary"
+        }
+      }
+    },
+    {
+      "id": "98f6b366-2957-46f9-85f4-9d4cc336d1f4",
+      "name": "X08 — Verify Archive Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "// Verify Archive Result — classifies the Cloudinary upload response.\n// ARCHIVED: 200 + https secure_url + expected public_id. RETRY: clearly transient (network, timeout, 429/420, 5xx) and attempts left.\n// FAILED: anything else, or attempts exhausted. Never triggers an LTX generation.\nconst st = $('X06 — Count Archive Attempt').first().json;\nconst r = $input.first().json || {};\nconst status = typeof r.statusCode === 'number' ? r.statusCode : null;\nlet b = r.body;\nif (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { /* keep text */ } }\nconst a = st.archive;\nconst now = new Date().toISOString();\nconst errMsg = b && b.error ? (b.error.message || JSON.stringify(b.error)) : (r.error ? (r.error.message || String(r.error)) : null);\nconst clip = (s) => String(s == null ? '' : s).replace(/(api_key|api_secret|signature)=[^&\\s]+/gi, '$1=[redacted]').slice(0, 500);\n\nlet decision, detail = null, result = null;\nif (status === 200 && b && typeof b.secure_url === 'string' && b.secure_url.startsWith('https://')) {\n  if (b.public_id !== a.expected_public_id) {\n    decision = 'FAILED'; detail = `Cloudinary stored public_id \"${b.public_id}\" instead of \"${a.expected_public_id}\".`;\n  } else {\n    decision = 'ARCHIVED';\n    result = { archive_url: b.secure_url, archive_public_id: b.public_id, archive_asset_id: b.asset_id || '', archive_version: b.version || null,\n      resource_type: b.resource_type || null, format: b.format || null, bytes: b.bytes || null, duration: b.duration || null,\n      width: b.width || null, height: b.height || null, existing: b.existing === true, created_at: b.created_at || null, asset_folder: b.asset_folder || a.asset_folder,\n      tags: Array.isArray(b.tags) ? b.tags : [], context: b.context && b.context.custom ? b.context.custom : (b.context || null) };\n  }\n} else {\n  const transient = status === null || status === 408 || status === 420 || status === 429 || (status >= 500 && status <= 599);\n  detail = `Cloudinary ${status === null ? 'no response (network/timeout)' : 'HTTP ' + status}${errMsg ? ': ' + clip(errMsg) : ''}`;\n  decision = transient && a.attempt < a.max_attempts ? 'RETRY' : 'FAILED';\n  if (decision === 'FAILED' && transient) detail += ` (gave up after ${a.attempt} attempts)`;\n}\n\nconst history = [...(a.history || []), { attempt: a.attempt, at: now, http_status: status, decision, detail }];\nreturn [{ json: { ...st, archive: { ...a, history, decision, detail, result, finished_at: decision === 'RETRY' ? null : now } } }];\n"
+      }
+    },
+    {
+      "id": "f88c2746-a0a6-4abe-bca6-dfc3d30d1836",
+      "name": "X09 — Route Archive Result",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2400,
+        1400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f0f2514d-5d18-492e-9958-eb6446bd0266",
+                    "leftValue": "={{ $json.archive.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "ARCHIVED"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ARCHIVED"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6006cbe9-5b54-4c0a-9713-8efb4c104a8b",
+                    "leftValue": "={{ $json.archive.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "RETRY"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RETRY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f14ac423-984f-4642-8cd4-d9fdd8e1cc40",
+                    "leftValue": "={{ $json.archive.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "FAILED"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "FAILED"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "OTHER"
+        }
+      }
+    },
+    {
+      "id": "a044e371-c24f-42ab-a590-747f412063d0",
+      "name": "X10 — Wait Before Archive Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        1640
+      ],
+      "webhookId": "61154b03-d501-4678-b12e-215b906a9483",
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 10,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "1aa6efc2-1c3c-4f13-a0b8-1a5e7ddfce4d",
+      "name": "X11 — Save Archive + REVIEW_REQUIRED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        1320
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "condition": "eq",
+              "keyValue": "={{ $('X08 — Verify Archive Result').first().json.row_generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generation_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().generation_status }}",
+            "approval_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().approval_status }}",
+            "output_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().output_url }}",
+            "source_output_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().source_output_url }}",
+            "archive_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_url }}",
+            "archive_provider": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_provider }}",
+            "archive_asset_id": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_asset_id }}",
+            "archive_public_id": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_public_id }}",
+            "archived_at": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archived_at }}",
+            "archive_attempts": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_attempts }}",
+            "error_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().error_status }}",
+            "error_detail": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().error_detail }}",
+            "metadata_json": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().metadata_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "source_output_url",
+              "displayName": "source_output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archive_url",
+              "displayName": "archive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archive_provider",
+              "displayName": "archive_provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archive_asset_id",
+              "displayName": "archive_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archive_public_id",
+              "displayName": "archive_public_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archived_at",
+              "displayName": "archived_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "archive_attempts",
+              "displayName": "archive_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "c67460e7-9c26-4c6f-b8b0-8c376f6a593b",
+      "name": "X12 — Return Archive Repaired",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        1320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify((() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { result: 'REVIEW_REQUIRED', shot_id: c.archive_ctx.shot_id, version: c.archive_ctx.version, generation_key: c.row_generation_key, approval_status: 'REVIEW_REQUIRED', archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_public_id: r.archive_public_id, archive_asset_id: r.archive_asset_id, source_output_url: c.archive_ctx.source_url, ltx_called: false }; })(), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 200 }}"
+        }
+      }
+    },
+    {
+      "id": "2736b87a-03ca-44b2-8ace-32ad8aa6899e",
+      "name": "X13 — Record Repair Failure",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        1520
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "condition": "eq",
+              "keyValue": "={{ $('X08 — Verify Archive Result').first().json.row_generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "archive_attempts": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().archive_attempts }}",
+            "error_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().error_status }}",
+            "error_detail": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().error_detail }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "source_output_url",
+              "displayName": "source_output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_url",
+              "displayName": "archive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_provider",
+              "displayName": "archive_provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_asset_id",
+              "displayName": "archive_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_public_id",
+              "displayName": "archive_public_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archived_at",
+              "displayName": "archived_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "archive_attempts",
+              "displayName": "archive_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "adf2ad1b-a3db-4d1b-ae88-40d392a2f46d",
+      "name": "X14 — Return Repair Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        1520
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify((() => { const c = $('X08 — Verify Archive Result').first().json; return { result: 'ARCHIVE_FAILED', error_status: 'OUTPUT_ARCHIVE_FAILED', generation_key: c.row_generation_key, detail: c.archive.detail, history: c.archive.history, source_output_url: c.archive_ctx.source_url, ltx_called: false, next_step: 'If the temporary LTX URL has expired, recover the file manually; do not regenerate unless it is truly lost.' }; })(), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 502 }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "R01A — Receive Review (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "R02 — Validate Review Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R02 — Validate Review Action": {
+      "main": [
+        [
+          {
+            "node": "R02A — Review Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R02A — Review Valid?": {
+      "main": [
+        [
+          {
+            "node": "R03 — Load Shot Versions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "R02B — Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R03 — Load Shot Versions": {
+      "main": [
+        [
+          {
+            "node": "R04 — Apply Review Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R04 — Apply Review Decision": {
+      "main": [
+        [
+          {
+            "node": "R04A — Transition Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R04A — Transition Allowed?": {
+      "main": [
+        [
+          {
+            "node": "R05 — Save Review Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "R07 — Return Review Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R05 — Save Review Decision": {
+      "main": [
+        [
+          {
+            "node": "R06 — Return Review Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S01 — Shot Status Lookup": {
+      "main": [
+        [
+          {
+            "node": "S02 — Load Shot Versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S02 — Load Shot Versions": {
+      "main": [
+        [
+          {
+            "node": "S03 — Format Shot Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S03 — Format Shot Status": {
+      "main": [
+        [
+          {
+            "node": "S04 — Return Shot Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A01 — LTX Auth Check": {
+      "main": [
+        [
+          {
+            "node": "A02 — GET Nonexistent LTX Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A02 — GET Nonexistent LTX Job": {
+      "main": [
+        [
+          {
+            "node": "A03 — Interpret Auth Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A03 — Interpret Auth Check": {
+      "main": [
+        [
+          {
+            "node": "A04 — Return Auth Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X01 — Receive Archive Repair (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "X02 — Validate Archive Repair Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X02 — Validate Archive Repair Request": {
+      "main": [
+        [
+          {
+            "node": "X02A — Request Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X02A — Request Valid?": {
+      "main": [
+        [
+          {
+            "node": "X03 — Load Production Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "X02B — Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X03 — Load Production Record": {
+      "main": [
+        [
+          {
+            "node": "X04 — Check Repair Eligibility",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X04 — Check Repair Eligibility": {
+      "main": [
+        [
+          {
+            "node": "X04A — Eligible?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X04A — Eligible?": {
+      "main": [
+        [
+          {
+            "node": "X05 — Prepare Archive Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "X04B — Return Not Eligible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X05 — Prepare Archive Request": {
+      "main": [
+        [
+          {
+            "node": "X06 — Count Archive Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X06 — Count Archive Attempt": {
+      "main": [
+        [
+          {
+            "node": "X07 — Archive Clip to Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X07 — Archive Clip to Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "X08 — Verify Archive Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X08 — Verify Archive Result": {
+      "main": [
+        [
+          {
+            "node": "X09 — Route Archive Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X09 — Route Archive Result": {
+      "main": [
+        [
+          {
+            "node": "X11 — Save Archive + REVIEW_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "X10 — Wait Before Archive Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "X13 — Record Repair Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "X13 — Record Repair Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X10 — Wait Before Archive Retry": {
+      "main": [
+        [
+          {
+            "node": "X06 — Count Archive Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X11 — Save Archive + REVIEW_REQUIRED": {
+      "main": [
+        [
+          {
+            "node": "X12 — Return Archive Repaired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X13 — Record Repair Failure": {
+      "main": [
+        [
+          {
+            "node": "X14 — Return Repair Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "6a7da44b-2d49-4505-9dc1-fedaf48b2106",
+  "activeVersionId": "6a7da44b-2d49-4505-9dc1-fedaf48b2106",
+  "triggerCount": 4,
+  "shared": [
+    {
+      "updatedAt": "2026-09-23T11:45:15.377Z",
+      "createdAt": "2026-09-23T11:45:15.377Z",
+      "role": "workflow:owner",
+      "workflowId": "vtWHlS80QN9AdSO2",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-09-23T11:48:28.848Z",
+    "createdAt": "2026-09-23T11:48:28.446Z",
+    "versionId": "6a7da44b-2d49-4505-9dc1-fedaf48b2106",
+    "workflowId": "vtWHlS80QN9AdSO2",
+    "nodes": [
+      {
+        "id": "a248b502-8b21-43e3-a761-67115d69dbac",
+        "name": "Note 0",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -260
+        ],
+        "parameters": {
+          "content": "## REVIEW ACTIONS (human only) — webhook entry only\n**Human → PRODUCTION FORMS v1.1 (Shot Review Form) → protected webhook → R01A.** No form lives here.\nAPPROVE → APPROVED · REJECT → REJECTED · REQUEST_REVISION → REVISION_REQUESTED + ChatGPT brief (same shot_id, version + 1, authorized=false). Never regenerates.",
+          "width": 1750,
+          "height": 620,
+          "color": 5
+        }
+      },
+      {
+        "id": "904d9a07-3fc0-4ba6-b73c-04b5ed02a5f0",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          420
+        ],
+        "parameters": {
+          "content": "## SHOT STATUS LOOKUP\nGET ?shot_id=…&version=… → every version, **archive_url preferred** (archive_provider, archive_asset_id, public_id).",
+          "width": 1000,
+          "height": 380,
+          "color": 7
+        }
+      },
+      {
+        "id": "b7d5e008-12c3-42ed-9ae6-d0024f244187",
+        "name": "R01A — Receive Review (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "9979a04f-5a52-446d-b580-195a9c214ea3",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "sumerian/review",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Ui88vEZagu2MBlle",
+            "name": "SUMERIAN — Pipeline Webhook Key"
+          }
+        }
+      },
+      {
+        "id": "1141f5f3-bb4e-4a99-b287-7eeeaa77fc69",
+        "name": "R02 — Validate Review Action",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          100
+        ],
+        "parameters": {
+          "jsCode": "// R02 — Validate Review Action\nconst i = $input.first().json;\nconst src = i.body !== undefined ? (typeof i.body === 'string' ? (() => { try { return JSON.parse(i.body); } catch (e) { return { __bad: e.message }; } })() : i.body) : i;\nconst form = i['Shot ID'] !== undefined;\nconst r = form ? { shot_id: i['Shot ID'], version: Number(i['Version']), review_action: i['Review Action'], notes: i['Notes'] || '', reviewer: i['Reviewer'] || '' } : src;\nconst errors = [];\nif (r.__bad) errors.push({ field: '$body', message: 'Body is not valid JSON: ' + r.__bad });\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (!r.__bad) {\n  if (typeof r.shot_id !== 'string' || !SHOT_RE.test(r.shot_id.trim())) errors.push({ field: 'shot_id', message: 'shot_id must look like SUM-S01-E01-SC01-SH001.' });\n  if (!(Number.isInteger(r.version) && r.version >= 1)) errors.push({ field: 'version', message: 'version must be a positive integer.' });\n  if (!['APPROVE', 'REJECT', 'REQUEST_REVISION'].includes(r.review_action)) errors.push({ field: 'review_action', message: 'review_action must be APPROVE, REJECT or REQUEST_REVISION.' });\n  if (r.review_action === 'REQUEST_REVISION' && !(typeof r.notes === 'string' && r.notes.trim())) errors.push({ field: 'notes', message: 'REQUEST_REVISION requires notes describing what to change.' });\n}\nconst shot_id = typeof r.shot_id === 'string' ? r.shot_id.trim() : null;\nreturn [{ json: { valid: errors.length === 0, errors, http_status: 400, source: form ? 'form' : 'webhook',\n  review: { shot_id, version: r.version, review_action: r.review_action, notes: typeof r.notes === 'string' ? r.notes.trim() : '', reviewer: r.reviewer || '' } } }];\n"
+        }
+      },
+      {
+        "id": "c48f3cf1-3398-4078-acb6-d7a929191545",
+        "name": "R02A — Review Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          480,
+          100
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "01c64633-aa3a-43e9-89f7-aab8c0197520",
+                "leftValue": "={{ $json.valid }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "e0a0fafc-5b36-472b-90ab-a58e7e8ec493",
+        "name": "R03 — Load Shot Versions",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          720,
+          0
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "shot_id",
+                "condition": "eq",
+                "keyValue": "={{ $json.review.shot_id }}"
+              }
+            ]
+          },
+          "limit": 100
+        }
+      },
+      {
+        "id": "99077dff-97f1-4a6c-bf25-0516fc87937b",
+        "name": "R04 — Apply Review Decision",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// R04 — Apply Review Decision\n// Only a human review action can produce APPROVED. REQUEST_REVISION never triggers regeneration in v1.\nconst v = $('R02 — Validate Review Action').first().json.review;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key);\nconst row = rows.find((x) => Number(x.version) === v.version);\nconst maxVersion = rows.reduce((a, x) => Math.max(a, Number(x.version) || 0), 0);\nconst now = new Date().toISOString();\nconst REVIEWABLE = ['REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'REVISION_REQUESTED'];\nconst MAP = { APPROVE: 'APPROVED', REJECT: 'REJECTED', REQUEST_REVISION: 'REVISION_REQUESTED' };\n\nif (!row) return [{ json: { allowed: false, http_status: 404, body: { result: 'ERROR', error_status: 'NOT_FOUND', message: `No production record for ${v.shot_id} version ${v.version}.` } } }];\nconst clipUrl = row.archive_url || row.output_url || '';\nif (!REVIEWABLE.includes(row.approval_status) || !clipUrl) {\n  return [{ json: { allowed: false, http_status: 409, body: { result: 'ERROR', error_status: 'NOT_REVIEWABLE',\n    message: `${row.generation_key} is ${row.approval_status}/${row.generation_status}; only generated and archived clips (REVIEW_REQUIRED) can be reviewed.' + (row.approval_status === 'ARCHIVE_FAILED' || row.approval_status === 'ARCHIVING' ? ' Repair the archive first (Archive Repair form / archive-retry webhook); do not regenerate.' : '') + '` } } }];\n}\nlet history = [];\ntry { history = JSON.parse(row.review_history || '[]'); } catch (e) { history = []; }\nconst newState = MAP[v.review_action];\nhistory.push({ at: now, action: v.review_action, from: row.approval_status, to: newState, notes: v.notes, reviewer: v.reviewer });\n\nconst body = {\n  result: 'REVIEW_RECORDED', shot_id: row.shot_id, version: Number(row.version), generation_key: row.generation_key,\n  previous_status: row.approval_status, approval_status: newState, notes: v.notes,\n  archive_url: row.archive_url || null, archive_provider: row.archive_provider || null, output_url: clipUrl, reviewed_at: now,\n  regeneration_triggered: false,\n};\nif (v.review_action === 'REQUEST_REVISION') {\n  body.chatgpt_revision_brief = {\n    instruction: 'Produce a revised shot manifest. Keep shot_id unchanged, set version to next_version, set generation_authorized to false (the human authorizes later), apply the review notes to the prompt fields only where needed, and do NOT set force_regenerate (creative revisions always use a new version).',\n    shot_id: row.shot_id, previous_version: Number(row.version), next_version: maxVersion + 1,\n    review_notes: v.notes, previous_prompt: row.submitted_prompt, previous_archive_url: row.archive_url || row.output_url || null, previous_manifest: (() => { try { return JSON.parse(row.manifest_json); } catch (e) { return null; } })(),\n  };\n}\nreturn [{ json: { allowed: true, http_status: 200, update: { generation_key: row.generation_key, approval_status: newState, review_notes: v.notes, reviewed_at: now, review_history: JSON.stringify(history).slice(0, 20000) }, body } }];\n"
+        }
+      },
+      {
+        "id": "2de91bf5-08f8-4150-9c49-1ddbf07c827c",
+        "name": "R04A — Transition Allowed?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1200,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "a18716d6-a62d-4c84-836c-296f669bf841",
+                "leftValue": "={{ $json.allowed }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "9fdc924f-a5a5-4af3-b336-b39d5741ad2f",
+        "name": "R05 — Save Review Decision",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          1440,
+          -80
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "generation_key",
+                "condition": "eq",
+                "keyValue": "={{ $('R04 — Apply Review Decision').first().json.update.generation_key }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "approval_status": "={{ $('R04 — Apply Review Decision').first().json.update.approval_status }}",
+              "review_notes": "={{ $('R04 — Apply Review Decision').first().json.update.review_notes }}",
+              "reviewed_at": "={{ $('R04 — Apply Review Decision').first().json.update.reviewed_at }}",
+              "review_history": "={{ $('R04 — Apply Review Decision').first().json.update.review_history }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "generation_key",
+                "displayName": "generation_key",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "project_id",
+                "displayName": "project_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "season_id",
+                "displayName": "season_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "episode_id",
+                "displayName": "episode_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "scene_id",
+                "displayName": "scene_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "shot_id",
+                "displayName": "shot_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "version",
+                "displayName": "version",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_type",
+                "displayName": "generation_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_status",
+                "displayName": "generation_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "approval_status",
+                "displayName": "approval_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "ltx_job_id",
+                "displayName": "ltx_job_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_endpoint",
+                "displayName": "ltx_endpoint",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_model",
+                "displayName": "ltx_model",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_resolution",
+                "displayName": "ltx_resolution",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "duration_seconds",
+                "displayName": "duration_seconds",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "estimated_cost_usd",
+                "displayName": "estimated_cost_usd",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_prompt",
+                "displayName": "submitted_prompt",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "reference_assets",
+                "displayName": "reference_assets",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "first_frame_asset_id",
+                "displayName": "first_frame_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_at",
+                "displayName": "submitted_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "last_checked_at",
+                "displayName": "last_checked_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "completed_at",
+                "displayName": "completed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "poll_attempts",
+                "displayName": "poll_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "output_url",
+                "displayName": "output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "error_status",
+                "displayName": "error_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "error_detail",
+                "displayName": "error_detail",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "manifest_json",
+                "displayName": "manifest_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "metadata_json",
+                "displayName": "metadata_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "review_notes",
+                "displayName": "review_notes",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "reviewed_at",
+                "displayName": "reviewed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "review_history",
+                "displayName": "review_history",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "source_output_url",
+                "displayName": "source_output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_url",
+                "displayName": "archive_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_provider",
+                "displayName": "archive_provider",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_asset_id",
+                "displayName": "archive_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_public_id",
+                "displayName": "archive_public_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archived_at",
+                "displayName": "archived_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_attempts",
+                "displayName": "archive_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        }
+      },
+      {
+        "id": "75d45317-642c-4799-a8d3-c78356deaf95",
+        "name": "R06 — Return Review Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1680,
+          -80
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($('R04 — Apply Review Decision').first().json.body, null, 2) }}",
+          "options": {
+            "responseCode": "={{ 200 }}"
+          }
+        }
+      },
+      {
+        "id": "04ab3f72-1ba7-4155-85ad-b2148c00deac",
+        "name": "R07 — Return Review Rejected",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1440,
+          120
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+          "options": {
+            "responseCode": "={{ $json.http_status }}"
+          }
+        }
+      },
+      {
+        "id": "5609e3ec-da66-47a9-8f84-8fcde15dbaed",
+        "name": "R02B — Return Validation Error",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          720,
+          220
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify(({ result: 'ERROR', error_status: 'VALIDATION_ERROR', errors: $json.errors }), null, 2) }}",
+          "options": {
+            "responseCode": "={{ 400 }}"
+          }
+        }
+      },
+      {
+        "id": "8b2fbff6-5cbc-4074-bc39-af972b4c5c57",
+        "name": "S01 — Shot Status Lookup",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          560
+        ],
+        "webhookId": "082abfaf-9cd5-427d-b448-b2ca4f693b9a",
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "sumerian/shot-status",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Ui88vEZagu2MBlle",
+            "name": "SUMERIAN — Pipeline Webhook Key"
+          }
+        }
+      },
+      {
+        "id": "f1501b7b-7c57-4822-92cd-1b77904205e4",
+        "name": "S02 — Load Shot Versions",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          240,
+          560
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "shot_id",
+                "condition": "eq",
+                "keyValue": "={{ ($json.query.shot_id || '__none__') }}"
+              }
+            ]
+          },
+          "limit": 100
+        }
+      },
+      {
+        "id": "78e08069-565b-4098-803a-ca4e92f4a4f4",
+        "name": "S03 — Format Shot Status",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          560
+        ],
+        "parameters": {
+          "jsCode": "// S03 — Format Shot Status\nconst q = $('S01 — Shot Status Lookup').first().json.query || {};\nconst version = q.version ? Number(q.version) : null;\nconst rows = $input.all().map((x) => x.json).filter((x) => x && x.generation_key)\n  .filter((x) => version === null || Number(x.version) === version)\n  .sort((a, b) => Number(a.version) - Number(b.version));\nconst slim = rows.map((x) => ({\n  shot_id: x.shot_id, version: Number(x.version), generation_type: x.generation_type, generation_status: x.generation_status,\n  approval_status: x.approval_status, ltx_job_id: x.ltx_job_id || null, ltx_model: x.ltx_model, ltx_resolution: x.ltx_resolution,\n  duration_seconds: x.duration_seconds, estimated_cost_usd: x.estimated_cost_usd, submitted_at: x.submitted_at || null,\n  completed_at: x.completed_at || null,\n  archive_url: x.archive_url || null, archive_provider: x.archive_provider || null, archive_asset_id: x.archive_asset_id || null,\n  archive_public_id: x.archive_public_id || null, archived_at: x.archived_at || null, archive_attempts: x.archive_attempts || 0,\n  preferred_url: x.archive_url || null, source_output_url: x.source_output_url || null, output_url: x.output_url || null, error_status: x.error_status || null,\n  error_detail: x.error_detail || null, review_notes: x.review_notes || null, reviewed_at: x.reviewed_at || null,\n}));\nreturn [{ json: { http_status: q.shot_id ? 200 : 400, body: q.shot_id ? { shot_id: q.shot_id, versions: slim, count: slim.length } : { result: 'ERROR', message: 'Pass ?shot_id=SUM-S01-E01-SC01-SH001 (optional &version=N).' } } }];\n"
+        }
+      },
+      {
+        "id": "2d655b87-a28b-454b-a9c7-77e3158a4361",
+        "name": "S04 — Return Shot Status",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          720,
+          560
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+          "options": {
+            "responseCode": "={{ $json.http_status }}"
+          }
+        }
+      },
+      {
+        "id": "da3a29ec-61ab-41f0-b608-9207a1aaf45e",
+        "name": "Note 16",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          840
+        ],
+        "parameters": {
+          "content": "## LTX CREDENTIAL CHECK (zero cost)\nGET a non-existent job id. **404 not_found = key valid**, 401 = key invalid. Never submits a generation.",
+          "width": 1000,
+          "height": 380,
+          "color": 6
+        }
+      },
+      {
+        "id": "7f2c7f51-8193-4d01-996a-74a80cf91ef0",
+        "name": "A01 — LTX Auth Check",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          980
+        ],
+        "webhookId": "a5fc16aa-857d-40cd-aa18-510b87fb8982",
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "sumerian/ltx-auth-check",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Ui88vEZagu2MBlle",
+            "name": "SUMERIAN — Pipeline Webhook Key"
+          }
+        }
+      },
+      {
+        "id": "c3a3a512-bc40-4e0c-aba0-811381972b6c",
+        "name": "A02 — GET Nonexistent LTX Job",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          980
+        ],
+        "onError": "continueRegularOutput",
+        "parameters": {
+          "url": "https://api.ltx.io/v2/text-to-video/sumerian-auth-check-00000000",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBearerAuth",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            },
+            "timeout": 20000
+          }
+        },
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "XN6vJybDVjx2WZbc",
+            "name": "LTX VIDEO API — THE SUMERIAN"
+          }
+        }
+      },
+      {
+        "id": "a8b60c93-b71f-4d39-be5c-04ba45394d5d",
+        "name": "A03 — Interpret Auth Check",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          980
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json; const s = r.statusCode; let b = r.body; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) {} }\nconst t = b && b.error ? b.error.type : null;\nconst ok = s === 404;\nreturn [{ json: { http_status: 200, body: { ltx_credential_valid: ok ? true : (s === 401 || s === 403 ? false : null), ltx_http_status: s || null, ltx_error_type: t, interpretation: ok ? 'Key accepted (404 for a dummy job id). No generation was submitted; no cost.' : (s === 401 || s === 403 ? 'Key rejected. Re-enter it in the credential \"LTX VIDEO API — THE SUMERIAN\".' : 'Inconclusive; see ltx_http_status.'), checked_at: new Date().toISOString() } } }];"
+        }
+      },
+      {
+        "id": "4f7d50a3-d7a4-4710-af21-2f3f9af1b8da",
+        "name": "A04 — Return Auth Check",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          720,
+          980
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+          "options": {
+            "responseCode": "={{ $json.http_status }}"
+          }
+        }
+      },
+      {
+        "id": "8ecd043b-995c-47a4-9eca-311e5a38d3c1",
+        "name": "Note 21",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          1260
+        ],
+        "parameters": {
+          "content": "## ARCHIVE REPAIR (no LTX call)\nFor ARCHIVE_FAILED / ARCHIVING clips: re-uploads the stored temporary LTX URL to Cloudinary (max 3 attempts), then REVIEW_REQUIRED. If the LTX URL already expired this fails cleanly; recover the file manually.",
+          "width": 2700,
+          "height": 560,
+          "color": 3
+        }
+      },
+      {
+        "id": "f51e7962-7416-4915-a311-381a17962d75",
+        "name": "X01 — Receive Archive Repair (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          1400
+        ],
+        "webhookId": "e5ecf8c3-a3a4-4883-80d5-8c4f452b81bf",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "sumerian/archive-retry",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Ui88vEZagu2MBlle",
+            "name": "SUMERIAN — Pipeline Webhook Key"
+          }
+        }
+      },
+      {
+        "id": "b0bec7ce-7ec3-41f2-9fed-81925d447d17",
+        "name": "X02 — Validate Archive Repair Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          1400
+        ],
+        "parameters": {
+          "jsCode": "// X02 — Validate Archive Repair Request\n// Re-archives an ALREADY GENERATED clip from its temporary LTX URL. Never calls LTX.\nconst i = $input.first().json;\nlet r = i.body !== undefined ? i.body : i;\nif (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) { r = { __bad: e.message }; } }\nconst errors = [];\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (r.__bad) errors.push({ field: '$body', message: 'Body is not valid JSON: ' + r.__bad });\nelse {\n  if (typeof r.shot_id !== 'string' || !SHOT_RE.test(r.shot_id.trim())) errors.push({ field: 'shot_id', message: 'shot_id must look like SUM-S01-E01-SC01-SH001.' });\n  if (!(Number.isInteger(Number(r.version)) && Number(r.version) >= 1)) errors.push({ field: 'version', message: 'version must be a positive integer.' });\n}\nconst shot_id = typeof r.shot_id === 'string' ? r.shot_id.trim() : null;\nconst version = Number(r.version);\nreturn [{ json: { valid: errors.length === 0, errors, request: { shot_id, version, generation_key: `${shot_id}::v${version}` } } }];\n"
+        }
+      },
+      {
+        "id": "b1d03215-3db5-491f-9eab-dd5756764ffa",
+        "name": "X02A — Request Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          480,
+          1400
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "8e47af16-889d-4c5f-9524-4de272bf404f",
+                "leftValue": "={{ $json.valid }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "e9b1f8da-6e51-4fa1-bc04-433d0c2f7653",
+        "name": "X02B — Return Validation Error",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          720,
+          1600
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify(({ result: 'ERROR', error_status: 'VALIDATION_ERROR', errors: $json.errors }), null, 2) }}",
+          "options": {
+            "responseCode": "={{ 400 }}"
+          }
+        }
+      },
+      {
+        "id": "a81e5823-4611-44e6-a01d-8f39332061aa",
+        "name": "X03 — Load Production Record",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          720,
+          1400
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "generation_key",
+                "condition": "eq",
+                "keyValue": "={{ $json.request.generation_key }}"
+              }
+            ]
+          },
+          "limit": 1
+        }
+      },
+      {
+        "id": "d7b03965-4e8a-46bd-85fe-ca683c26a505",
+        "name": "X04 — Check Repair Eligibility",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          1400
+        ],
+        "parameters": {
+          "jsCode": "// X04 — Check Archive Repair Eligibility\n// Only a clip that LTX already COMPLETED, whose archive failed or was interrupted, can be re-archived.\nconst req = $('X02 — Validate Archive Repair Request').first().json.request;\nconst row = $input.all().map((x) => x.json).find((x) => x && x.generation_key === req.generation_key) || null;\nif (!row) return [{ json: { eligible: false, http_status: 404, body: { result: 'ERROR', error_status: 'NOT_FOUND', message: `No production record for ${req.generation_key}.` } } }];\nconst src = row.source_output_url || '';\nconst problems = [];\nif (row.generation_status !== 'COMPLETED') problems.push(`generation_status is ${row.generation_status}, not COMPLETED`);\nif (!['ARCHIVE_FAILED', 'ARCHIVING'].includes(row.approval_status)) problems.push(`approval_status is ${row.approval_status}; only ARCHIVE_FAILED / ARCHIVING clips need repair`);\nif (!/^https:\\/\\//.test(src)) problems.push('no temporary LTX URL (source_output_url) is stored');\nif (problems.length) return [{ json: { eligible: false, http_status: 409, body: { result: 'ERROR', error_status: 'NOT_ELIGIBLE_FOR_ARCHIVE_REPAIR', generation_key: row.generation_key, message: problems.join('; ') + '.' } } }];\nlet manifest = {};\ntry { manifest = JSON.parse(row.manifest_json || '{}'); } catch (e) { manifest = {}; }\nreturn [{ json: { eligible: true, row_generation_key: row.generation_key, prior_attempts: Number(row.archive_attempts) || 0,\n  archive_ctx: { shot_id: row.shot_id, version: Number(row.version), generation_key: row.generation_key, season_id: row.season_id,\n    episode_id: row.episode_id, scene_id: row.scene_id, generation_type: row.generation_type, ltx_job_id: row.ltx_job_id,\n    source_url: src, force_regenerate: manifest.force_regenerate === true, test: row.episode_id === 'TEST' } } }];\n"
+        }
+      },
+      {
+        "id": "81f9f99e-7500-48a5-a235-d558340b8c5b",
+        "name": "X04A — Eligible?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1200,
+          1400
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "3d1d5e9f-daf6-495a-a73e-7bb14b5aef0f",
+                "leftValue": "={{ $json.eligible }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "7d0442c9-2e8a-4491-b182-215fc5acea4c",
+        "name": "X04B — Return Not Eligible",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1440,
+          1600
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json.body, null, 2) }}",
+          "options": {
+            "responseCode": "={{ $json.http_status }}"
+          }
+        }
+      },
+      {
+        "id": "e3896cc8-32e2-4a22-ab59-0c368fd9d292",
+        "name": "X05 — Prepare Archive Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1440,
+          1400
+        ],
+        "parameters": {
+          "jsCode": "// Prepare Archive Request — shared by the pipeline (13A2) and the archive-repair path (X05).\n// Input: $json.archive_ctx = { shot_id, version, generation_key, season_id, episode_id, scene_id, generation_type,\n//                              ltx_job_id, source_url, force_regenerate, test }\n// Deterministic Cloudinary identity. Every version is a separate, never-overwritten asset.\nconst c = (typeof __ARC_INPUT !== 'undefined') ? __ARC_INPUT : $input.first().json;\nconst a = c.archive_ctx;\nconst pad3 = (n) => String(n).padStart(3, '0');\nconst num = (s, prefix) => { const m = String(s || '').match(new RegExp('^' + prefix + '(\\\\d+)$', 'i')); return m ? m[1].padStart(2, '0') : String(s || 'x').toLowerCase().replace(/[^a-z0-9]+/g, '-'); };\nconst root = a.test ? 'the-sumerian/_pipeline-tests' : 'the-sumerian';\nconst folder = [root, 'season-' + num(a.season_id, 'S'), 'episode-' + num(a.episode_id, 'E'), 'scene-' + num(a.scene_id, 'SC'), a.shot_id, 'v' + pad3(a.version)].join('/');\nlet asset = `${a.shot_id}_v${pad3(a.version)}`;\n// An exceptional force_regenerate rerun gets its own asset so the earlier archived output is never replaced.\nif (a.force_regenerate && a.ltx_job_id) asset += '_rerun-' + String(a.ltx_job_id).replace(/[^A-Za-z0-9]/g, '').slice(0, 8);\nconst public_id = `${folder}/${asset}`;\nconst esc = (v) => String(v == null ? '' : v).replace(/([=|\\\\])/g, '\\\\$1');\nconst context = [\n  ['shot_id', a.shot_id], ['version', a.version], ['generation_key', a.generation_key], ['ltx_job_id', a.ltx_job_id],\n  ['generation_type', a.generation_type], ['project', 'THE SUMERIAN'], ['pipeline', 'LTX PRODUCTION PIPELINE v1.1'],\n].map(([k, v]) => `${k}=${esc(v)}`).join('|');\nconst tags = ['the-sumerian', a.shot_id, `${a.shot_id}_v${pad3(a.version)}`, 'v' + pad3(a.version),\n  'season-' + num(a.season_id, 'S'), 'episode-' + num(a.episode_id, 'E'), 'scene-' + num(a.scene_id, 'SC'),\n  String(a.generation_type || '').toLowerCase().replace(/_/g, '-'), 'ltx', a.test ? 'pipeline-test' : 'production'].filter(Boolean).join(',');\n\nreturn [{ json: { ...c, archive: {\n  provider: 'CLOUDINARY', attempt: 0, max_attempts: 3, retry_wait_seconds: 10,\n  expected_public_id: public_id, asset_folder: folder,\n  params: { file: a.source_url, public_id, asset_folder: folder, overwrite: 'false', tags, context },\n  history: [],\n} } }];\n"
+        }
+      },
+      {
+        "id": "2f3c3bf1-e032-4837-89d1-9ae5c90f5c0d",
+        "name": "X06 — Count Archive Attempt",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1680,
+          1400
+        ],
+        "parameters": {
+          "jsCode": "// Count Archive Attempt — loop head of the bounded archive retry (max 3 Cloudinary attempts; never an LTX call).\nconst c = $input.first().json;\nreturn [{ json: { ...c, archive: { ...c.archive, attempt: (c.archive.attempt || 0) + 1, attempt_started_at: new Date().toISOString() } } }];\n"
+        }
+      },
+      {
+        "id": "7399c11c-611d-4eae-bce2-90ac73d55482",
+        "name": "X07 — Archive Clip to Cloudinary",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1920,
+          1400
+        ],
+        "onError": "continueRegularOutput",
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.cloudinary.com/v1_1/yto9u5lp/video/upload",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBasicAuth",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "file",
+                "value": "={{ $json.archive.params.file }}"
+              },
+              {
+                "name": "public_id",
+                "value": "={{ $json.archive.params.public_id }}"
+              },
+              {
+                "name": "asset_folder",
+                "value": "={{ $json.archive.params.asset_folder }}"
+              },
+              {
+                "name": "overwrite",
+                "value": "={{ $json.archive.params.overwrite }}"
+              },
+              {
+                "name": "tags",
+                "value": "={{ $json.archive.params.tags }}"
+              },
+              {
+                "name": "context",
+                "value": "={{ $json.archive.params.context }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            },
+            "timeout": 180000
+          }
+        },
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "8dI2AtXqAs8ycaPw",
+            "name": "Cloudinary"
+          }
+        }
+      },
+      {
+        "id": "98f6b366-2957-46f9-85f4-9d4cc336d1f4",
+        "name": "X08 — Verify Archive Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2160,
+          1400
+        ],
+        "parameters": {
+          "jsCode": "// Verify Archive Result — classifies the Cloudinary upload response.\n// ARCHIVED: 200 + https secure_url + expected public_id. RETRY: clearly transient (network, timeout, 429/420, 5xx) and attempts left.\n// FAILED: anything else, or attempts exhausted. Never triggers an LTX generation.\nconst st = $('X06 — Count Archive Attempt').first().json;\nconst r = $input.first().json || {};\nconst status = typeof r.statusCode === 'number' ? r.statusCode : null;\nlet b = r.body;\nif (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { /* keep text */ } }\nconst a = st.archive;\nconst now = new Date().toISOString();\nconst errMsg = b && b.error ? (b.error.message || JSON.stringify(b.error)) : (r.error ? (r.error.message || String(r.error)) : null);\nconst clip = (s) => String(s == null ? '' : s).replace(/(api_key|api_secret|signature)=[^&\\s]+/gi, '$1=[redacted]').slice(0, 500);\n\nlet decision, detail = null, result = null;\nif (status === 200 && b && typeof b.secure_url === 'string' && b.secure_url.startsWith('https://')) {\n  if (b.public_id !== a.expected_public_id) {\n    decision = 'FAILED'; detail = `Cloudinary stored public_id \"${b.public_id}\" instead of \"${a.expected_public_id}\".`;\n  } else {\n    decision = 'ARCHIVED';\n    result = { archive_url: b.secure_url, archive_public_id: b.public_id, archive_asset_id: b.asset_id || '', archive_version: b.version || null,\n      resource_type: b.resource_type || null, format: b.format || null, bytes: b.bytes || null, duration: b.duration || null,\n      width: b.width || null, height: b.height || null, existing: b.existing === true, created_at: b.created_at || null, asset_folder: b.asset_folder || a.asset_folder,\n      tags: Array.isArray(b.tags) ? b.tags : [], context: b.context && b.context.custom ? b.context.custom : (b.context || null) };\n  }\n} else {\n  const transient = status === null || status === 408 || status === 420 || status === 429 || (status >= 500 && status <= 599);\n  detail = `Cloudinary ${status === null ? 'no response (network/timeout)' : 'HTTP ' + status}${errMsg ? ': ' + clip(errMsg) : ''}`;\n  decision = transient && a.attempt < a.max_attempts ? 'RETRY' : 'FAILED';\n  if (decision === 'FAILED' && transient) detail += ` (gave up after ${a.attempt} attempts)`;\n}\n\nconst history = [...(a.history || []), { attempt: a.attempt, at: now, http_status: status, decision, detail }];\nreturn [{ json: { ...st, archive: { ...a, history, decision, detail, result, finished_at: decision === 'RETRY' ? null : now } } }];\n"
+        }
+      },
+      {
+        "id": "f88c2746-a0a6-4abe-bca6-dfc3d30d1836",
+        "name": "X09 — Route Archive Result",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          2400,
+          1400
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "f0f2514d-5d18-492e-9958-eb6446bd0266",
+                      "leftValue": "={{ $json.archive.decision }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "ARCHIVED"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "ARCHIVED"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "6006cbe9-5b54-4c0a-9713-8efb4c104a8b",
+                      "leftValue": "={{ $json.archive.decision }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "RETRY"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "RETRY"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "f14ac423-984f-4642-8cd4-d9fdd8e1cc40",
+                      "leftValue": "={{ $json.archive.decision }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "FAILED"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "FAILED"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "OTHER"
+          }
+        }
+      },
+      {
+        "id": "a044e371-c24f-42ab-a590-747f412063d0",
+        "name": "X10 — Wait Before Archive Retry",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          1920,
+          1640
+        ],
+        "webhookId": "61154b03-d501-4678-b12e-215b906a9483",
+        "parameters": {
+          "resume": "timeInterval",
+          "amount": 10,
+          "unit": "seconds"
+        }
+      },
+      {
+        "id": "1aa6efc2-1c3c-4f13-a0b8-1a5e7ddfce4d",
+        "name": "X11 — Save Archive + REVIEW_REQUIRED",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          2640,
+          1320
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "generation_key",
+                "condition": "eq",
+                "keyValue": "={{ $('X08 — Verify Archive Result').first().json.row_generation_key }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "generation_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().generation_status }}",
+              "approval_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().approval_status }}",
+              "output_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().output_url }}",
+              "source_output_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().source_output_url }}",
+              "archive_url": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_url }}",
+              "archive_provider": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_provider }}",
+              "archive_asset_id": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_asset_id }}",
+              "archive_public_id": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_public_id }}",
+              "archived_at": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archived_at }}",
+              "archive_attempts": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().archive_attempts }}",
+              "error_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().error_status }}",
+              "error_detail": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().error_detail }}",
+              "metadata_json": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: r.archive_url, source_output_url: c.archive_ctx.source_url, archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_asset_id: r.archive_asset_id, archive_public_id: r.archive_public_id, archived_at: c.archive.finished_at, archive_attempts: c.prior_attempts + c.archive.attempt, error_status: '', error_detail: '', metadata_json: JSON.stringify({ archive_repair: { provider: 'CLOUDINARY', ...r, history: c.archive.history } }) }; })().metadata_json }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "generation_key",
+                "displayName": "generation_key",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "project_id",
+                "displayName": "project_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "season_id",
+                "displayName": "season_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "episode_id",
+                "displayName": "episode_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "scene_id",
+                "displayName": "scene_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "shot_id",
+                "displayName": "shot_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "version",
+                "displayName": "version",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_type",
+                "displayName": "generation_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_status",
+                "displayName": "generation_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "approval_status",
+                "displayName": "approval_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "ltx_job_id",
+                "displayName": "ltx_job_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_endpoint",
+                "displayName": "ltx_endpoint",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_model",
+                "displayName": "ltx_model",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_resolution",
+                "displayName": "ltx_resolution",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "duration_seconds",
+                "displayName": "duration_seconds",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "estimated_cost_usd",
+                "displayName": "estimated_cost_usd",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_prompt",
+                "displayName": "submitted_prompt",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "reference_assets",
+                "displayName": "reference_assets",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "first_frame_asset_id",
+                "displayName": "first_frame_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_at",
+                "displayName": "submitted_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "last_checked_at",
+                "displayName": "last_checked_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "completed_at",
+                "displayName": "completed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "poll_attempts",
+                "displayName": "poll_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "output_url",
+                "displayName": "output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "error_status",
+                "displayName": "error_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "error_detail",
+                "displayName": "error_detail",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "manifest_json",
+                "displayName": "manifest_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "metadata_json",
+                "displayName": "metadata_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "review_notes",
+                "displayName": "review_notes",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "reviewed_at",
+                "displayName": "reviewed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "review_history",
+                "displayName": "review_history",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "source_output_url",
+                "displayName": "source_output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archive_url",
+                "displayName": "archive_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archive_provider",
+                "displayName": "archive_provider",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archive_asset_id",
+                "displayName": "archive_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archive_public_id",
+                "displayName": "archive_public_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archived_at",
+                "displayName": "archived_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "archive_attempts",
+                "displayName": "archive_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        }
+      },
+      {
+        "id": "c67460e7-9c26-4c6f-b8b0-8c376f6a593b",
+        "name": "X12 — Return Archive Repaired",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          2880,
+          1320
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify((() => { const c = $('X08 — Verify Archive Result').first().json; const r = c.archive.result; return { result: 'REVIEW_REQUIRED', shot_id: c.archive_ctx.shot_id, version: c.archive_ctx.version, generation_key: c.row_generation_key, approval_status: 'REVIEW_REQUIRED', archive_url: r.archive_url, archive_provider: 'CLOUDINARY', archive_public_id: r.archive_public_id, archive_asset_id: r.archive_asset_id, source_output_url: c.archive_ctx.source_url, ltx_called: false }; })(), null, 2) }}",
+          "options": {
+            "responseCode": "={{ 200 }}"
+          }
+        }
+      },
+      {
+        "id": "2736b87a-03ca-44b2-8ace-32ad8aa6899e",
+        "name": "X13 — Record Repair Failure",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          2640,
+          1520
+        ],
+        "alwaysOutputData": true,
+        "parameters": {
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "value": "lXrzXmn2mo8J7K0Z",
+            "mode": "id"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "generation_key",
+                "condition": "eq",
+                "keyValue": "={{ $('X08 — Verify Archive Result').first().json.row_generation_key }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "archive_attempts": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().archive_attempts }}",
+              "error_status": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().error_status }}",
+              "error_detail": "={{ (() => { const c = $('X08 — Verify Archive Result').first().json; return { archive_attempts: c.prior_attempts + c.archive.attempt, error_status: 'OUTPUT_ARCHIVE_FAILED', error_detail: String(c.archive.detail || '').slice(0, 2000) }; })().error_detail }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "generation_key",
+                "displayName": "generation_key",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "project_id",
+                "displayName": "project_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "season_id",
+                "displayName": "season_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "episode_id",
+                "displayName": "episode_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "scene_id",
+                "displayName": "scene_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "shot_id",
+                "displayName": "shot_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "version",
+                "displayName": "version",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_type",
+                "displayName": "generation_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "generation_status",
+                "displayName": "generation_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "approval_status",
+                "displayName": "approval_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_job_id",
+                "displayName": "ltx_job_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_endpoint",
+                "displayName": "ltx_endpoint",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_model",
+                "displayName": "ltx_model",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "ltx_resolution",
+                "displayName": "ltx_resolution",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "duration_seconds",
+                "displayName": "duration_seconds",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "estimated_cost_usd",
+                "displayName": "estimated_cost_usd",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_prompt",
+                "displayName": "submitted_prompt",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "reference_assets",
+                "displayName": "reference_assets",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "first_frame_asset_id",
+                "displayName": "first_frame_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "submitted_at",
+                "displayName": "submitted_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "last_checked_at",
+                "displayName": "last_checked_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "completed_at",
+                "displayName": "completed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "poll_attempts",
+                "displayName": "poll_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "output_url",
+                "displayName": "output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "error_status",
+                "displayName": "error_status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "error_detail",
+                "displayName": "error_detail",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "manifest_json",
+                "displayName": "manifest_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "metadata_json",
+                "displayName": "metadata_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "review_notes",
+                "displayName": "review_notes",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "reviewed_at",
+                "displayName": "reviewed_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "review_history",
+                "displayName": "review_history",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "source_output_url",
+                "displayName": "source_output_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_url",
+                "displayName": "archive_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_provider",
+                "displayName": "archive_provider",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_asset_id",
+                "displayName": "archive_asset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_public_id",
+                "displayName": "archive_public_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archived_at",
+                "displayName": "archived_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": true
+              },
+              {
+                "id": "archive_attempts",
+                "displayName": "archive_attempts",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        }
+      },
+      {
+        "id": "adf2ad1b-a3db-4d1b-ae88-40d392a2f46d",
+        "name": "X14 — Return Repair Failed",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          2880,
+          1520
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify((() => { const c = $('X08 — Verify Archive Result').first().json; return { result: 'ARCHIVE_FAILED', error_status: 'OUTPUT_ARCHIVE_FAILED', generation_key: c.row_generation_key, detail: c.archive.detail, history: c.archive.history, source_output_url: c.archive_ctx.source_url, ltx_called: false, next_step: 'If the temporary LTX URL has expired, recover the file manually; do not regenerate unless it is truly lost.' }; })(), null, 2) }}",
+          "options": {
+            "responseCode": "={{ 502 }}"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "R01A — Receive Review (Webhook)": {
+        "main": [
+          [
+            {
+              "node": "R02 — Validate Review Action",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R02 — Validate Review Action": {
+        "main": [
+          [
+            {
+              "node": "R02A — Review Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R02A — Review Valid?": {
+        "main": [
+          [
+            {
+              "node": "R03 — Load Shot Versions",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "R02B — Return Validation Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R03 — Load Shot Versions": {
+        "main": [
+          [
+            {
+              "node": "R04 — Apply Review Decision",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R04 — Apply Review Decision": {
+        "main": [
+          [
+            {
+              "node": "R04A — Transition Allowed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R04A — Transition Allowed?": {
+        "main": [
+          [
+            {
+              "node": "R05 — Save Review Decision",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "R07 — Return Review Rejected",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "R05 — Save Review Decision": {
+        "main": [
+          [
+            {
+              "node": "R06 — Return Review Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "S01 — Shot Status Lookup": {
+        "main": [
+          [
+            {
+              "node": "S02 — Load Shot Versions",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "S02 — Load Shot Versions": {
+        "main": [
+          [
+            {
+              "node": "S03 — Format Shot Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "S03 — Format Shot Status": {
+        "main": [
+          [
+            {
+              "node": "S04 — Return Shot Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "A01 — LTX Auth Check": {
+        "main": [
+          [
+            {
+              "node": "A02 — GET Nonexistent LTX Job",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "A02 — GET Nonexistent LTX Job": {
+        "main": [
+          [
+            {
+              "node": "A03 — Interpret Auth Check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "A03 — Interpret Auth Check": {
+        "main": [
+          [
+            {
+              "node": "A04 — Return Auth Check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X01 — Receive Archive Repair (Webhook)": {
+        "main": [
+          [
+            {
+              "node": "X02 — Validate Archive Repair Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X02 — Validate Archive Repair Request": {
+        "main": [
+          [
+            {
+              "node": "X02A — Request Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X02A — Request Valid?": {
+        "main": [
+          [
+            {
+              "node": "X03 — Load Production Record",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "X02B — Return Validation Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X03 — Load Production Record": {
+        "main": [
+          [
+            {
+              "node": "X04 — Check Repair Eligibility",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X04 — Check Repair Eligibility": {
+        "main": [
+          [
+            {
+              "node": "X04A — Eligible?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X04A — Eligible?": {
+        "main": [
+          [
+            {
+              "node": "X05 — Prepare Archive Request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "X04B — Return Not Eligible",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X05 — Prepare Archive Request": {
+        "main": [
+          [
+            {
+              "node": "X06 — Count Archive Attempt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X06 — Count Archive Attempt": {
+        "main": [
+          [
+            {
+              "node": "X07 — Archive Clip to Cloudinary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X07 — Archive Clip to Cloudinary": {
+        "main": [
+          [
+            {
+              "node": "X08 — Verify Archive Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X08 — Verify Archive Result": {
+        "main": [
+          [
+            {
+              "node": "X09 — Route Archive Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X09 — Route Archive Result": {
+        "main": [
+          [
+            {
+              "node": "X11 — Save Archive + REVIEW_REQUIRED",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "X10 — Wait Before Archive Retry",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "X13 — Record Repair Failure",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "X13 — Record Repair Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X10 — Wait Before Archive Retry": {
+        "main": [
+          [
+            {
+              "node": "X06 — Count Archive Attempt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X11 — Save Archive + REVIEW_REQUIRED": {
+        "main": [
+          [
+            {
+              "node": "X12 — Return Archive Repaired",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "X13 — Record Repair Failure": {
+        "main": [
+          [
+            {
+              "node": "X14 — Return Repair Failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Damu Winston",
+    "name": "v1.1.1 archive metadata",
+    "description": "Capture Cloudinary tags/context in archive metadata",
+    "autosaved": false
+  },
+  "tags": []
+}
