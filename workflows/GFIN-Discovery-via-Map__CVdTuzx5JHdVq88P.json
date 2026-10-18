@@ -1,0 +1,501 @@
+{
+  "updatedAt": "2026-08-03T14:11:46.196Z",
+  "createdAt": "2026-07-29T17:01:04.064Z",
+  "id": "CVdTuzx5JHdVq88P",
+  "name": "GFIN - Discovery via Map",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "7b32d4d4-620e-4511-bb1f-a26d5f321a0a",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "options": {}
+      },
+      "id": "127fe134-b841-4bf0-8ba1-7cc2ab490ca7",
+      "name": "Read Org Leads Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -448,
+        240
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Execute Once — reads the whole sheet in one call, same pattern as Workflow A. Attach your Google Sheets credential after import."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for All Items\n// Reads the whole \"Org Leads\" sheet once and caches known source_ids\n// in workflow static data, same pattern as Workflow A's lead cache.\nconst rows = $input.all();\nconst existingIds = rows.map(r => r.json.source_id).filter(Boolean);\n$getWorkflowStaticData('global').existingOrgIds = existingIds;\nreturn [{ json: { cachedCount: existingIds.length } }];\n"
+      },
+      "id": "c2656d43-097d-4b0a-8b1b-10197bd7a75a",
+      "name": "Cache Existing Org IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for All Items\n// Edit these two lists to match GFIN's actual target categories/states.\nconst categories = [\n  \"community foundation\",\n  \"family foundation\",\n  \"food bank\",\n  \"free clinic\",\n  \"housing nonprofit\",\n  \"youth development\",\n  \"arts education nonprofit\"\n];\nconst states = [\"OH\",\"TX\",\"CA\",\"GA\",\"NC\",\"PA\",\"IL\",\"FL\"];\n\nconst items = [];\nfor (const state of states) {\n  for (const term of categories) {\n    items.push({ json: { searchTerm: term, state, slice: `${term}_${state}`.replace(/\\s+/g, '_') } });\n  }\n}\nreturn items;\n"
+      },
+      "id": "6fe42892-4130-4d4f-b776-90494e7eabab",
+      "name": "PP: Build Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://projects.propublica.org/nonprofits/api/v2/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.searchTerm }}"
+            },
+            {
+              "name": "state[id]",
+              "value": "={{ $json.state }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1dc9d4e-37cf-401e-87fb-96219cff004e",
+      "name": "PP: Search Nonprofits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        16
+      ],
+      "notes": "Free, no API key. Runs once per input item automatically."
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPORTANT: keep this on \"Run Once for All Items.\"\n// Each input item here is ONE query's full ProPublica response\n// (an object with an \"organizations\" array inside it).\n// We flatten every item's organizations[] into its own output row.\n// (This is the exact 1:many pattern that bit us before when a node\n// was left on \"Run Once for Each Item\" - don't flip this one.)\nconst out = [];\nfor (const item of $input.all()) {\n  const orgs = item.json.organizations || [];\n  for (const o of orgs) {\n    out.push({\n      json: {\n        source: 'propublica',\n        source_id: `ein_${o.ein}`,\n        org_name: o.name,\n        address: [o.address, o.city, o.state, o.zipcode].filter(Boolean).join(', '),\n        city: o.city || null,\n        state: o.state || null,\n        category: o.ntee_code || o.subseccd || 'nonprofit',\n        website: null,\n        phone: null,\n        ein: o.ein,\n        discovered_at: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;\n"
+      },
+      "id": "1aeb79de-87e0-430b-b152-ffa2771d19a8",
+      "name": "PP: Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for All Items\n// Edit this list to match GFIN's target cities/states.\nconst cities = [\n  { city: \"Columbus\", state: \"OH\" },\n  { city: \"Dallas\", state: \"TX\" },\n  { city: \"Sacramento\", state: \"CA\" }\n];\nreturn cities.map(c => ({ json: { city: c.city, state: c.state, slice: `osm_${c.city}` } }));\n"
+      },
+      "id": "f0d8a7cb-e1cf-48b8-b069-ff6615821de4",
+      "name": "OSM: Build Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Run Once for Each Item (1:1 - one query string per city)\nconst { city, state } = $json;\nconst query = `[out:json][timeout:25];\narea[\"name\"=\"${city}\"][\"admin_level\"~\"4|6|8\"]->.a;\n(\n  node[\"amenity\"=\"place_of_worship\"](area.a);\n  node[\"office\"~\"ngo|charity|association\"](area.a);\n);\nout body;`;\nreturn { json: { ...$json, overpassQuery: query } };\n"
+      },
+      "id": "5f563d80-5e71-4d5e-a9a1-b28da9953658",
+      "name": "OSM: Build Overpass QL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://overpass-api.de/api/interpreter",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.overpassQuery }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "43f02a0f-0e3e-4364-a300-9eabfea521e3",
+      "name": "OSM: Query Overpass",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        240
+      ],
+      "notes": "Free, no API key. Be polite to the public instance — don't fire these in tight parallel batches at scale."
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPORTANT: keep this on \"Run Once for All Items\" - same 1:many\n// flatten pattern as the ProPublica normalize node. Each input item\n// is one city's full Overpass response (an \"elements\" array inside).\nconst out = [];\nfor (const item of $input.all()) {\n  const elements = item.json.elements || [];\n  for (const e of elements) {\n    const name = e.tags && e.tags.name;\n    if (!name) continue; // skip unnamed nodes - not usable as a lead\n    out.push({\n      json: {\n        source: 'osm',\n        source_id: `osm_${e.type}_${e.id}`,\n        org_name: name,\n        address: [\n          e.tags['addr:housenumber'], e.tags['addr:street'],\n          e.tags['addr:city'], e.tags['addr:state']\n        ].filter(Boolean).join(', '),\n        city: e.tags['addr:city'] || null,\n        state: e.tags['addr:state'] || null,\n        category: e.tags.amenity || e.tags.office || 'unknown',\n        website: e.tags.website || e.tags['contact:website'] || null,\n        phone: e.tags.phone || e.tags['contact:phone'] || null,\n        ein: null,\n        discovered_at: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;\n"
+      },
+      "id": "599e01c4-e669-4b18-b498-1027fd5be261",
+      "name": "OSM: Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for All Items\n// Edit these to match GFIN's target categories/locations.\nconst categories = [\"church\", \"nonprofit organization\", \"community foundation\", \"economic development office\"];\nconst locations = [\"Columbus OH\", \"Dallas TX\", \"Sacramento CA\"];\n\nconst items = [];\nfor (const cat of categories) {\n  for (const loc of locations) {\n    items.push({ json: { textQuery: `${cat} in ${loc}`, slice: `${cat}_${loc}`.replace(/\\s+/g, '_') } });\n  }\n}\nreturn items;\n"
+      },
+      "id": "4cf688e4-8a81-4797-9267-1b754953acc2",
+      "name": "Places: Build Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://places.googleapis.com/v1/places:searchText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Goog-Api-Key",
+              "value": "REPLACE_WITH_YOUR_GOOGLE_PLACES_API_KEY"
+            },
+            {
+              "name": "X-Goog-FieldMask",
+              "value": "places.id,places.displayName,places.formattedAddress,places.types"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"textQuery\": $json.textQuery} }}",
+        "options": {}
+      },
+      "id": "55288a34-1c31-4939-9ed1-b8ea8b8a7505",
+      "name": "Places: Text Search (Pro fields only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        464
+      ],
+      "notes": "Field mask deliberately excludes websiteUri/nationalPhoneNumber - those trigger the paid Enterprise SKU. Move the API key into a proper credential rather than leaving it as plain text."
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPORTANT: keep this on \"Run Once for All Items\" - same 1:many\n// flatten pattern as the other two normalize nodes.\nconst out = [];\nfor (const item of $input.all()) {\n  const places = item.json.places || [];\n  for (const p of places) {\n    out.push({\n      json: {\n        source: 'google_places',\n        source_id: `place_${p.id}`,\n        org_name: (p.displayName && p.displayName.text) || null,\n        address: p.formattedAddress || null,\n        city: null,\n        state: null,\n        category: (p.types || []).join(','),\n        // website/phone are intentionally NOT requested - those fields\n        // trigger the Enterprise SKU (only 1,000 free calls/mo, then\n        // $35-40/1,000). This branch stays on the Pro tier, free up\n        // to 5,000 calls/mo.\n        website: null,\n        phone: null,\n        ein: null,\n        discovered_at: new Date().toISOString()\n      }\n    });\n  }\n}\nreturn out;\n"
+      },
+      "id": "250fb376-81a9-4aab-8d97-1f24572bd9c3",
+      "name": "Places: Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "options": {}
+      },
+      "id": "2f6681b0-9620-41a5-aa9f-25127b6c1538",
+      "name": "Merge All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        880,
+        240
+      ],
+      "notes": "Check this node's mode dropdown after import — Merge node options differ by n8n version. You want simple concatenation of all 3 branches, not a field-matching join."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for All Items\nconst cached = new Set($getWorkflowStaticData('global').existingOrgIds || []);\nconst seenThisRun = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const id = item.json.source_id;\n  if (!id || cached.has(id) || seenThisRun.has(id)) continue;\n  seenThisRun.add(id);\n  out.push(item);\n}\nreturn out;\n"
+      },
+      "id": "251d07b0-e0ff-4a27-81b5-a25ef8aaa49a",
+      "name": "Dedup Against Existing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_YOUR_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Org Leads"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "55424599-9dad-4600-a489-e7555415bec4",
+      "name": "Append New Org Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1328,
+        240
+      ],
+      "notes": "Create an 'Org Leads' tab first with headers matching the normalize nodes' fields: source, source_id, org_name, address, city, state, category, website, phone, ein, discovered_at"
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Read Org Leads Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Org Leads Sheet": {
+      "main": [
+        [
+          {
+            "node": "Cache Existing Org IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Existing Org IDs": {
+      "main": [
+        [
+          {
+            "node": "PP: Build Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OSM: Build Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Places: Build Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PP: Build Queries": {
+      "main": [
+        [
+          {
+            "node": "PP: Search Nonprofits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PP: Search Nonprofits": {
+      "main": [
+        [
+          {
+            "node": "PP: Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PP: Normalize": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSM: Build Queries": {
+      "main": [
+        [
+          {
+            "node": "OSM: Build Overpass QL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSM: Build Overpass QL": {
+      "main": [
+        [
+          {
+            "node": "OSM: Query Overpass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSM: Query Overpass": {
+      "main": [
+        [
+          {
+            "node": "OSM: Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSM: Normalize": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Places: Build Queries": {
+      "main": [
+        [
+          {
+            "node": "Places: Text Search (Pro fields only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Places: Text Search (Pro fields only)": {
+      "main": [
+        [
+          {
+            "node": "Places: Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Dedup Against Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedup Against Existing": {
+      "main": [
+        [
+          {
+            "node": "Append New Org Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "28209802-8f6e-41ba-a629-dd539abb9a07",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-07-29T17:01:04.064Z",
+      "createdAt": "2026-07-29T17:01:04.064Z",
+      "role": "workflow:owner",
+      "workflowId": "CVdTuzx5JHdVq88P",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
