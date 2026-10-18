@@ -1,0 +1,637 @@
+{
+  "updatedAt": "2025-12-19T09:54:43.864Z",
+  "createdAt": "2025-11-20T23:09:43.904Z",
+  "id": "y9e9fGnkiN9SneQF",
+  "name": "News API Module - Winston Damu",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "03f48dde-c574-4600-a46e-228043026bc1",
+      "name": "News API Trigger (Every 6hrs)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -304,
+        896
+      ],
+      "notes": "Runs 4x daily to fetch fresh news"
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date();\nconst twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);\n\nconst fromDate = twoDaysAgo.toISOString().split('T')[0];\nconst toDate = today.toISOString().split('T')[0];\n\nconst searchQueries = [\n  {\n    query: 'Web3 OR tokenization OR blockchain',\n    category: 'technology',\n    priority: 1,\n    region: 'global'\n  },\n  {\n    query: 'AI education OR \"AI for social good\"',\n    category: 'technology',\n    priority: 1,\n    region: 'global'\n  },\n  {\n    query: 'DeFi OR \"decentralized finance\"',\n    category: 'technology',\n    priority: 1,\n    region: 'global'\n  },\n  {\n    query: 'fintech innovation OR digital banking',\n    category: 'technology',\n    priority: 2,\n    region: 'global'\n  },\n  {\n    query: 'social entrepreneurship OR impact investing',\n    category: 'business',\n    priority: 2,\n    region: 'global'\n  },\n  {\n    query: 'UAE technology OR Dubai fintech',\n    category: 'technology',\n    priority: 2,\n    region: 'middle_east'\n  },\n  {\n    query: 'Saudi Arabia AI OR NEOM',\n    category: 'technology',\n    priority: 2,\n    region: 'middle_east'\n  },\n  {\n    query: 'sustainable retail OR retail tech',\n    category: 'technology',\n    priority: 3,\n    region: 'global'\n  }\n];\n\nreturn searchQueries.map(q => ({\n  json: {\n    searchQuery: q.query,\n    category: q.category,\n    priority: q.priority,\n    region: q.region,\n    fromDate: fromDate,\n    toDate: toDate,\n    pageSize: 20\n  }\n}));"
+      },
+      "id": "5c6664c7-d0cf-47ba-927e-7f1839da559c",
+      "name": "Set News API Parameters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        896
+      ],
+      "notes": "8 search queries covering Winston's topics"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.searchQuery}}"
+            },
+            {
+              "name": "from",
+              "value": "={{$json.fromDate}}"
+            },
+            {
+              "name": "to",
+              "value": "={{$json.toDate}}"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "sortBy",
+              "value": "relevancy"
+            },
+            {
+              "name": "pageSize",
+              "value": "={{$json.pageSize}}"
+            },
+            {
+              "name": "apiKey",
+              "value": "9d8326301e4043f696676d2f1c98c4b7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fe70f88a-241f-47d8-8509-f61a0ecfaf75",
+      "name": "NewsAPI.org",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        48,
+        896
+      ],
+      "notes": "Free tier: 100 req/day, 24hr delay"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://newsapi.ai/api/v1/article/getArticles",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {\n    \"$query\": {\n      \"$and\": [\n        {\n          \"keyword\": \"{{$json.searchQuery}}\",\n          \"keywordLoc\": \"body,title\"\n        },\n        {\n          \"dateStart\": \"{{$json.fromDate}}\",\n          \"dateEnd\": \"{{$json.toDate}}\"\n        },\n        {\n          \"lang\": \"eng\"\n        }\n      ]\n    },\n    \"$filter\": {\n      \"isDuplicate\": \"skipDuplicates\"\n    }\n  },\n  \"resultType\": \"articles\",\n  \"articlesSortBy\": \"socialScore\",\n  \"articlesCount\": 20,\n  \"apiKey\": \"YOUR_NEWSAPI_AI_KEY\"\n}",
+        "options": {}
+      },
+      "id": "e07212bc-6573-4d67-ae4b-81fc5667d061",
+      "name": "NewsAPI.ai",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -224,
+        1104
+      ],
+      "notes": "$89/mo - Best for AI/Web3, real-time"
+    },
+    {
+      "parameters": {
+        "url": "http://api.mediastack.com/v1/news",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_key",
+              "value": "YOUR_MEDIASTACK_KEY"
+            },
+            {
+              "name": "keywords",
+              "value": "={{$json.searchQuery}}"
+            },
+            {
+              "name": "date",
+              "value": "={{$json.fromDate}},={{$json.toDate}}"
+            },
+            {
+              "name": "languages",
+              "value": "en"
+            },
+            {
+              "name": "countries",
+              "value": "us,gb,ae,sa,qa,bh"
+            },
+            {
+              "name": "sort",
+              "value": "popularity"
+            },
+            {
+              "name": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "44e65bac-b1b3-40cf-9920-6cf71f66cac4",
+      "name": "MediaStack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -224,
+        1264
+      ],
+      "notes": "$99/mo - Strong Middle East coverage"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "adc208c9-91df-4625-a115-ce515013eefc",
+      "name": "Merge 3 News APIs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        32,
+        1152
+      ],
+      "notes": "Combine all news API responses"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst normalizedArticles = [];\n\nfor (const item of items) {\n  const json = item.json;\n  let articles = [];\n  \n  // NewsAPI.org format\n  if (json.articles && Array.isArray(json.articles)) {\n    articles = json.articles.map(article => ({\n      title: article.title,\n      description: article.description,\n      url: article.url,\n      image: article.urlToImage,\n      source: article.source?.name || 'Unknown',\n      author: article.author,\n      publishedAt: article.publishedAt,\n      content: article.content,\n      apiSource: 'newsapi.org'\n    }));\n  }\n  \n  // NewsAPI.ai format\n  else if (json.articles?.results) {\n    articles = json.articles.results.map(article => ({\n      title: article.title,\n      description: article.body?.substring(0, 300) || '',\n      url: article.url,\n      image: article.image,\n      source: article.source?.title || 'Unknown',\n      author: article.authors?.[0]?.name || null,\n      publishedAt: `${article.date}T${article.time}Z`,\n      content: article.body,\n      socialShares: (article.shares?.facebook || 0) + (article.shares?.twitter || 0),\n      apiSource: 'newsapi.ai'\n    }));\n  }\n  \n  // MediaStack format\n  else if (json.data && Array.isArray(json.data)) {\n    articles = json.data.map(article => ({\n      title: article.title,\n      description: article.description,\n      url: article.url,\n      image: article.image,\n      source: article.source || 'Unknown',\n      author: article.author,\n      publishedAt: article.published_at,\n      content: article.description,\n      country: article.country,\n      apiSource: 'mediastack'\n    }));\n  }\n  \n  const validArticles = articles.filter(a => a.title && a.url);\n  normalizedArticles.push(...validArticles);\n}\n\n// Remove duplicates\nconst uniqueArticles = [];\nconst seenUrls = new Set();\n\nfor (const article of normalizedArticles) {\n  if (!seenUrls.has(article.url)) {\n    seenUrls.add(article.url);\n    uniqueArticles.push(article);\n  }\n}\n\nconsole.log(`Normalized ${uniqueArticles.length} unique articles from News APIs`);\n\nreturn uniqueArticles.map(a => ({ json: a }));"
+      },
+      "id": "fbf99b4d-253c-4ddf-8ee1-0aa3e62f418c",
+      "name": "Normalize API Responses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        896
+      ],
+      "notes": "Convert all APIs to unified format"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "c8001590-ecc8-4b5b-9d14-8938f7186dd1",
+      "name": "MERGE WITH YOUR EXISTING RSS/ALERTS",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        768,
+        1024
+      ],
+      "notes": "Connect your RSS/Alerts output here as Input 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst scoredArticles = [];\n\nfor (const item of items) {\n  const article = item.json;\n  let score = 0;\n  \n  if (!article.title || !article.url) continue;\n  \n  const title = (article.title || '').toLowerCase();\n  const description = (article.description || '').toLowerCase();\n  const content = (article.content || '').toLowerCase();\n  const fullText = `${title} ${description} ${content}`;\n  \n  // RECENCY\n  const pubDate = new Date(article.publishedAt || article.pubDate || article.date);\n  const now = new Date();\n  const hoursOld = (now - pubDate) / (1000 * 60 * 60);\n  \n  if (hoursOld <= 6) score += 20;\n  else if (hoursOld <= 12) score += 15;\n  else if (hoursOld <= 24) score += 10;\n  else if (hoursOld <= 48) score += 5;\n  else score += 2;\n  \n  // TIER 1: Core Topics\n  const tier1 = [\n    { keyword: 'web3', points: 40 },\n    { keyword: 'tokenization', points: 40 },\n    { keyword: 'blockchain', points: 35 },\n    { keyword: 'defi', points: 38 },\n    { keyword: 'ai social impact', points: 45 },\n    { keyword: 'ai education', points: 42 }\n  ];\n  \n  tier1.forEach(k => {\n    if (fullText.includes(k.keyword)) {\n      score += k.points;\n      if (title.includes(k.keyword)) score += 10;\n    }\n  });\n  \n  // TIER 2: High Relevance\n  const tier2 = [\n    { keyword: 'fintech', points: 30 },\n    { keyword: 'social entrepreneurship', points: 32 },\n    { keyword: 'edtech', points: 28 },\n    { keyword: 'sustainable retail', points: 28 }\n  ];\n  \n  tier2.forEach(k => {\n    if (fullText.includes(k.keyword)) {\n      score += k.points;\n      if (title.includes(k.keyword)) score += 6;\n    }\n  });\n  \n  // MIDDLE EAST BONUS\n  const middleEast = ['uae', 'dubai', 'saudi', 'neom', 'qatar'];\n  middleEast.forEach(me => {\n    if (fullText.includes(me)) score += 20;\n  });\n  \n  // COMBOS\n  const hasWeb3 = fullText.includes('web3') || fullText.includes('blockchain');\n  const hasAI = fullText.includes('ai') || fullText.includes('artificial intelligence');\n  const hasSocial = fullText.includes('social impact') || fullText.includes('social entrepreneur');\n  \n  if (hasWeb3 && hasSocial) score += 25;\n  if (hasAI && hasSocial) score += 25;\n  \n  // NEWS API BONUSES\n  if (article.apiSource === 'newsapi.ai' && article.socialShares > 1000) score += 15;\n  if (article.apiSource === 'mediastack' && article.country === 'ae') score += 12;\n  \n  // IMAGE BONUS\n  if (article.image || article.urlToImage) score += 8;\n  \n  scoredArticles.push({\n    ...article,\n    relevanceScore: score\n  });\n}\n\nconst topArticles = scoredArticles\n  .sort((a, b) => b.relevanceScore - a.relevanceScore)\n  .slice(0, 20);\n\nconsole.log(`Top 5 Articles:`);\ntopArticles.slice(0, 5).forEach((a, i) => {\n  console.log(`${i+1}. [${a.relevanceScore}pts] ${a.title.substring(0, 60)}...`);\n});\n\nreturn topArticles.map(a => ({ json: a }));"
+      },
+      "id": "a90a0239-3746-49fd-bd0d-650ce609ec52",
+      "name": "Enhanced Scoring (News API Aware)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        896
+      ],
+      "notes": "Scores both RSS and News API articles"
+    },
+    {
+      "parameters": {
+        "content": "## 🔗 CONNECTION POINT\n\n**Connect your existing workflow here:**\n\n1. Delete this note node\n2. Connect the output of \"Enhanced Scoring\" to your existing \"Pick Best Article\" or \"Random Selection\" node\n3. The rest of your workflow (scrape, AI, post) continues unchanged\n\n**Your workflow should now look like:**\n\n```\n[RSS Feeds] ───────┐\n                   │\n[Google Alerts] ───┼──→ [MERGE] ──→ [Enhanced Scoring] ──→ [Your existing nodes...]\n                   │\n[News APIs] ───────┘\n```"
+      },
+      "id": "c1f7b4c4-3470-467a-b091-1b1edf03a904",
+      "name": "🔗 CONNECT YOUR EXISTING WORKFLOW HERE",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Article Random Picker').item.json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        1440
+      ],
+      "id": "195e9e17-0b0b-4802-a373-7f736d969ea0",
+      "name": "Fetch Article",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "body",
+              "cssSelector": ".post-content, .entry-content, article, .content, main"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1296,
+        1536
+      ],
+      "id": "6eb18b2c-817f-457e-a826-81e52a024d4b",
+      "name": "Article Content Extractor"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body }}",
+        "options": {
+          "systemMessage": "You will be provided with an article. Your task is to carefully read and comprehend the content of the article. After analyzing the article, generate a concrete summary of the key points and main ideas in the article. The summary should be informative, helpful and to the point with a maximum length of 35 words.\n\nWhen creating the summary, focus on the following:\n\nIdentify the core message of the article.\n\nHighlight the most important facts, statistics, or eamples that support the main points. if applicable, briefly mention any significant conclusions or recommendations.\n\nAvoid using unnecessary fluff or filter phrases, and do not include introductory phrases like 'this video is about.' Instead, concentrate on directly communication the essential message in a clear and efficient manner.\n\nTo ensure your summary is effective, consider the following:\n\nUse concise and precise language to convey the key ideas.\n\nPrioritize information based on its relevance to the main message. Ensure that the summary can be easily digested by readers who has not read the article. Read through your summary to check for clarity, coherence, and adherence to the 35-word limit.\n\nRemember, your goal is to provide a comprehensive yet succinct overview of the article's content, enabling the readers to quickly grasp the core message and main takeaways. Do not repeat the title.\n\nYou will receive text data about a topic or post. Analyze this text to identify key elements such as the subject, action, setting and additional details."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        1520,
+        1536
+      ],
+      "id": "dd816f60-1968-46d5-b575-6290c7b7f8af",
+      "name": "AI Agent Article Summarizer"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc0deddd-8598-4646-9a5f-2c31242be308",
+              "name": "summary",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "ef4c2330-d5eb-4f3c-b288-beae6fa5a10d",
+              "name": "copy",
+              "value": "={{ $('Article Content Extractor').item.json.body }}",
+              "type": "string"
+            },
+            {
+              "id": "cb98f9ee-3cd6-4421-b884-fd13e1c2e925",
+              "name": "title",
+              "value": "={{ $('Article Random Picker').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "72455bc8-7cc3-4705-a652-c48af48c9815",
+              "name": "link",
+              "value": "={{ $('Article Random Picker').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "5ec33806-7506-403e-9ffe-d37258529cdf",
+              "name": "date",
+              "value": "={{ $('Article Random Picker').item.json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "651cfcf9-45fe-4cb3-9fb1-61fa87e84286",
+              "name": "image",
+              "value": "={{ $('Find the Best Image').item.json.imageUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1856,
+        1536
+      ],
+      "id": "3f49faba-c87f-438d-9766-b914e50ead1b",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "body",
+              "cssSelector": "meta[property=\"og:image\"], article img, .post-content img"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        1344
+      ],
+      "id": "52bd9952-67e2-49c9-af97-8163344ac044",
+      "name": "HTML1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        1536
+      ],
+      "id": "b073aa00-f800-40b3-b976-9fe949945ba4",
+      "name": "Find the Best Image"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        1696
+      ],
+      "id": "94dc1a71-0548-4d43-90d6-e7d6766fa359",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced random with timestamp seed\nconst seed = Date.now() + Math.random() * 1000;\nconst randomIndex = Math.floor(seed % items.length);\nconst selectedItem = items[randomIndex];\n\nreturn [{ json: selectedItem.json }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        1008
+      ],
+      "id": "96a7ad9d-0095-4ab6-88e9-b1903b188512",
+      "name": "Article Random Picker"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e6a9e4b-9e38-4b6d-a70d-8fe52a7712ac",
+              "leftValue": "={{ $json.publishedAt }}",
+              "rightValue": "={{ new Date().toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        864
+      ],
+      "id": "a0e68c45-b2eb-4eb4-97f3-bcf55b6dbe22",
+      "name": "Filter for Latest Article"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst scoredItems = [];\n\nfor (const item of items) {\n  const feedItem = item.json;\n  let score = 0;\n  \n  // Skip if no title or link\n  if (!feedItem.title || !feedItem.link) continue;\n  \n  // Score based on how recent (simple version)\n  const pubDate = new Date(feedItem.pubDate || feedItem.date);\n  const now = new Date();\n  const hoursOld = (now - pubDate) / (1000 * 60 * 60);\n  \n  if (hoursOld <= 24) score += 5;\n  else if (hoursOld <= 48) score += 3;\n  else score += 1;\n  \n  // Score based on title keywords (customize these)\n  const title = (feedItem.title || '').toLowerCase();\n  const keywords = ['ai', 'tech', 'innovation', 'startup', 'emerging tech', 'jobs of the future'];\n  \n  keywords.forEach(keyword => {\n    if (title.includes(keyword)) score += 2;\n  });\n  \n  scoredItems.push({\n    title: feedItem.title,\n    link: feedItem.link,\n    description: feedItem.description,\n    pubDate: feedItem.pubDate,\n    score: score\n  });\n}\n\n// Get top 3\nconst topItems = scoredItems\n  .sort((a, b) => b.score - a.score)\n  .slice(0, 15)\n  .map(item => ({ json: item }));\n\nreturn topItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        880
+      ],
+      "id": "1d2d3cc4-a701-4fcb-9703-5511bcc03062",
+      "name": "Find Best Articles",
+      "retryOnFail": false
+    }
+  ],
+  "connections": {
+    "News API Trigger (Every 6hrs)": {
+      "main": [
+        [
+          {
+            "node": "Set News API Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set News API Parameters": {
+      "main": [
+        [
+          {
+            "node": "NewsAPI.org",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NewsAPI.org": {
+      "main": [
+        [
+          {
+            "node": "Normalize API Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NewsAPI.ai": {
+      "main": [
+        [
+          {
+            "node": "Merge 3 News APIs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge 3 News APIs": {
+      "main": [
+        []
+      ]
+    },
+    "Normalize API Responses": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Scoring (News API Aware)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MERGE WITH YOUR EXISTING RSS/ALERTS": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch Article": {
+      "main": [
+        [
+          {
+            "node": "HTML1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find the Best Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article Content Extractor": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Article Summarizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Article Summarizer": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Best Image": {
+      "main": [
+        [
+          {
+            "node": "Article Content Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Scoring (News API Aware)": {
+      "main": [
+        [
+          {
+            "node": "Filter for Latest Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article Random Picker": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter for Latest Article": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Find Best Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Best Articles": {
+      "main": [
+        [
+          {
+            "node": "Article Random Picker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "d8b33a32-ac9b-498c-8ee3-c37dc06d2d68",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-20T23:09:43.904Z",
+      "createdAt": "2025-11-20T23:09:43.904Z",
+      "role": "workflow:owner",
+      "workflowId": "y9e9fGnkiN9SneQF",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
