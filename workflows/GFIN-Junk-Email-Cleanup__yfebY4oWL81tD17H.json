@@ -1,0 +1,212 @@
+{
+  "updatedAt": "2026-09-12T12:21:25.746Z",
+  "createdAt": "2026-09-12T12:21:14.707Z",
+  "id": "yfebY4oWL81tD17H",
+  "name": "GFIN Junk Email Cleanup",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "note",
+      "name": "What This Does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        -300
+      ],
+      "parameters": {
+        "content": "## Requeue fabricated emails\n\nv1 enrichment built emails from job titles (`Nonprofit Leader` -> `anne.friedman@leader.com`). The pre-filter marks these `junk_domain`. They can never send - but while a fake address sits in the `email` cell, **Enrichment v2 skips the lead forever**, because v2 only picks up rows with no email.\n\nThis clears the fake so the lead re-enters v2's queue:\n\n- `email` -> blank\n- `company_domain` -> blank **only if** it was the fake domain\n- `sendability`, `email_check_result`, `email_confidence`, `email_verified` -> blank\n- `enriched_status` -> `junk_cleared`\n- the removed address is preserved in `email_candidates` prefixed `CLEARED:` so nothing is lost\n\n**Not everything is recoverable.** Where the junk reason was 'company_name is a job title', v2 will correctly refuse to guess a domain and the lead stays emailless - the real gap is that we don't know the employer. Where the reason was 'domain unrelated to company_name', v2 can usually fix it.\n\nSafe to re-run: rows already marked `junk_cleared` are skipped.",
+        "height": 560,
+        "width": 460
+      }
+    },
+    {
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        340
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "read-pool",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -120,
+        340
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "select-junk",
+      "name": "Select Junk Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        340
+      ],
+      "parameters": {
+        "jsCode": "// Build the cleared record for every row the pre-filter marked junk_domain.\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\nconst out = [];\nlet jobTitleCases = 0, mismatchCases = 0;\n\nfor (const item of $input.all()) {\n  const r = item.json;\n  if (String(r.sendability || '').toLowerCase() !== 'junk_domain') continue;\n  if (!ne(r.provider_id)) continue;\n  if (String(r.enriched_status || '') === 'junk_cleared') continue;   // already done\n\n  const badEmail = String(r.email || '').trim();\n  const badDomain = (badEmail.split('@')[1] || '').toLowerCase();\n  const reason = String(r.email_check_result || '');\n\n  if (/job title/i.test(reason)) jobTitleCases++;\n  else mismatchCases++;\n\n  // Preserve what we remove.\n  const prior = String(r.email_candidates || '');\n  const preserved = ('CLEARED: ' + badEmail + (prior ? ' | ' + prior : '')).slice(0, 900);\n\n  const rec = {\n    provider_id: r.provider_id,\n    email: '',\n    email_source: '',\n    email_candidates: preserved,\n    email_confidence: '',\n    email_verified: '',\n    sendability: '',\n    email_check_result: '',\n    email_verified_at: '',\n    enriched_status: 'junk_cleared',\n    enriched_at: new Date().toISOString()\n  };\n\n  // Only blank the domain if it was the fabricated one.\n  const currentDomain = String(r.company_domain || '').toLowerCase();\n  if (currentDomain && badDomain && currentDomain === badDomain) {\n    rec.company_domain = '';\n    rec.domain_verified = '';\n  }\n\n  out.push({ json: rec });\n}\n\nconsole.log(`Junk cleanup: ${out.length} rows to clear (${jobTitleCases} job-title companies, ${mismatchCases} domain mismatches)`);\nreturn out;"
+      }
+    },
+    {
+      "id": "write-cleared",
+      "name": "Write Cleared Rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        360,
+        340
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "summary",
+      "name": "Cleanup Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        340
+      ],
+      "parameters": {
+        "jsCode": "let rows = [];\ntry { rows = $('Select Junk Rows').all().map(i => i.json); } catch (e) {}\nreturn [{ json: { run_id: $execution.id, finished_at: new Date().toISOString(), rows_cleared: rows.length, sample: rows.slice(0, 5).map(r => r.provider_id) }}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Select Junk Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Junk Rows": {
+      "main": [
+        [
+          {
+            "node": "Write Cleared Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Cleared Rows": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "0c2c6ae7-bda0-4bfd-9776-49357e7d7b72",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-09-12T12:21:14.707Z",
+      "createdAt": "2026-09-12T12:21:14.707Z",
+      "role": "workflow:owner",
+      "workflowId": "yfebY4oWL81tD17H",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
