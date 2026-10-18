@@ -1,0 +1,404 @@
+{
+  "updatedAt": "2026-09-10T16:28:50.887Z",
+  "createdAt": "2026-08-08T07:02:22.601Z",
+  "id": "La24lhzWPVqsffWq",
+  "name": "Damu — Image Resolver (sub-workflow)",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "subtrigger",
+      "name": "When Called By Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        16
+      ],
+      "notes": "Expects per item: postId, postText, hashtags, storyTopic, vertical, sourceLink, imageUrl. Returns: imageUrl, imageSource, altText."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resolve-image-test",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "testhook",
+      "name": "TEST Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        208
+      ],
+      "webhookId": "3050016e-c940-4727-aeb0-21d6cf59c5db",
+      "notes": "For testing the resolver end to end."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================== BRAND ====================\nconst BG        = '#0A1628';\nconst ACCENT    = '#C9A227';\nconst TEXT      = '#F5F7FA';\nconst MUTED     = '#8FA3BF';\nconst CLOUD     = 'yto9u5lp';\nconst FOLDER    = 'damu-linkedin';\nconst SIGNATURE = 'DAMU WINSTON';\nconst SIZE      = 1200;\n// ===============================================\n\nconst norm  = (v) => String(v ?? '').trim();\nconst esc   = (s) => String(s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&apos;');\n\nfunction wrap(text, maxChars, maxLines) {\n  const words = String(text).split(/\\s+/).filter(Boolean);\n  const lines = [];\n  let cur = '';\n  for (const w of words) {\n    if (!cur) { cur = w; continue; }\n    if ((cur + ' ' + w).length <= maxChars) cur += ' ' + w;\n    else { lines.push(cur); cur = w; if (lines.length === maxLines) break; }\n  }\n  if (cur && lines.length < maxLines) lines.push(cur);\n  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {\n    lines[maxLines - 1] = lines[maxLines - 1].replace(/[.,;:]$/, '') + '...';\n  }\n  return lines;\n}\n\nfunction buildCard(hook, facts) {\n  const hookLines = wrap(hook, 30, 4);\n  const hookSize  = hookLines.length > 3 ? 62 : 72;\n  const lh        = Math.round(hookSize * 1.22);\n\n  let y = 210;\n  let out = '';\n\n  for (const l of hookLines) {\n    out += `<text x=\"90\" y=\"${y}\" font-family=\"Georgia, 'Times New Roman', serif\" font-size=\"${hookSize}\" font-weight=\"700\" fill=\"${TEXT}\">${esc(l)}</text>`;\n    y += lh;\n  }\n\n  y += 28;\n  out += `<rect x=\"90\" y=\"${y}\" width=\"120\" height=\"5\" fill=\"${ACCENT}\"/>`;\n  y += 74;\n\n  for (const f of facts.slice(0, 4)) {\n    const fl = wrap(f, 46, 2);\n    out += `<text x=\"90\" y=\"${y}\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"36\" fill=\"${ACCENT}\">→</text>`;\n    let fy = y;\n    for (const line of fl) {\n      out += `<text x=\"140\" y=\"${fy}\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"34\" fill=\"${MUTED}\">${esc(line)}</text>`;\n      fy += 44;\n    }\n    y = fy + 22;\n  }\n\n  return `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${SIZE}\" height=\"${SIZE}\" viewBox=\"0 0 ${SIZE} ${SIZE}\">`\n    + `<rect width=\"${SIZE}\" height=\"${SIZE}\" fill=\"${BG}\"/>`\n    + `<rect x=\"0\" y=\"0\" width=\"14\" height=\"${SIZE}\" fill=\"${ACCENT}\"/>`\n    + out\n    + `<text x=\"90\" y=\"${SIZE - 78}\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"26\" letter-spacing=\"4\" fill=\"${ACCENT}\">${esc(SIGNATURE)}</text>`\n    + `</svg>`;\n}\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const r        = (item.json && item.json.body && typeof item.json.body === 'object') ? item.json.body : item.json;\n  const postId   = norm(r.postId || r.Post_ID);\n  const text     = norm(r.postText || r.Post_Text);\n  const source   = norm(r.sourceLink || r.Source_Link);\n  const topic    = norm(r.storyTopic || r.Story_Topic);\n  const vertical = norm(r.vertical || r.Vertical);\n  const existing = norm(r.imageUrl || r.Image_URL);\n\n  const publicId = `${FOLDER}/${postId}`;\n\n  const lines = text.split('\\n').map(s => s.trim()).filter(Boolean);\n  const hook  = lines[0] || topic || 'Damu Winston';\n\n  // Arrow lines are the ideal card body. Short posts (Punchy) have none, so fall\n  // back to the following sentences - a card is always better than no image.\n  const arrowFacts = lines.filter(l => l.startsWith('→')).map(l => l.replace(/^→\\s*/, '').trim());\n  const proseFacts = lines.slice(1).filter(l => !l.startsWith('#') && !l.startsWith('→')).slice(0, 3);\n  const facts = arrowFacts.length ? arrowFacts : proseFacts;\n\n  const altText = `${hook}`.slice(0, 280);\n  const base = { postId, publicId, altText, storyTopic: topic, vertical, sourceLink: source };\n\n  if (existing.includes(`res.cloudinary.com/${CLOUD}/`)) {\n    out.push({ json: { ...base, strategy: 'passthrough', imageSource: 'manual', finalUrl: existing } });\n    continue;\n  }\n\n  if (/^https?:\\/\\//i.test(existing)) {\n    out.push({ json: { ...base, strategy: 'upload', imageSource: 'manual_rehosted', file: existing } });\n    continue;\n  }\n\n  if (facts.length >= 1) {\n    const svg = buildCard(hook, facts);\n    const b64 = Buffer.from(svg, 'utf8').toString('base64');\n    out.push({ json: { ...base, strategy: 'upload', imageSource: 'branded_card', file: `data:image/svg+xml;base64,${b64}` } });\n    continue;\n  }\n\n  const aiPrompt = `Editorial illustration for a senior-executive LinkedIn post about: ${topic || hook}. `\n    + `Theme: ${vertical || 'capital markets and AI infrastructure'}. `\n    + `Style: restrained corporate abstract, deep navy and gold palette, geometric, no text, no logos, no people's faces.`;\n\n  out.push({ json: { ...base, strategy: 'ai', imageSource: 'ai_generated', aiPrompt } });\n}\n\nreturn out;"
+      },
+      "id": "strategy",
+      "name": "Choose Image Strategy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Decides which rung applies and renders the branded SVG card. Brand colours at the top."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.strategy }}",
+                    "rightValue": "passthrough"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "passthrough"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.strategy }}",
+                    "rightValue": "upload"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "upload"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.strategy }}",
+                    "rightValue": "ai"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "ai"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "none"
+        }
+      },
+      "id": "route",
+      "name": "Route Strategy",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -144,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-image-1', prompt: $json.aiPrompt, size: '1024x1024', n: 1 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "aigen",
+      "name": "Generate AI Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        176,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "mFLDConUMZiZTnjt",
+          "name": "Open AI Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Raw HTTP, not the LangChain OpenAI node - that node cannot execute on this n8n instance. Only reached when a post has no arrow facts."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handles both the HTTP shape (JSON b64_json/url) and a binary shape, so it\n// keeps working if the node is ever swapped again.\nconst planned = $('Choose Image Strategy').all().map(i => i.json).filter(p => p.strategy === 'ai');\nconst inputs = $input.all();\nconst out = [];\n\nfor (let i = 0; i < inputs.length; i++) {\n  const base = planned[i] ?? {};\n  let file = '';\n\n  try {\n    const binKeys = Object.keys(inputs[i].binary ?? {});\n    if (binKeys.length) {\n      const key = binKeys.includes('data') ? 'data' : binKeys[0];\n      const buf = await this.helpers.getBinaryDataBuffer(i, key);\n      const mime = inputs[i].binary[key].mimeType || 'image/png';\n      file = `data:${mime};base64,${buf.toString('base64')}`;\n    } else {\n      const d = inputs[i].json?.data?.[0] ?? {};\n      if (d.b64_json) file = `data:image/png;base64,${d.b64_json}`;\n      else if (d.url) file = d.url;\n    }\n  } catch (e) {\n    console.log('AI image conversion failed: ' + e.message);\n  }\n\n  if (!file) continue;\n  out.push({ json: { ...base, file, strategy: 'upload', imageSource: 'ai_generated' } });\n}\n\nreturn out;"
+      },
+      "id": "aitofile",
+      "name": "AI Image To Upload Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        192
+      ],
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput",
+      "notes": "alwaysOutputData must stay OFF. With it on, an empty result injected a blank item that hit Cloudinary with no file, which made Upload and Finalize run a second time and overwrite the good results."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/yto9u5lp/image/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json.file }}"
+            },
+            {
+              "name": "public_id",
+              "value": "={{ $json.publicId }}"
+            },
+            {
+              "name": "overwrite",
+              "value": "true"
+            },
+            {
+              "name": "invalidate",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "upload",
+      "name": "Upload To Cloudinary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2500,
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "8dI2AtXqAs8ycaPw",
+          "name": "Cloudinary"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "public_id is the Post_ID, so re-runs overwrite rather than duplicate."
+    },
+    {
+      "parameters": {
+        "jsCode": "const CLOUD = 'yto9u5lp';\n\nconst planned = $('Choose Image Strategy').all().map(i => i.json);\nconst byId = {};\nfor (const p of planned) byId[p.postId] = p;\n\n// SVG cards must be rasterised: Buffer reads image dimensions at publish time\n// and LinkedIn will not accept an SVG.\nconst deliver = (pid, source) => {\n  const raster = source === 'branded_card' ? 'png' : 'jpg';\n  return `https://res.cloudinary.com/${CLOUD}/image/upload/f_${raster},q_auto:good,w_1200,h_1200,c_fit/${pid}.${raster}`;\n};\n\nconst results = {};\nconst inputs = $input.all();\n\nfor (let idx = 0; idx < inputs.length; idx++) {\n  const j = inputs[idx].json ?? {};\n\n  if (j.strategy === 'passthrough' && j.finalUrl) {\n    results[j.postId] = { postId: j.postId, imageUrl: j.finalUrl, imageSource: j.imageSource, altText: j.altText ?? '' };\n    continue;\n  }\n\n  const pid = String(j.public_id ?? '');\n  const postId = pid.includes('/') ? pid.split('/').pop() : (j.postId || planned[idx]?.postId || '');\n  const plan = byId[postId] ?? planned[idx] ?? {};\n\n  if (j.secure_url) {\n    results[postId] = {\n      postId,\n      imageUrl: deliver(pid, plan.imageSource ?? 'uploaded'),\n      imageSource: plan.imageSource ?? 'uploaded',\n      altText: plan.altText ?? '',\n    };\n  } else if (postId) {\n    results[postId] = {\n      postId,\n      imageUrl: '',\n      imageSource: 'none',\n      altText: plan.altText ?? '',\n      attempted: plan.imageSource ?? '',\n      error: j?.error?.message ?? j?.error ?? j?.message ?? 'Cloudinary upload returned no secure_url',\n    };\n  }\n}\n\nfor (const p of planned) {\n  if (!results[p.postId]) {\n    results[p.postId] = { postId: p.postId, imageUrl: '', imageSource: 'none', altText: p.altText ?? '', attempted: p.imageSource ?? '' };\n  }\n}\n\nconst out = Object.values(results);\nconsole.log(out.map(r => `${r.postId}: ${r.imageSource}${r.error ? ' | ' + r.error : ''} ${r.imageUrl || '(text-only)'}`).join('\\n'));\nreturn out.map(json => ({ json }));"
+      },
+      "id": "finalize",
+      "name": "Finalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "One row per post. An image failure degrades to text-only, never blocks the post."
+    }
+  ],
+  "connections": {
+    "When Called By Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Choose Image Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEST Webhook": {
+      "main": [
+        [
+          {
+            "node": "Choose Image Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choose Image Strategy": {
+      "main": [
+        [
+          {
+            "node": "Route Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Strategy": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload To Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate AI Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Image": {
+      "main": [
+        [
+          {
+            "node": "AI Image To Upload Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Image To Upload Payload": {
+      "main": [
+        [
+          {
+            "node": "Upload To Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload To Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "1bf8f69d-0ed1-4e7d-b759-b25ab11bf5ef",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-08-08T07:02:22.601Z",
+      "createdAt": "2026-08-08T07:02:22.601Z",
+      "role": "workflow:owner",
+      "workflowId": "La24lhzWPVqsffWq",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
