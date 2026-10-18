@@ -1,0 +1,76 @@
+{
+  "updatedAt": "2026-09-24T01:29:39.911Z",
+  "createdAt": "2026-09-24T01:28:31.450Z",
+  "id": "D4OL1IRYzsDaUhyY",
+  "name": "THE SUMERIAN — Cloudinary tqef1lo7 Read-only Verification",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "104365e3-8c25-4142-9648-4ab4df020955",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://api.cloudinary.com/v1_1/tqef1lo7/resources/image?max_results=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f96d4248-7d79-499c-a775-1ae8b20bc4cf",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "5g3EsybsTZuJYr6j",
+          "name": "THE SUMERIAN — Cloudinary tqef1lo7"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "2daae2cf-e11b-407f-aba5-5ad2bdd17815",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-09-24T01:28:31.450Z",
+      "createdAt": "2026-09-24T01:28:31.450Z",
+      "role": "workflow:owner",
+      "workflowId": "D4OL1IRYzsDaUhyY",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
