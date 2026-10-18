@@ -1,0 +1,1502 @@
+{
+  "updatedAt": "2026-07-31T01:10:30.107Z",
+  "createdAt": "2026-07-30T04:49:52.456Z",
+  "id": "W6yY8UBCiSp5pYht",
+  "name": "GFIN — Blog to LinkedIn v3 (all articles, straight to Buffer)",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "65fec256-216a-4d5c-8415-13fddb1f5230",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I",
+          "mode": "list",
+          "cachedResultName": "GFIN Thinking Blog Repurpose",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "4d4dbecf-937d-41c5-af4d-92498f06446e",
+      "name": "Read Processed Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        112,
+        240
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://app.gofunditnow.dev/thinking",
+        "options": {}
+      },
+      "id": "b2296c86-1f02-4177-a1f1-c549ed15d09e",
+      "name": "Fetch Thinking Listing Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the Next.js embedded JSON payload — the page ships every article's\n// full body, title, pillar, and metadata inside self.__next_f.push([1,\"...\"])\n// chunks. Scan character-by-character (regex backtracks on multi-MB chunks).\n\nconst html = items[0].json.data || items[0].json.body || items[0].json.body_html || '';\nif (!html || typeof html !== 'string') {\n  throw new Error('Fetch did not return HTML. Got keys: ' + Object.keys(items[0].json || {}).join(', '));\n}\n\nfunction extractPushChunks(source) {\n  const chunks = [];\n  const marker = 'self.__next_f.push([1,\"';\n  let i = 0;\n  while (i < source.length) {\n    const start = source.indexOf(marker, i);\n    if (start < 0) break;\n    let j = start + marker.length;\n    while (j < source.length) {\n      const c = source.charCodeAt(j);\n      if (c === 92) { j += 2; continue; }\n      if (c === 34) break;\n      j++;\n    }\n    if (j < source.length) {\n      chunks.push(source.slice(start + marker.length, j));\n      i = j + 1;\n    } else break;\n  }\n  return chunks;\n}\n\nfunction unescapeJsString(s) {\n  try { return JSON.parse('\"' + s + '\"'); } catch (e) { return null; }\n}\n\nconst chunks = extractPushChunks(html);\nif (chunks.length === 0) {\n  throw new Error('Zero push chunks found. HTML length: ' + html.length);\n}\n\nlet piecesArray = null;\nconst bodyById = {};\n\nfor (const chunk of chunks) {\n  const decoded = unescapeJsString(chunk);\n  if (decoded === null) continue;\n\n      const bodyRe = /(?:^|\\n)([0-9a-f]+):T[0-9a-f]+,([\\s\\S]*?)(?=(?:\\n[0-9a-f]+:)|$)/g;\n      let bm; let matchedBody = false;\n      while ((bm = bodyRe.exec(decoded)) !== null) { bodyById[bm[1]] = bm[2]; matchedBody = true; }    if (matchedBody) continue;\n\n  if (!decoded.includes('\"pieces\"')) continue;\n  const jsonStart = decoded.search(/[{\\[]/);\n  if (jsonStart < 0) continue;\n\n  let payload;\n  try { payload = JSON.parse(decoded.slice(jsonStart)); }\n  catch (e) { continue; }\n\n  const stack = [payload];\n  while (stack.length) {\n    const node = stack.pop();\n    if (!node || typeof node !== 'object') continue;\n    if (Array.isArray(node.pieces)) { piecesArray = node.pieces; break; }\n    if (Array.isArray(node)) { for (const el of node) stack.push(el); }\n    else { for (const v of Object.values(node)) stack.push(v); }\n  }\n  if (piecesArray) break;\n}\n\nif (!piecesArray) {\n  throw new Error('Scanned ' + chunks.length + ' chunks but none contained a pieces[] array.');\n}\n\nfunction resolveBody(bm) {\n  if (typeof bm !== 'string') return '';\n  const ref = bm.match(/^\\$([0-9a-f]+)$/);\n  if (ref && bodyById[ref[1]]) return bodyById[ref[1]];\n  return bm;\n}\n\n// Dedupe by normalized title (the blog republishes near-identical essays\n// under new slugs), keep the most recent version of each.\nconst byTitle = new Map();\nfor (const p of piecesArray) {\n  if (!p || !p.slug || !p.title) continue;\n  const key = p.title.toLowerCase().replace(/\\s+/g, ' ').trim();\n  const existing = byTitle.get(key);\n  const pubDate = new Date(p.published_at || p.created_at || 0);\n  if (!existing || pubDate > new Date(existing.published_at || existing.created_at || 0)) {\n    byTitle.set(key, p);\n  }\n}\n\n// Filter out slugs already in the processed log.\nconst logItems = $items('Read Processed Log') || [];\nconst processedSlugs = new Set(\n  logItems.map(r => (r.json.slug || '').toString().trim()).filter(Boolean)\n);\n\nconst out = [];\nfor (const p of byTitle.values()) {\n      const isNew = !processedSlugs.has(p.slug);\n  out.push({\n    json: {\n      slug: p.slug,\n              is_new: isNew,\n      title: p.title,\n      subtitle: p.subtitle || '',\n      url: `https://app.gofunditnow.dev/thinking/${p.slug}`,\n      pillar_title: p.pillar_title || '',\n            body_markdown: (() => { const b = resolveBody(p.body_markdown); return (typeof b === 'string' && /^\\$[0-9a-f]+$/.test(b.trim())) ? (p.subtitle || p.title || '') : b; })(),\n          \n      published_at: p.published_at || p.created_at || ''\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "4ae12fb8-eb47-499e-b878-a8a3677844bd",
+      "name": "Parse All Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "591eb3a6-05d0-46ff-919a-e29836ce220f",
+      "name": "Loop Over Articles",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "9eed288c-d600-425a-9c99-55bd47477cab",
+      "name": "Fetch Article Page (for OG image)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the og:image meta tag if present. Skip if absent — no fallback.\nconst html = items[0].json.data || items[0].json.body || '';\nconst article = $node['Loop Over Articles'].json;\n\nlet ogImage = '';\nif (typeof html === 'string' && html) {\n  const m = html.match(/<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)[\"']/i)\n         || html.match(/<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']/i);\n  if (m) ogImage = m[1];\n}\n\nreturn [{ json: { ...article, og_image: ogImage } }];"
+      },
+      "id": "08701286-fbc1-4049-baa0-1b3f3c7e7f16",
+      "name": "Extract OG Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PASTE_OPENROUTER_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "HTTP-Referer",
+              "value": "https://gofunditnow.com"
+            },
+            {
+              "name": "X-Title",
+              "value": "GFIN Blog to LinkedIn"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"google/gemini-2.0-flash-exp:free\",\n  response_format: { type: \"json_object\" },\n  messages: [\n    {\n      role: \"system\",\n      content: \"You are GFIN's content director rewriting a Funding Intelligence blog essay into a native LinkedIn post for Go Fund It Now (GFIN). Rules: (1) Re-architect for LinkedIn — hook-first, short paragraphs, one argument. Do NOT summarize or trim blog paragraphs verbatim. (2) The source is written in a generic institutional voice — translate to GFIN's asset-framing voice: the barrier is the system, never the audience's worthiness; the organization/community stays the protagonist; ARTEMIS (GFIN's AI engine) is infrastructure, not hero; AI finds, the human decides and is the accountable submitter. (3) Map to one pillar: REFRAME, MYTH-BUST, BEHIND-THE-DATA, PROOF, AUDIENCE-ED, CAPACITY-BUILD, DEADLINE-WATCH, SERIES. (4) Assign one audience: NONPROFIT, FAITH-BASED, GOVERNMENT, ENTERPRISE, or ALL. (5) Never invent stats, client names, funders, deadlines. Never use 'digital employee' or autonomous-agent framing. (6) End the draft with: Take the Funding Readiness Assessment (Phase 1 CTA). (7) Full draft should be 900–1400 characters, LinkedIn-optimal. Respond with ONLY a valid JSON object: {\\\"pillar\\\": string, \\\"audience\\\": string, \\\"linkedin_draft\\\": string}\"\n    },\n    {\n      role: \"user\",\n      content: \"Title: \" + $json.title + \"\\nPillar: \" + $json.pillar_title + \"\\nSubtitle: \" + $json.subtitle + \"\\n\\nBody:\\n\" + $json.body_markdown\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "id": "3c7b9d0b-3e8a-4820-9b44-41db71a4a9f4",
+      "name": "OpenRouter Rewrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        128
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = items[0].json.output || items[0].json;\nlet parsed = agentOutput;\nif (typeof agentOutput === 'string') {\n  try { parsed = JSON.parse(agentOutput); }\n  catch (e) { parsed = { pillar: 'UNKNOWN', audience: 'UNKNOWN', linkedin_draft: agentOutput }; }\n}\n\nconst article = $node['Extract OG Image'].json;\nreturn [{\n  json: {\n    slug: article.slug,\n    title: article.title,\n    source_url: article.url,\n    date_published: article.published_at,\n    og_image: article.og_image,\n    pillar: parsed.pillar || 'UNKNOWN',\n    audience: parsed.audience || 'UNKNOWN',\n    linkedin_draft: parsed.linkedin_draft || ''\n  }\n}];"
+      },
+      "id": "1df50b48-d102-499a-8060-4a7064d3e767",
+      "name": "Build Post Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I",
+          "mode": "list",
+          "cachedResultName": "GFIN Thinking Blog Repurpose",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "slug": "={{ $('Build Post Object').item.json.slug }}",
+            "title": "={{ $('Build Post Object').item.json.title }}",
+            " url": "={{ $('Build Post Object').item.json.source_url }}",
+            "date_published": "={{ $('Build Post Object').item.json.date_published }}",
+            "linkedin_image": "={{ $('Find the Best Image').item.json.hasImage ? '' : 'no-image' }})",
+            "Scheduled Date": "={{ $json.dueAt }}",
+            "Linkedin Post": "={{ $('Build Post Object').item.json.linkedin_draft }}",
+            "pillar": "={{ $('Extract OG Image').item.json.pillar_title }}",
+            "date_processed": "={{$now}}",
+            "needs_review": "=",
+            "buffer_id": "={{ $json.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "slug",
+              "displayName": "slug",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " url",
+              "displayName": " url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_published",
+              "displayName": "date_published",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_processed",
+              "displayName": "date_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pillar",
+              "displayName": "pillar",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "needs_review",
+              "displayName": "needs_review",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Linkedin Post",
+              "displayName": "Linkedin Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "linkedin_image",
+              "displayName": "linkedin_image",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Scheduled Date",
+              "displayName": "Scheduled Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "buffer_id",
+              "displayName": "buffer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "73498854-03ae-47bf-8aa2-6ab5ff3afff9",
+      "name": "Log to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3056,
+        336
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a LinkedIn post for Go Fund It Now (GFIN) based on the article below.\n\nStructure:\n- Opening hook: one sharp line that names the tension. Not a question. Not \"Did you know\". Not an emoji. Something the reader has to keep reading to resolve.\n- Reframe (2-3 lines): translate the article's core argument into GFIN's voice. The barrier is the system, never the audience's worthiness. The organization stays the protagonist. ARTEMIS (GFIN's AI engine) is infrastructure, not hero — AI finds, the human decides.\n- What this means (1-2 lines): the practical implication for a nonprofit, church, government team, or corporate community-investment lead reading this.\n- CTA: \"Read the full thinking here: {ARTICLE_URL}\"\n- Hashtags: 3-4 relevant tags on their own line at the end.\n\nRules:\n- 900-1300 characters total (not words — characters).\n- No emojis. No \"In today's rapidly changing world\". No corporate buzzwords.\n- Do not invent stats, funder names, deadlines, or client results.\n- Do not use \"digital employee\" or autonomous-agent framing for AI.\n- Return ONLY the post text, ready to paste into LinkedIn. No preamble, no explanation, no JSON wrapper.\n\nTitle: {{ $json.title }}\nPillar: {{ $json.pillar_title }}\nSubtitle: {{ $json.subtitle }}\n\nArticle body:\n{{ $json.body_markdown }}\n\nArticle URL: {{ $json.url }}",
+        "options": {
+          "systemMessage": "You are GFIN's content director rewriting a Funding Intelligence blog essay into a native LinkedIn post for Go Fund It Now (GFIN).\n\nRules:\n1. Re-architect for LinkedIn — hook-first, short paragraphs, one argument. Do NOT summarize or trim blog paragraphs verbatim.\n2. The source is written in a generic institutional voice — translate to GFIN's asset-framing voice: the barrier is the system, never the audience's worthiness; the organization/community stays the protagonist; ARTEMIS (GFIN's AI engine) is infrastructure, not hero; AI finds, the human decides and is the accountable submitter.\n3. Map to one pillar: REFRAME, MYTH-BUST, BEHIND-THE-DATA, PROOF, AUDIENCE-ED, CAPACITY-BUILD, DEADLINE-WATCH, SERIES.\n4. Assign one audience: NONPROFIT, FAITH-BASED, GOVERNMENT, ENTERPRISE, or ALL.\n5. Never invent stats, client names, funders, or deadlines. Never use \"digital employee\" or autonomous-agent framing.\n6. End the draft with: Take the Funding Readiness Assessment.\n7. Full draft should be 900–1400 characters, LinkedIn-optimal.\n\nRespond with ONLY a valid JSON object matching this schema:\n{\"pillar\": string, \"audience\": string, \"linkedin_draft\": string}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1680,
+        336
+      ],
+      "id": "fda1607e-bef8-41a9-8d87-9e77697e5875",
+      "name": "post creator"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        512
+      ],
+      "id": "0a5bda3c-abfb-468c-9e49-a7c056d638de",
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenRouter response (OpenAI format) and merge with article metadata.\nconst apiResponse = items[0].json;\nconst raw = apiResponse?.choices?.[0]?.message?.content || '';\n\nfunction extractJson(text) {\n  if (!text) return null;\n  const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  const candidate = fenced ? fenced[1] : text;\n  const start = candidate.indexOf('{');\n  const end = candidate.lastIndexOf('}');\n  if (start < 0 || end < 0 || end <= start) return null;\n  try { return JSON.parse(candidate.slice(start, end + 1)); }\n  catch (e) { return null; }\n}\n\nconst parsed = extractJson(raw) || {\n  pillar: 'UNKNOWN',\n  audience: 'UNKNOWN',\n  linkedin_draft: '[MODEL OUTPUT UNPARSEABLE — raw: ' + raw.slice(0, 400) + ']'\n};\n\nconst article = $node['Extract OG Image'].json;\n\nreturn [{\n  json: {\n    slug: article.slug,\n    title: article.title,\n    source_url: article.url,\n    date_published: article.published_at,\n    og_image: article.og_image,\n    pillar: parsed.pillar,\n    audience: parsed.audience,\n    linkedin_draft: parsed.linkedin_draft\n  }\n}];"
+      },
+      "id": "ef6fc6a3-a0d1-4090-a8f7-332e056cfb5f",
+      "name": "Build Post Object1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        1072
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.source_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        336
+      ],
+      "id": "0722fd04-dc4d-476b-80be-9cdc178e5ecd",
+      "name": "Fetch Article",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        336
+      ],
+      "id": "0ccc00a2-54b1-40e2-82e9-8f50a00bf6e8",
+      "name": "Find the Best Image"
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "organizationId": "6a40ef69f958f9474cd66040",
+        "channelId": "6a40f7275ab6d2f1067f1147|linkedin",
+        "postText": "={{  $('Build Post Object').item.json.linkedin_draft }}",
+        "shareMode": "customScheduled",
+        "dueAt": "={{ $json.scheduledTime }}",
+        "attachmentType": "image",
+        "imageUrl": "={{  $json.imageUrl }}"
+      },
+      "type": "@bufferapp/n8n-nodes-buffer.buffer",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        336
+      ],
+      "id": "9e34ac94-1c83-4886-b681-5315fc7a6100",
+      "name": "Create a post",
+      "credentials": {
+        "bufferApi": {
+          "id": "Yc1H6IaLjQBWBs3g",
+          "name": "GFIN Buffer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst zone = 'Africa/Lagos';\n\nconst randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;\n\nconst now = DateTime.now().setZone(zone);\n\n// First post: 5–120 minutes after execution\nconst firstPost = now.plus({ minutes: randInt(5, 120) });\n\n// Second post: 2–4 hours after the first\nconst secondPost = firstPost.plus({ minutes: randInt(120, 240) });\n\nreturn items.slice(0, 2).map((item, i) => ({\n  json: {\n    ...item.json,\n    scheduledTime: (i === 0 ? firstPost : secondPost).toISO()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        336
+      ],
+      "id": "ca08176c-27c9-444f-a0bd-0e4d89c88051",
+      "name": "Schedule post"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select up to 2 articles to post this run.\n// Priority: newest un-posted articles first; if none are new, recycle from the existing pool (least-recently-posted).\nconst MAX = 2;\n\nconst items = $input.all();\n\n// Build a map of slug -> most recent posted timestamp from the processed log.\nlet logRows = [];\ntry { logRows = $('Read Processed Log').all(); } catch (e) { logRows = []; }\nconst lastPosted = {};\nfor (const r of logRows) {\n    const j = r.json || {};\n    const slug = String(j.slug || '').trim();\n    if (!slug) continue;\n    const ts = Date.parse(j.posted_at || j.date || j.scheduledTime || j.updated_at || '') || 0;\n    if (!(slug in lastPosted) || ts > lastPosted[slug]) lastPosted[slug] = ts;\n}\n\nconst toTime = (v) => Date.parse(v) || 0;\n\nconst newItems = items.filter(i => i.json && i.json.is_new === true);\nconst poolItems = items.filter(i => i.json && i.json.is_new !== true);\n\nlet selected;\nif (newItems.length > 0) {\n    selected = newItems\n      .sort((a, b) => toTime(b.json.published_at) - toTime(a.json.published_at))\n      .slice(0, MAX);\n} else {\n    selected = poolItems\n      .sort((a, b) => (lastPosted[a.json.slug] || 0) - (lastPosted[b.json.slug] || 0))\n      .slice(0, MAX);\n}\n\nreturn selected;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        240
+      ],
+      "id": "a58ea5e5-ee25-4972-8599-e4f2d9f44bcb",
+      "name": "Select Articles"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "cec7c581-e6f2-4cde-9d97-20214ba95f61",
+      "name": "Weekly Monday 7am Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        240
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst zone = 'America/New_York';\nconst scheduled = items.map((item, i) => {\n  const weekday = (i % 2 === 0) ? 4 : 5;\n  const slot = Math.floor(i / 2);\n  let dt = DateTime.now().setZone(zone).set({ weekday: weekday, hour: 9, minute: 0, second: 0, millisecond: 0 }).plus({ hours: slot * 3 });\n  if (dt < DateTime.now()) dt = dt.plus({ weeks: 1 });\n  return { json: Object.assign({}, item.json, { scheduledTime: dt.toISO() }) };\n});\nreturn scheduled;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        528
+      ],
+      "id": "39563eea-0f83-462a-9038-a37a67db355b",
+      "name": "Schedule post1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "665a3d2f-a14c-493c-9832-7470a95d1709",
+      "name": "Weekly Monday 7am Check1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -144,
+        432
+      ]
+    }
+  ],
+  "connections": {
+    "Read Processed Log": {
+      "main": [
+        [
+          {
+            "node": "Fetch Thinking Listing Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Thinking Listing Page": {
+      "main": [
+        [
+          {
+            "node": "Parse All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse All Articles": {
+      "main": [
+        [
+          {
+            "node": "Select Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Articles": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fetch Article Page (for OG image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article Page (for OG image)": {
+      "main": [
+        [
+          {
+            "node": "Extract OG Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract OG Image": {
+      "main": [
+        [
+          {
+            "node": "post creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Rewrite": {
+      "main": [
+        []
+      ]
+    },
+    "Build Post Object": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "post creator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post creator": {
+      "main": [
+        [
+          {
+            "node": "Build Post Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article": {
+      "main": [
+        [
+          {
+            "node": "Find the Best Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Best Image": {
+      "main": [
+        [
+          {
+            "node": "Schedule post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a post": {
+      "main": [
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule post": {
+      "main": [
+        [
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Articles": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Monday 7am Check": {
+      "main": [
+        [
+          {
+            "node": "Read Processed Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Monday 7am Check1": {
+      "main": [
+        [
+          {
+            "node": "Read Processed Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 1800,
+    "availableInMCP": true,
+    "timeSavedPerExecution": 10
+  },
+  "staticData": {
+    "node:Weekly Monday 7am Check": {
+      "recurrenceRules": []
+    },
+    "node:Weekly Monday 7am Check1": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "bcfe9605-f09e-4ae3-8c6c-8e8ac70074c9",
+  "activeVersionId": "bcfe9605-f09e-4ae3-8c6c-8e8ac70074c9",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-07-30T04:49:52.456Z",
+      "createdAt": "2026-07-30T04:49:52.456Z",
+      "role": "workflow:owner",
+      "workflowId": "W6yY8UBCiSp5pYht",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-07-31T01:10:33.628Z",
+    "createdAt": "2026-07-31T01:09:23.967Z",
+    "versionId": "bcfe9605-f09e-4ae3-8c6c-8e8ac70074c9",
+    "workflowId": "W6yY8UBCiSp5pYht",
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "65fec256-216a-4d5c-8415-13fddb1f5230",
+        "name": "Setup Notes",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -128,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I",
+            "mode": "list",
+            "cachedResultName": "GFIN Thinking Blog Repurpose",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Sheet1",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit#gid=0"
+          },
+          "options": {}
+        },
+        "id": "4d4dbecf-937d-41c5-af4d-92498f06446e",
+        "name": "Read Processed Log",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.5,
+        "position": [
+          112,
+          240
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "qIn3NXXK9sY7HdMQ",
+            "name": "James Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://app.gofunditnow.dev/thinking",
+          "options": {}
+        },
+        "id": "b2296c86-1f02-4177-a1f1-c549ed15d09e",
+        "name": "Fetch Thinking Listing Page",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          352,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse the Next.js embedded JSON payload — the page ships every article's\n// full body, title, pillar, and metadata inside self.__next_f.push([1,\"...\"])\n// chunks. Scan character-by-character (regex backtracks on multi-MB chunks).\n\nconst html = items[0].json.data || items[0].json.body || items[0].json.body_html || '';\nif (!html || typeof html !== 'string') {\n  throw new Error('Fetch did not return HTML. Got keys: ' + Object.keys(items[0].json || {}).join(', '));\n}\n\nfunction extractPushChunks(source) {\n  const chunks = [];\n  const marker = 'self.__next_f.push([1,\"';\n  let i = 0;\n  while (i < source.length) {\n    const start = source.indexOf(marker, i);\n    if (start < 0) break;\n    let j = start + marker.length;\n    while (j < source.length) {\n      const c = source.charCodeAt(j);\n      if (c === 92) { j += 2; continue; }\n      if (c === 34) break;\n      j++;\n    }\n    if (j < source.length) {\n      chunks.push(source.slice(start + marker.length, j));\n      i = j + 1;\n    } else break;\n  }\n  return chunks;\n}\n\nfunction unescapeJsString(s) {\n  try { return JSON.parse('\"' + s + '\"'); } catch (e) { return null; }\n}\n\nconst chunks = extractPushChunks(html);\nif (chunks.length === 0) {\n  throw new Error('Zero push chunks found. HTML length: ' + html.length);\n}\n\nlet piecesArray = null;\nconst bodyById = {};\n\nfor (const chunk of chunks) {\n  const decoded = unescapeJsString(chunk);\n  if (decoded === null) continue;\n\n      const bodyRe = /(?:^|\\n)([0-9a-f]+):T[0-9a-f]+,([\\s\\S]*?)(?=(?:\\n[0-9a-f]+:)|$)/g;\n      let bm; let matchedBody = false;\n      while ((bm = bodyRe.exec(decoded)) !== null) { bodyById[bm[1]] = bm[2]; matchedBody = true; }    if (matchedBody) continue;\n\n  if (!decoded.includes('\"pieces\"')) continue;\n  const jsonStart = decoded.search(/[{\\[]/);\n  if (jsonStart < 0) continue;\n\n  let payload;\n  try { payload = JSON.parse(decoded.slice(jsonStart)); }\n  catch (e) { continue; }\n\n  const stack = [payload];\n  while (stack.length) {\n    const node = stack.pop();\n    if (!node || typeof node !== 'object') continue;\n    if (Array.isArray(node.pieces)) { piecesArray = node.pieces; break; }\n    if (Array.isArray(node)) { for (const el of node) stack.push(el); }\n    else { for (const v of Object.values(node)) stack.push(v); }\n  }\n  if (piecesArray) break;\n}\n\nif (!piecesArray) {\n  throw new Error('Scanned ' + chunks.length + ' chunks but none contained a pieces[] array.');\n}\n\nfunction resolveBody(bm) {\n  if (typeof bm !== 'string') return '';\n  const ref = bm.match(/^\\$([0-9a-f]+)$/);\n  if (ref && bodyById[ref[1]]) return bodyById[ref[1]];\n  return bm;\n}\n\n// Dedupe by normalized title (the blog republishes near-identical essays\n// under new slugs), keep the most recent version of each.\nconst byTitle = new Map();\nfor (const p of piecesArray) {\n  if (!p || !p.slug || !p.title) continue;\n  const key = p.title.toLowerCase().replace(/\\s+/g, ' ').trim();\n  const existing = byTitle.get(key);\n  const pubDate = new Date(p.published_at || p.created_at || 0);\n  if (!existing || pubDate > new Date(existing.published_at || existing.created_at || 0)) {\n    byTitle.set(key, p);\n  }\n}\n\n// Filter out slugs already in the processed log.\nconst logItems = $items('Read Processed Log') || [];\nconst processedSlugs = new Set(\n  logItems.map(r => (r.json.slug || '').toString().trim()).filter(Boolean)\n);\n\nconst out = [];\nfor (const p of byTitle.values()) {\n      const isNew = !processedSlugs.has(p.slug);\n  out.push({\n    json: {\n      slug: p.slug,\n              is_new: isNew,\n      title: p.title,\n      subtitle: p.subtitle || '',\n      url: `https://app.gofunditnow.dev/thinking/${p.slug}`,\n      pillar_title: p.pillar_title || '',\n            body_markdown: (() => { const b = resolveBody(p.body_markdown); return (typeof b === 'string' && /^\\$[0-9a-f]+$/.test(b.trim())) ? (p.subtitle || p.title || '') : b; })(),\n          \n      published_at: p.published_at || p.created_at || ''\n    }\n  });\n}\n\nreturn out;"
+        },
+        "id": "4ae12fb8-eb47-499e-b878-a8a3677844bd",
+        "name": "Parse All Articles",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          592,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "591eb3a6-05d0-46ff-919a-e29836ce220f",
+        "name": "Loop Over Articles",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1040,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $json.url }}",
+          "options": {}
+        },
+        "id": "9eed288c-d600-425a-9c99-55bd47477cab",
+        "name": "Fetch Article Page (for OG image)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1264,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Grab the og:image meta tag if present. Skip if absent — no fallback.\nconst html = items[0].json.data || items[0].json.body || '';\nconst article = $node['Loop Over Articles'].json;\n\nlet ogImage = '';\nif (typeof html === 'string' && html) {\n  const m = html.match(/<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)[\"']/i)\n         || html.match(/<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']/i);\n  if (m) ogImage = m[1];\n}\n\nreturn [{ json: { ...article, og_image: ogImage } }];"
+        },
+        "id": "08701286-fbc1-4049-baa0-1b3f3c7e7f16",
+        "name": "Extract OG Image",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1488,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer PASTE_OPENROUTER_KEY_HERE"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://gofunditnow.com"
+              },
+              {
+                "name": "X-Title",
+                "value": "GFIN Blog to LinkedIn"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  model: \"google/gemini-2.0-flash-exp:free\",\n  response_format: { type: \"json_object\" },\n  messages: [\n    {\n      role: \"system\",\n      content: \"You are GFIN's content director rewriting a Funding Intelligence blog essay into a native LinkedIn post for Go Fund It Now (GFIN). Rules: (1) Re-architect for LinkedIn — hook-first, short paragraphs, one argument. Do NOT summarize or trim blog paragraphs verbatim. (2) The source is written in a generic institutional voice — translate to GFIN's asset-framing voice: the barrier is the system, never the audience's worthiness; the organization/community stays the protagonist; ARTEMIS (GFIN's AI engine) is infrastructure, not hero; AI finds, the human decides and is the accountable submitter. (3) Map to one pillar: REFRAME, MYTH-BUST, BEHIND-THE-DATA, PROOF, AUDIENCE-ED, CAPACITY-BUILD, DEADLINE-WATCH, SERIES. (4) Assign one audience: NONPROFIT, FAITH-BASED, GOVERNMENT, ENTERPRISE, or ALL. (5) Never invent stats, client names, funders, deadlines. Never use 'digital employee' or autonomous-agent framing. (6) End the draft with: Take the Funding Readiness Assessment (Phase 1 CTA). (7) Full draft should be 900–1400 characters, LinkedIn-optimal. Respond with ONLY a valid JSON object: {\\\"pillar\\\": string, \\\"audience\\\": string, \\\"linkedin_draft\\\": string}\"\n    },\n    {\n      role: \"user\",\n      content: \"Title: \" + $json.title + \"\\nPillar: \" + $json.pillar_title + \"\\nSubtitle: \" + $json.subtitle + \"\\n\\nBody:\\n\" + $json.body_markdown\n    }\n  ]\n}) }}",
+          "options": {}
+        },
+        "id": "3c7b9d0b-3e8a-4820-9b44-41db71a4a9f4",
+        "name": "OpenRouter Rewrite",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2416,
+          128
+        ],
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const agentOutput = items[0].json.output || items[0].json;\nlet parsed = agentOutput;\nif (typeof agentOutput === 'string') {\n  try { parsed = JSON.parse(agentOutput); }\n  catch (e) { parsed = { pillar: 'UNKNOWN', audience: 'UNKNOWN', linkedin_draft: agentOutput }; }\n}\n\nconst article = $node['Extract OG Image'].json;\nreturn [{\n  json: {\n    slug: article.slug,\n    title: article.title,\n    source_url: article.url,\n    date_published: article.published_at,\n    og_image: article.og_image,\n    pillar: parsed.pillar || 'UNKNOWN',\n    audience: parsed.audience || 'UNKNOWN',\n    linkedin_draft: parsed.linkedin_draft || ''\n  }\n}];"
+        },
+        "id": "1df50b48-d102-499a-8060-4a7064d3e767",
+        "name": "Build Post Object",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2000,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "value": "1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I",
+            "mode": "list",
+            "cachedResultName": "GFIN Thinking Blog Repurpose",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Sheet1",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit#gid=0"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "={{ $json.status }}",
+              "slug": "={{ $('Build Post Object').item.json.slug }}",
+              "title": "={{ $('Build Post Object').item.json.title }}",
+              " url": "={{ $('Build Post Object').item.json.source_url }}",
+              "date_published": "={{ $('Build Post Object').item.json.date_published }}",
+              "linkedin_image": "={{ $('Find the Best Image').item.json.hasImage ? '' : 'no-image' }})",
+              "Scheduled Date": "={{ $json.dueAt }}",
+              "Linkedin Post": "={{ $('Build Post Object').item.json.linkedin_draft }}",
+              "pillar": "={{ $('Extract OG Image').item.json.pillar_title }}",
+              "date_processed": "={{$now}}",
+              "needs_review": "=",
+              "buffer_id": "={{ $json.id }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "slug",
+                "displayName": "slug",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "title",
+                "displayName": "title",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": " url",
+                "displayName": " url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "date_published",
+                "displayName": "date_published",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "date_processed",
+                "displayName": "date_processed",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "pillar",
+                "displayName": "pillar",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "audience",
+                "displayName": "audience",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "needs_review",
+                "displayName": "needs_review",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Linkedin Post",
+                "displayName": "Linkedin Post",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "linkedin_image",
+                "displayName": "linkedin_image",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "Scheduled Date",
+                "displayName": "Scheduled Date",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "buffer_id",
+                "displayName": "buffer_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "id": "73498854-03ae-47bf-8aa2-6ab5ff3afff9",
+        "name": "Log to Sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.5,
+        "position": [
+          3056,
+          336
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "qIn3NXXK9sY7HdMQ",
+            "name": "James Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Write a LinkedIn post for Go Fund It Now (GFIN) based on the article below.\n\nStructure:\n- Opening hook: one sharp line that names the tension. Not a question. Not \"Did you know\". Not an emoji. Something the reader has to keep reading to resolve.\n- Reframe (2-3 lines): translate the article's core argument into GFIN's voice. The barrier is the system, never the audience's worthiness. The organization stays the protagonist. ARTEMIS (GFIN's AI engine) is infrastructure, not hero — AI finds, the human decides.\n- What this means (1-2 lines): the practical implication for a nonprofit, church, government team, or corporate community-investment lead reading this.\n- CTA: \"Read the full thinking here: {ARTICLE_URL}\"\n- Hashtags: 3-4 relevant tags on their own line at the end.\n\nRules:\n- 900-1300 characters total (not words — characters).\n- No emojis. No \"In today's rapidly changing world\". No corporate buzzwords.\n- Do not invent stats, funder names, deadlines, or client results.\n- Do not use \"digital employee\" or autonomous-agent framing for AI.\n- Return ONLY the post text, ready to paste into LinkedIn. No preamble, no explanation, no JSON wrapper.\n\nTitle: {{ $json.title }}\nPillar: {{ $json.pillar_title }}\nSubtitle: {{ $json.subtitle }}\n\nArticle body:\n{{ $json.body_markdown }}\n\nArticle URL: {{ $json.url }}",
+          "options": {
+            "systemMessage": "You are GFIN's content director rewriting a Funding Intelligence blog essay into a native LinkedIn post for Go Fund It Now (GFIN).\n\nRules:\n1. Re-architect for LinkedIn — hook-first, short paragraphs, one argument. Do NOT summarize or trim blog paragraphs verbatim.\n2. The source is written in a generic institutional voice — translate to GFIN's asset-framing voice: the barrier is the system, never the audience's worthiness; the organization/community stays the protagonist; ARTEMIS (GFIN's AI engine) is infrastructure, not hero; AI finds, the human decides and is the accountable submitter.\n3. Map to one pillar: REFRAME, MYTH-BUST, BEHIND-THE-DATA, PROOF, AUDIENCE-ED, CAPACITY-BUILD, DEADLINE-WATCH, SERIES.\n4. Assign one audience: NONPROFIT, FAITH-BASED, GOVERNMENT, ENTERPRISE, or ALL.\n5. Never invent stats, client names, funders, or deadlines. Never use \"digital employee\" or autonomous-agent framing.\n6. End the draft with: Take the Funding Readiness Assessment.\n7. Full draft should be 900–1400 characters, LinkedIn-optimal.\n\nRespond with ONLY a valid JSON object matching this schema:\n{\"pillar\": string, \"audience\": string, \"linkedin_draft\": string}"
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          1680,
+          336
+        ],
+        "id": "fda1607e-bef8-41a9-8d87-9e77697e5875",
+        "name": "post creator"
+      },
+      {
+        "parameters": {
+          "model": "openai/gpt-4o-mini",
+          "options": {}
+        },
+        "name": "OpenRouter Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          1680,
+          512
+        ],
+        "id": "0a5bda3c-abfb-468c-9e49-a7c056d638de",
+        "credentials": {
+          "openRouterApi": {
+            "id": "OJKtYGS2YiGEh3Cn",
+            "name": "OpenRouter"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse OpenRouter response (OpenAI format) and merge with article metadata.\nconst apiResponse = items[0].json;\nconst raw = apiResponse?.choices?.[0]?.message?.content || '';\n\nfunction extractJson(text) {\n  if (!text) return null;\n  const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  const candidate = fenced ? fenced[1] : text;\n  const start = candidate.indexOf('{');\n  const end = candidate.lastIndexOf('}');\n  if (start < 0 || end < 0 || end <= start) return null;\n  try { return JSON.parse(candidate.slice(start, end + 1)); }\n  catch (e) { return null; }\n}\n\nconst parsed = extractJson(raw) || {\n  pillar: 'UNKNOWN',\n  audience: 'UNKNOWN',\n  linkedin_draft: '[MODEL OUTPUT UNPARSEABLE — raw: ' + raw.slice(0, 400) + ']'\n};\n\nconst article = $node['Extract OG Image'].json;\n\nreturn [{\n  json: {\n    slug: article.slug,\n    title: article.title,\n    source_url: article.url,\n    date_published: article.published_at,\n    og_image: article.og_image,\n    pillar: parsed.pillar,\n    audience: parsed.audience,\n    linkedin_draft: parsed.linkedin_draft\n  }\n}];"
+        },
+        "id": "ef6fc6a3-a0d1-4090-a8f7-332e056cfb5f",
+        "name": "Build Post Object1",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          208,
+          1072
+        ],
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "url": "={{ $json.source_url }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2176,
+          336
+        ],
+        "id": "0722fd04-dc4d-476b-80be-9cdc178e5ecd",
+        "name": "Fetch Article",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2448,
+          336
+        ],
+        "id": "0ccc00a2-54b1-40e2-82e9-8f50a00bf6e8",
+        "name": "Find the Best Image"
+      },
+      {
+        "parameters": {
+          "resource": "post",
+          "organizationId": "6a40ef69f958f9474cd66040",
+          "channelId": "6a40f7275ab6d2f1067f1147|linkedin",
+          "postText": "={{  $('Build Post Object').item.json.linkedin_draft }}",
+          "shareMode": "customScheduled",
+          "dueAt": "={{ $json.scheduledTime }}",
+          "attachmentType": "image",
+          "imageUrl": "={{  $json.imageUrl }}"
+        },
+        "type": "@bufferapp/n8n-nodes-buffer.buffer",
+        "typeVersion": 1,
+        "position": [
+          2864,
+          336
+        ],
+        "id": "9e34ac94-1c83-4886-b681-5315fc7a6100",
+        "name": "Create a post",
+        "credentials": {
+          "bufferApi": {
+            "id": "Yc1H6IaLjQBWBs3g",
+            "name": "GFIN Buffer"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst zone = 'Africa/Lagos';\n\nconst randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;\n\nconst now = DateTime.now().setZone(zone);\n\n// First post: 5–120 minutes after execution\nconst firstPost = now.plus({ minutes: randInt(5, 120) });\n\n// Second post: 2–4 hours after the first\nconst secondPost = firstPost.plus({ minutes: randInt(120, 240) });\n\nreturn items.slice(0, 2).map((item, i) => ({\n  json: {\n    ...item.json,\n    scheduledTime: (i === 0 ? firstPost : secondPost).toISO()\n  }\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2656,
+          336
+        ],
+        "id": "ca08176c-27c9-444f-a0bd-0e4d89c88051",
+        "name": "Schedule post"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Select up to 2 articles to post this run.\n// Priority: newest un-posted articles first; if none are new, recycle from the existing pool (least-recently-posted).\nconst MAX = 2;\n\nconst items = $input.all();\n\n// Build a map of slug -> most recent posted timestamp from the processed log.\nlet logRows = [];\ntry { logRows = $('Read Processed Log').all(); } catch (e) { logRows = []; }\nconst lastPosted = {};\nfor (const r of logRows) {\n    const j = r.json || {};\n    const slug = String(j.slug || '').trim();\n    if (!slug) continue;\n    const ts = Date.parse(j.posted_at || j.date || j.scheduledTime || j.updated_at || '') || 0;\n    if (!(slug in lastPosted) || ts > lastPosted[slug]) lastPosted[slug] = ts;\n}\n\nconst toTime = (v) => Date.parse(v) || 0;\n\nconst newItems = items.filter(i => i.json && i.json.is_new === true);\nconst poolItems = items.filter(i => i.json && i.json.is_new !== true);\n\nlet selected;\nif (newItems.length > 0) {\n    selected = newItems\n      .sort((a, b) => toTime(b.json.published_at) - toTime(a.json.published_at))\n      .slice(0, MAX);\n} else {\n    selected = poolItems\n      .sort((a, b) => (lastPosted[a.json.slug] || 0) - (lastPosted[b.json.slug] || 0))\n      .slice(0, MAX);\n}\n\nreturn selected;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          800,
+          240
+        ],
+        "id": "a58ea5e5-ee25-4972-8599-e4f2d9f44bcb",
+        "name": "Select Articles"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "weeks",
+                "triggerAtDay": [
+                  1
+                ],
+                "triggerAtHour": 7
+              }
+            ]
+          }
+        },
+        "id": "cec7c581-e6f2-4cde-9d97-20214ba95f61",
+        "name": "Weekly Monday 7am Check",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -128,
+          240
+        ],
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst zone = 'America/New_York';\nconst scheduled = items.map((item, i) => {\n  const weekday = (i % 2 === 0) ? 4 : 5;\n  const slot = Math.floor(i / 2);\n  let dt = DateTime.now().setZone(zone).set({ weekday: weekday, hour: 9, minute: 0, second: 0, millisecond: 0 }).plus({ hours: slot * 3 });\n  if (dt < DateTime.now()) dt = dt.plus({ weeks: 1 });\n  return { json: Object.assign({}, item.json, { scheduledTime: dt.toISO() }) };\n});\nreturn scheduled;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2656,
+          528
+        ],
+        "id": "39563eea-0f83-462a-9038-a37a67db355b",
+        "name": "Schedule post1",
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {}
+            ]
+          }
+        },
+        "id": "665a3d2f-a14c-493c-9832-7470a95d1709",
+        "name": "Weekly Monday 7am Check1",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -144,
+          432
+        ]
+      }
+    ],
+    "connections": {
+      "Read Processed Log": {
+        "main": [
+          [
+            {
+              "node": "Fetch Thinking Listing Page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Thinking Listing Page": {
+        "main": [
+          [
+            {
+              "node": "Parse All Articles",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse All Articles": {
+        "main": [
+          [
+            {
+              "node": "Select Articles",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Over Articles": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Fetch Article Page (for OG image)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Article Page (for OG image)": {
+        "main": [
+          [
+            {
+              "node": "Extract OG Image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract OG Image": {
+        "main": [
+          [
+            {
+              "node": "post creator",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Rewrite": {
+        "main": [
+          []
+        ]
+      },
+      "Build Post Object": {
+        "main": [
+          [
+            {
+              "node": "Fetch Article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log to Sheet": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Articles",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "post creator",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "post creator": {
+        "main": [
+          [
+            {
+              "node": "Build Post Object",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Article": {
+        "main": [
+          [
+            {
+              "node": "Find the Best Image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find the Best Image": {
+        "main": [
+          [
+            {
+              "node": "Schedule post",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create a post": {
+        "main": [
+          [
+            {
+              "node": "Log to Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Schedule post": {
+        "main": [
+          [
+            {
+              "node": "Create a post",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select Articles": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Articles",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Weekly Monday 7am Check": {
+        "main": [
+          [
+            {
+              "node": "Read Processed Log",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Weekly Monday 7am Check1": {
+        "main": [
+          [
+            {
+              "node": "Read Processed Log",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Damu Winston",
+    "name": "Version bcfe9605",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}
