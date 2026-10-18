@@ -1,0 +1,1109 @@
+{
+  "updatedAt": "2026-07-25T07:44:10.184Z",
+  "createdAt": "2026-07-23T06:34:51.243Z",
+  "id": "Xznf1uqAkbujdyw5",
+  "name": "GFIN — LinkedIn Reply & Acceptance Handler",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## GFIN — LinkedIn Reply & Acceptance Handler (Workflow C)\n\n**What this does:**\nTwo webhooks from Unipile:\n1. `new_relation` — fires when someone accepts an invite → sends follow-up DM (Damu's message)\n2. `message_received` — fires when anyone replies → drafts response with AI + emails Damu\n\n**Handles both:**\n- Invite acceptances (then post-accept follow-up DM)\n- Replies to invite notes\n- Replies to 1st-degree DMs\n\n**Setup steps:**\n1. Attach Unipile Header Auth to Send Follow-up DM node + set account_id\n2. Attach Google Sheets credential on all 4 sheet nodes\n3. Attach Gmail credential on Email node\n4. Attach OpenRouter credential on AI Draft Reply\n5. REGISTER webhooks in Unipile pointing at both webhook URLs (see production URLs below after saving)\n6. Add sheet columns: connected_at, reply_text, suggested_reply, replied_at\n\n**Notification destination:** demodamu@gmail.com",
+        "height": 460,
+        "width": 460,
+        "color": 4
+      },
+      "id": "ba8df477-b28e-42b7-84ea-f50bbc80103a",
+      "name": "README",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        128,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Branch 1: ACCEPTANCE\nUnipile new_relation webhook → send follow-up DM",
+        "height": 100,
+        "width": 460,
+        "color": 3
+      },
+      "id": "12d8d182-a6e3-41ae-a383-77d6964c9aba",
+      "name": "Branch 1 label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        768,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Branch 2: REPLY\nUnipile message_received webhook → save reply, AI-draft response, email Damu",
+        "height": 100,
+        "width": 460,
+        "color": 3
+      },
+      "id": "d1fd47ed-b5ec-4007-8492-5afb100e0f78",
+      "name": "Branch 2 label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        768,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gfin-new-relation",
+        "options": {}
+      },
+      "id": "9d1b80ed-8e7a-4b17-8ece-51ecbd87dee3",
+      "name": "Webhook: New Relation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        784,
+        368
+      ],
+      "webhookId": "7352f900-235a-4fee-aa71-46e2600a2a03",
+      "notes": "Register this URL in Unipile as 'USERS webhook' with event_type=new_relation. Copy the production URL after saving."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unipile new_relation webhook payload extraction.\n// Payload shape (from Unipile docs):\n// { account_id, user_provider_id, name, headline, ... }\n\nconst payload = $input.first().json.body || $input.first().json;\n\nreturn [{\n  json: {\n    provider_id: payload.user_provider_id || payload.provider_id,\n    name: payload.name || '',\n    first_name: (payload.name || '').split(' ')[0],\n    connected_at: new Date().toISOString(),\n    event_type: 'new_relation'\n  }\n}];\n"
+      },
+      "id": "c3080bc4-ef9b-44bd-a884-f3d9fd1f4688",
+      "name": "Parse Acceptance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "provider_id",
+              "lookupValue": "={{ $json.provider_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "37b46fd5-36db-48bb-a9af-810dab27ca49",
+      "name": "Lookup Lead (Acceptance)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1264,
+        368
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Point at Lead Pool. Filter finds the accepting lead by provider_id."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.provider_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d7d4c005-ddf8-4cec-9e4f-8fed9581c8b2",
+      "name": "In Lead Pool?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1536,
+        512
+      ],
+      "notes": "If sender NOT in Lead Pool, ignore (personal message, spam, etc.)"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $json.provider_id }}"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f6b4fe4c-b9b5-4204-a87b-dc5eb7849504",
+      "name": "Mark Connected",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1824,
+        432
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Match on provider_id."
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 1500) + 300 }}"
+      },
+      "id": "c3858340-a81d-4483-b493-9779f4ede9e2",
+      "name": "Wait 5-30 min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        432
+      ],
+      "webhookId": "5a2fa6a5-2fa3-43c7-8bb0-99149ab5b3b9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api10.unipile.com:14011/api/v1/chats",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"account_id\": \"DZFi1PeCTDmiB9H8O0aiPw\",\n  \"attendees_ids\": [\"{{ $('Parse Acceptance').item.json.provider_id }}\"],\n  \"text\": {{ JSON.stringify(\"Hi \" + $('Parse Acceptance').item.json.first_name + \", thanks for connecting! Just following up — the GoFundItNow demo is Thursday 8:30am EST. Drop your business email and I'll send the invite over.\") }}\n}",
+        "options": {}
+      },
+      "id": "c453d9e0-1ed8-4d79-b617-c75a0061e5b7",
+      "name": "Send Follow-up DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        432
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kXtKtxxjCsMze2WT",
+          "name": "Unipile"
+        }
+      },
+      "notes": "Sends Damu's post-accept follow-up. Attach Unipile Header Auth. Verify account_id."
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $('Parse Acceptance').item.json.provider_id }}",
+            "status": "Follow-up Sent",
+            "last_action": "followup_dm"
+          },
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "41aa7db7-dfdc-4be3-9b22-59c8570f4a82",
+      "name": "Mark Follow-up Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2656,
+        432
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gfin-message-received",
+        "options": {}
+      },
+      "id": "463368f1-75e3-40b0-b411-cfe795fd684b",
+      "name": "Webhook: Message Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        768,
+        672
+      ],
+      "webhookId": "0fc9e549-14f7-4371-89fb-246a6a6d1c36",
+      "notes": "Register this URL in Unipile as 'MESSAGING webhook' with event_type=message_received."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unipile message_received webhook payload extraction.\n// Payload contains sender info and message text.\n\nconst payload = $input.first().json.body || $input.first().json;\n\n// Skip our own messages (sent by us, not incoming)\nif (payload.sender_id === payload.account_id) {\n  return [];\n}\n\nreturn [{\n  json: {\n    provider_id: payload.sender_id || payload.provider_id,\n    reply_text: payload.text || payload.message || '',\n    replied_at: new Date().toISOString(),\n    event_type: 'message_received'\n  }\n}];\n"
+      },
+      "id": "5d63f8c2-c405-4ab9-a6b6-2c6c52bba141",
+      "name": "Parse Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "provider_id",
+              "lookupValue": "={{ $json.provider_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "815df4ed-8d35-4e65-b70e-baac49ddb064",
+      "name": "Lookup Lead (Reply)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1248,
+        672
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Lead name: {{ $json.name }}\nLead headline: {{ $json.headline }}\nLead org: {{ $json.slice }}\n\nWhat they said:\n\"{{ $('Parse Reply').item.json.reply_text }}\"\n\nContext: GoFundItNow is a grant/funding discovery service. They received an invite from Damu Winston mentioning a Thursday 8:30am EST demo, with the ask being for their business email to send the calendar invite.\n\nDraft a short reply (under 300 chars) that Damu can send back. Be:\n- Warm, direct, no fake enthusiasm\n- If they asked a question, answer it\n- If they showed interest, push toward getting their email or getting on the demo\n- If they were dismissive, gracefully accept and leave door open\n- If they asked what GoFundItNow is, give a 1-sentence explanation and reiterate the demo offer\n\nOutput STRICT JSON only, no markdown:\n{\n  \"suggested_reply\": \"the draft response\",\n  \"reply_sentiment\": \"positive\" | \"neutral\" | \"negative\" | \"question\"\n}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You draft LinkedIn reply suggestions for Damu Winston. Always output valid JSON matching the requested schema. Never include markdown code fences. Keep replies under 300 characters."
+        }
+      },
+      "id": "6ed16b78-29c8-4509-90c7-107bbafcecf6",
+      "name": "AI Draft Reply",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1824,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "id": "34e5e993-f20b-46c1-ae53-054a1fd2cb2c",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        832
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"suggested_reply\": \"Thanks Jane — happy to hear you're interested. What's your business email? I'll send the demo invite for Thursday.\",\n  \"reply_sentiment\": \"positive\"\n}"
+      },
+      "id": "e65ec5e8-c0ef-4f96-a289-e630ce655db8",
+      "name": "Reply Draft Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        1968,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge AI-drafted reply with the original reply/lead info for downstream sheet write and email.\n\nconst aiOutput = $input.first().json.output || $input.first().json;\nlet parsed = aiOutput;\nif (typeof parsed === 'string') {\n  try { parsed = JSON.parse(parsed.replace(/```json|```/g, '').trim()); }\n  catch { parsed = { suggested_reply: '(AI draft failed)', reply_sentiment: 'neutral' }; }\n}\n\nconst reply = $('Parse Reply').item.json;\nconst lead = $('Lookup Lead (Reply)').item.json;\n\nreturn [{\n  json: {\n    provider_id: reply.provider_id,\n    name: lead.name || '(unknown)',\n    headline: lead.headline || '',\n    slice: lead.slice || '',\n    location: lead.location || '',\n    reply_text: reply.reply_text,\n    replied_at: reply.replied_at,\n    suggested_reply: (parsed.suggested_reply || '').slice(0, 400),\n    reply_sentiment: parsed.reply_sentiment || 'neutral',\n    linkedin_url: lead.public_identifier ? `https://linkedin.com/in/${lead.public_identifier}` : ''\n  }\n}];\n"
+      },
+      "id": "e1a9a593-9616-4c79-8957-4c2d83da7660",
+      "name": "Assemble Reply Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4/edit#gid=1474100927"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d5b2a46d-28d6-4ce8-b3ce-17a2fcaa1bf2",
+      "name": "Save Reply + Draft",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2416,
+        656
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "damu.winston@gmail.com",
+        "subject": "=[GFIN Reply] {{ $json.name }} — {{ $json.reply_sentiment }}",
+        "message": "=<h2>New LinkedIn Reply</h2>\n<p><strong>From:</strong> {{ $json.name }}<br>\n<strong>Headline:</strong> {{ $json.headline }}<br>\n<strong>Location:</strong> {{ $json.location }}<br>\n<strong>Category:</strong> {{ $json.slice }}<br>\n<strong>Sentiment:</strong> {{ $json.reply_sentiment }}<br>\n<strong>LinkedIn:</strong> <a href=\"{{ $json.linkedin_url }}\">{{ $json.linkedin_url }}</a></p>\n\n<h3>What they said:</h3>\n<blockquote style=\"border-left:3px solid #ccc; padding-left:12px; color:#333;\">{{ $json.reply_text }}</blockquote>\n\n<h3>Suggested response:</h3>\n<blockquote style=\"border-left:3px solid #0a7; padding-left:12px; color:#333;\">{{ $json.suggested_reply }}</blockquote>\n\n<p><em>Review and send from LinkedIn directly. This is a draft only — nothing auto-sent.</em></p>",
+        "options": {}
+      },
+      "id": "edbc38b7-40f5-438f-8b41-1d57fb10d6da",
+      "name": "Notify Damu",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2656,
+        656
+      ],
+      "webhookId": "f6ab8ee6-bb37-4ef5-939c-8d219fa2fcf4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "i5Q0MbZQ7aZcDjqW",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Attach Gmail credential."
+    }
+  ],
+  "connections": {
+    "Webhook: New Relation": {
+      "main": [
+        [
+          {
+            "node": "Parse Acceptance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Acceptance": {
+      "main": [
+        [
+          {
+            "node": "Lookup Lead (Acceptance)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Lead (Acceptance)": {
+      "main": [
+        [
+          {
+            "node": "In Lead Pool?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In Lead Pool?": {
+      "main": [
+        [
+          {
+            "node": "Mark Connected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Connected": {
+      "main": [
+        [
+          {
+            "node": "Wait 5-30 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5-30 min": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-up DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-up DM": {
+      "main": [
+        [
+          {
+            "node": "Mark Follow-up Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Message Received": {
+      "main": [
+        [
+          {
+            "node": "Parse Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Reply": {
+      "main": [
+        [
+          {
+            "node": "Lookup Lead (Reply)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Lead (Reply)": {
+      "main": [
+        [
+          {
+            "node": "In Lead Pool?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Draft Reply",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Draft Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Draft Reply",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Draft Reply": {
+      "main": [
+        [
+          {
+            "node": "Assemble Reply Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Reply Package": {
+      "main": [
+        [
+          {
+            "node": "Save Reply + Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Reply + Draft": {
+      "main": [
+        [
+          {
+            "node": "Notify Damu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 1800,
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "5743e2d7-9104-4a5e-b27a-b9496148de08",
+  "activeVersionId": null,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2026-07-23T06:34:51.243Z",
+      "createdAt": "2026-07-23T06:34:51.243Z",
+      "role": "workflow:owner",
+      "workflowId": "Xznf1uqAkbujdyw5",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
