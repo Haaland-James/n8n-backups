@@ -1,0 +1,602 @@
+{
+  "updatedAt": "2026-02-12T15:54:36.980Z",
+  "createdAt": "2025-11-16T03:06:48.499Z",
+  "id": "hpnvWSfWggxlImBB",
+  "name": "(Z-H) Update Contract Status on Signing",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "contract-signeds",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        -112
+      ],
+      "id": "e9890af7-d0dd-405e-826e-00c33877103f",
+      "name": "Webhook",
+      "webhookId": "aabc5194-6f40-412e-b2c2-bbc29c6d4809"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ad53c5e7-c8e5-4c9f-bcd8-6e1cb17d3083",
+              "name": "website_url",
+              "value": "https://gofunditnow.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        -112
+      ],
+      "id": "853eb540-3686-42cf-9404-b3f717ea2c85",
+      "name": "set website url"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website_url }}/wp-json/custom/v1/find-user-by-meta?meta_key=zoho_request_id&meta_value={{ $('Webhook').item.json.body.requests.request_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        528,
+        -112
+      ],
+      "id": "639e7fde-76d4-4d65-b53a-51f5710c6d4e",
+      "name": "Fetch User",
+      "credentials": {
+        "wordpressApi": {
+          "id": "9oq4xflg8aFAY1S5",
+          "name": "GFIN WP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('set website url').item.json.website_url }}/wp-json/custom/v1/update-user-meta/{{ $json.user_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"contract_status\": \"signed\",\n  \"contract_signed_date\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        -112
+      ],
+      "id": "00c50dca-2a5f-48bc-9703-5754de1e9141",
+      "name": "Update User",
+      "credentials": {
+        "wordpressApi": {
+          "id": "9oq4xflg8aFAY1S5",
+          "name": "GFIN WP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://sign.zoho.com/api/v1/requests/{{ $('Webhook').item.json.body.requests.request_id }}/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        896,
+        -112
+      ],
+      "id": "baf37c38-4972-49d4-9864-94fd515b35d7",
+      "name": "Fetch PDF from Zoho",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "eX2d7494WeuOIbhz",
+          "name": "Zoho account"
+        },
+        "oAuth2Api": {
+          "id": "XQO7vo8Wi49Qqnrv",
+          "name": "Zoho"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gofunditnow.com/wp-json/wp/v2/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "=file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "=Title",
+              "value": "=Contract for User {{$json[\"user_id\"]}}"
+            },
+            {
+              "name": "status",
+              "value": "private"
+            },
+            {
+              "name": "=author",
+              "value": "={{$json[\"user_id\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1104,
+        -112
+      ],
+      "id": "9c144e12-036d-4b4a-b393-1283dd6f37df",
+      "name": "Upload Contract to Wordpress",
+      "credentials": {
+        "wordpressApi": {
+          "id": "9oq4xflg8aFAY1S5",
+          "name": "GFIN WP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gofunditnow.com/wp-json/wp/v2/users/{{ $('Fetch User').item.json.user_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"meta\": {\n    \"contract_file_id\": \"{{ $json.id }}\",\n    \"contract_status\": \"signed\",\n    \"contract_signed_date\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1312,
+        -112
+      ],
+      "id": "fa2e2ce6-5894-4512-ab7b-fc0f965c71a0",
+      "name": "Update meta status",
+      "credentials": {
+        "wordpressApi": {
+          "id": "9oq4xflg8aFAY1S5",
+          "name": "GFIN WP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://sign.zoho.com/api/v1/requests/{{ $('Webhook').item.json.body.requests.request_id }}/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1792,
+        64
+      ],
+      "id": "58c3457e-e28c-40a9-b8d5-ab15ad390fad",
+      "name": "Fetch PDF from Zoho1",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "eX2d7494WeuOIbhz",
+          "name": "Zoho account"
+        },
+        "oAuth2Api": {
+          "id": "XQO7vo8Wi49Qqnrv",
+          "name": "Zoho"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "set website url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set website url": {
+      "main": [
+        [
+          {
+            "node": "Fetch User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User": {
+      "main": [
+        [
+          {
+            "node": "Update User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User": {
+      "main": [
+        [
+          {
+            "node": "Fetch PDF from Zoho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch PDF from Zoho": {
+      "main": [
+        [
+          {
+            "node": "Upload Contract to Wordpress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Contract to Wordpress": {
+      "main": [
+        [
+          {
+            "node": "Update meta status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 240,
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "289ffdd3-b296-4df8-8d00-969252f97f23",
+  "activeVersionId": "fadd6007-378f-4d61-8169-5239ffdf8a4a",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-11-16T03:06:48.499Z",
+      "createdAt": "2025-11-16T03:06:48.499Z",
+      "role": "workflow:owner",
+      "workflowId": "hpnvWSfWggxlImBB",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-01-28T05:51:08.248Z",
+    "createdAt": "2026-01-28T05:35:25.389Z",
+    "versionId": "fadd6007-378f-4d61-8169-5239ffdf8a4a",
+    "workflowId": "hpnvWSfWggxlImBB",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "contract-signeds",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          208,
+          -112
+        ],
+        "id": "e9890af7-d0dd-405e-826e-00c33877103f",
+        "name": "Webhook",
+        "webhookId": "aabc5194-6f40-412e-b2c2-bbc29c6d4809"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "ad53c5e7-c8e5-4c9f-bcd8-6e1cb17d3083",
+                "name": "website_url",
+                "value": "https://gofunditnow.com",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          368,
+          -112
+        ],
+        "id": "853eb540-3686-42cf-9404-b3f717ea2c85",
+        "name": "set website url"
+      },
+      {
+        "parameters": {
+          "url": "={{ $json.website_url }}/wp-json/custom/v1/find-user-by-meta?meta_key=zoho_request_id&meta_value={{ $('Webhook').item.json.body.requests.request_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          528,
+          -112
+        ],
+        "id": "639e7fde-76d4-4d65-b53a-51f5710c6d4e",
+        "name": "Fetch User",
+        "credentials": {
+          "wordpressApi": {
+            "id": "9oq4xflg8aFAY1S5",
+            "name": "GFIN WP"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('set website url').item.json.website_url }}/wp-json/custom/v1/update-user-meta/{{ $json.user_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"contract_status\": \"signed\",\n  \"contract_signed_date\": \"{{ new Date().toISOString() }}\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          704,
+          -112
+        ],
+        "id": "00c50dca-2a5f-48bc-9703-5754de1e9141",
+        "name": "Update User",
+        "credentials": {
+          "wordpressApi": {
+            "id": "9oq4xflg8aFAY1S5",
+            "name": "GFIN WP"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://sign.zoho.com/api/v1/requests/{{ $('Webhook').item.json.body.requests.request_id }}/pdf",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "oAuth2Api",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          896,
+          -112
+        ],
+        "id": "baf37c38-4972-49d4-9864-94fd515b35d7",
+        "name": "Fetch PDF from Zoho",
+        "credentials": {
+          "zohoOAuth2Api": {
+            "id": "eX2d7494WeuOIbhz",
+            "name": "Zoho account"
+          },
+          "oAuth2Api": {
+            "id": "XQO7vo8Wi49Qqnrv",
+            "name": "Zoho"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://gofunditnow.com/wp-json/wp/v2/media",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "parameterType": "formBinaryData",
+                "name": "=file",
+                "inputDataFieldName": "data"
+              },
+              {
+                "name": "=Title",
+                "value": "=Contract for User {{$json[\"user_id\"]}}"
+              },
+              {
+                "name": "status",
+                "value": "private"
+              },
+              {
+                "name": "=author",
+                "value": "={{$json[\"user_id\"]}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          1104,
+          -112
+        ],
+        "id": "9c144e12-036d-4b4a-b393-1283dd6f37df",
+        "name": "Upload Contract to Wordpress",
+        "credentials": {
+          "wordpressApi": {
+            "id": "9oq4xflg8aFAY1S5",
+            "name": "GFIN WP"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://gofunditnow.com/wp-json/wp/v2/users/{{ $('Fetch User').item.json.user_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"meta\": {\n    \"contract_file_id\": \"{{ $json.id }}\",\n    \"contract_status\": \"signed\",\n    \"contract_signed_date\": \"{{ $now.toISO() }}\"\n  }\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          1312,
+          -112
+        ],
+        "id": "fa2e2ce6-5894-4512-ab7b-fc0f965c71a0",
+        "name": "Update meta status",
+        "credentials": {
+          "wordpressApi": {
+            "id": "9oq4xflg8aFAY1S5",
+            "name": "GFIN WP"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "set website url",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set website url": {
+        "main": [
+          [
+            {
+              "node": "Fetch User",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch User": {
+        "main": [
+          [
+            {
+              "node": "Update User",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update User": {
+        "main": [
+          [
+            {
+              "node": "Fetch PDF from Zoho",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch PDF from Zoho": {
+        "main": [
+          [
+            {
+              "node": "Upload Contract to Wordpress",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload Contract to Wordpress": {
+        "main": [
+          [
+            {
+              "node": "Update meta status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Damu Winston",
+    "name": "Version fadd6007",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}
