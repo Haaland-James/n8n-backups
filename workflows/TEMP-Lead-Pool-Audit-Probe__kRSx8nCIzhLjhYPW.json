@@ -1,0 +1,119 @@
+{
+  "updatedAt": "2026-09-09T03:01:35.697Z",
+  "createdAt": "2026-09-09T03:01:35.697Z",
+  "id": "kRSx8nCIzhLjhYPW",
+  "name": "TEMP — Lead Pool Audit Probe",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "probe-webhook",
+      "name": "Probe Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gfin-leadpool-audit",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "b4c8e13c-82e0-4fcb-bd9c-8b0a29367925"
+    },
+    {
+      "id": "probe-read",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "probe-stats",
+      "name": "Compute Audit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst total = rows.length;\nconst cols = total ? Object.keys(rows[0]) : [];\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\nconst count = (fn) => rows.filter(fn).length;\nconst tally = (field) => {\n  const out = {};\n  for (const r of rows) {\n    const k = ne(r[field]) ? String(r[field]).slice(0, 40) : '(blank)';\n    out[k] = (out[k] || 0) + 1;\n  }\n  return out;\n};\n\nreturn [{ json: {\n  columns: cols,\n  total_rows: total,\n  by_source: tally('source'),\n  by_enriched_status: tally('enriched_status'),\n  by_status: tally('status'),\n  by_email_source: tally('email_source'),\n  has_email: count(r => ne(r.email)),\n  has_company_name: count(r => ne(r.company_name)),\n  has_company_domain: count(r => ne(r.company_domain)),\n  email_verified_true: count(r => String(r.email_verified).toLowerCase() === 'true'),\n  email_confidence_gte_70: count(r => Number(r.email_confidence) >= 70),\n  already_emailed: count(r => ne(r.email_sent_at)),\n  replied: count(r => ne(r.replied_at)),\n  linkedin_outreach_sent: count(r => ne(r.outreach_sent_at)),\n  sendable_loose: count(r => ne(r.email) && !ne(r.email_sent_at) && !ne(r.replied_at)),\n  samples_with_email: rows.filter(r => ne(r.email)).slice(0, 3).map(r => ({ name: r.name, company_name: r.company_name, company_domain: r.company_domain, email: r.email, email_source: r.email_source, email_confidence: r.email_confidence, email_verified: r.email_verified, source: r.source })),\n  samples_no_email: rows.filter(r => !ne(r.email)).slice(0, 3).map(r => ({ name: r.name, headline: String(r.headline || '').slice(0, 60), company_name: r.company_name, company_domain: r.company_domain, enriched_status: r.enriched_status, source: r.source }))\n}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Probe Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Compute Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "17fe7a69-c511-4bfc-affd-38f287ce11c6",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-09-09T03:01:35.697Z",
+      "createdAt": "2026-09-09T03:01:35.697Z",
+      "role": "workflow:owner",
+      "workflowId": "kRSx8nCIzhLjhYPW",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
