@@ -1,0 +1,1006 @@
+{
+  "updatedAt": "2026-10-13T14:58:55.147Z",
+  "createdAt": "2026-10-13T11:49:30.892Z",
+  "id": "OfAmN5BuQQ1uTKZu",
+  "name": "GFIN Email Finder",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## GFIN Email Finder — two-step site search\n\nFinds addresses that were **actually published** and records the page. It never constructs an address.\n\n### Why two searches, not one\n\nTested 13 Oct on Ryan Kaup / Apache Junction.\n\n**Open search for `\"Ryan Kaup\" \"City of Apache Junction\" email`** returned LinkedIn, ZoomInfo, Starbridge, AeroLeads, Datanyze and a newspaper. The real address `rkaup@apachejunctionaz.gov` **was not in any result**. The only addresses present were a newspaper's `customerservice@iniusa.org` and masked broker junk.\n\n**Search restricted to `apachejunctionaz.gov` for `Kaup email contact`** returned the address, in plain text, in the top three snippets.\n\nSo: step 1 resolves the organisation's own domain, step 2 searches only inside it. The restriction is what makes this work — and it structurally removes the broker problem, because a broker cannot appear in a result set confined to the org's own site.\n\n**Scraping the page would have failed.** That CivicEngage page is JS-rendered; a scrape returns nav chrome and a language picker, no content. Search snippets beat page scrapes here.\n\n---\n\n**Writes** `email`, `email_source`, `company_domain`, `company_domain_source` and the evidence columns AK–AN. **Never writes `sendability`** — finding an address is not permission to email it.\n\n**Cost** 2 Firecrawl searches per lead (~4 credits). Leads whose domain is already evidenced skip step 1.\n\n### Before activating\n\nRun against the **Email Finder Test Set** tab. 11 positives must return exact; the 4 negatives must return `not_found` with no address written.",
+        "height": 720,
+        "width": 560
+      },
+      "id": "note-setup",
+      "name": "How This Works",
+      "position": [
+        -560,
+        -480
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "position": [
+        -560,
+        384
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Lead Pool",
+          "mode": "list",
+          "value": 1474100927
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "id": "read-lead-pool",
+      "name": "Read Lead Pool",
+      "position": [
+        -336,
+        384
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick leads worth searching, and precompute everything the HTTP nodes need so\n// they stay dumb pipes.\nconst MAX_PER_RUN = 100;\n\n// FIXTURE RUN (Task 4): restrict the run to the 15 known-answer leads on the\n// 'Email Finder Test Set' tab. Empty the array to run against the whole pool.\nconst RUN_FIXTURE_ONLY = false;   // true re-tests only the 15 known answers\nconst FIXTURE_IDS = [\n  'ACoAAAGlU_cBfORam-XoWETz1LypgALJIE3qCKw', // Ryan Kaup - Apache Junction AZ - found\n  'ACoAABBUCrgBprZD15mTqHQC6MQNavHIVWljZgI', // Jon Rickard - College Place WA - found\n  'ACoAAAMbmnIBhvmssIDVCw1LSb9hiqI7v2rltVY', // Gustavo Gonzalez - Eastvale CA - found\n  'ACoAAA7TUTgBPVVT-9yHu1EQLwNVPf7jT7v6r3I', // Micah Scoggan - Goddard KS - found\n  'ACoAABafkkAB2DrfVczb8wM9pj79_ob_kA7UjKA', // Kayla Charters - Menifee CA - found\n  'ACoAAAUwVh0BetEvNrtGsCKIN25smgj6LXo5mpo', // Stephen Lachky - Parkville MO - found\n  'ACoAAAOIBskB6cpDfxkOdLD7tleLT--mcmli6d0', // RJ Lott - Pullman WA - found (first.last)\n  'ACoAAA7FjfYBfkwdrfr5Ny4iPy1qvZZ-mKRsw0I', // Brett Angell - Rogers MN - found\n  'ACoAADLf1YkBZUgZuuR0UHGVtx4n-4FE880KKk4', // Jerod Potts - Sachse TX - found\n  'ACoAAAKdpBYBFTN3njkPVAqs_1iqpU4_74_x44A', // Benjamin Boike - West St. Paul MN - found\n  'ACoAAAJerOcBM-Y60SniEQRuOmOzfF-HxxIpZU4', // Natali Fani-Gonzalez - Montgomery County MD - found\n  'ACoAAAofS2ABpN5mnLxDKmWyf5ksMj9GTDnoHD0', // Suzanne Boyles - Buckeye AZ - NOT_FOUND expected\n  'ACoAABTTXVYBx2--ANc0RElaVov7G8zkytgWCWs', // Patti Garibay - Lancaster CA - NOT_FOUND expected\n  'ACoAAAK5ttcBjVmyMITBJGyVWZDK713VSUnUpqI', // Richard Wilkie - Casa Grande AZ - NOT_FOUND expected\n  'ACoAAAkj484BFSuNOrxvBNJ4C4hGFPMJbkESGBQ'  // Marsellas Williams - Powder Springs GA - STALE, no address should be written\n];\nconst ONLY_PROVIDER_IDS = RUN_FIXTURE_ONLY ? FIXTURE_IDS : [];\nconst ONLY_SLICE = '';          // e.g. 'municipal' — blank means every slice\nconst RETRY_SEARCH_ERRORS = true;\n\n// A fixture run re-tests the same leads over and over, so it ignores the\n// already-searched and already-has-an-email guards. Pool runs keep both.\nconst FIXTURE_MODE = ONLY_PROVIDER_IDS.length > 0;\n\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\n// A company_name made only of job words is a LinkedIn headline fragment, not an\n// employer. 'Biotech Entrepreneur' and 'Food Startup' sit in the pool as orgs.\nconst ROLE_WORDS = new Set(['director','directors','leader','leaders','leadership','manager','management','executive','officer','president','founder','cofounder','ceo','coo','cfo','cto','chair','chairman','board','consultant','consulting','strategist','specialist','coordinator','administrator','administration','program','programs','development','fundraising','fundraiser','grant','grants','writer','writing','nonprofit','profit','volunteer','entrepreneur','inventor','professional','freelance','independent','self','employed','retired','advisor','adviser','principal','owner','partner','associate','analyst','engineer','designer','marketing','sales','operations','recruiter','student','intern','philanthropy','philanthropist','relations','affairs','outreach','engagement','strategy','strategic','startup','biotech','tech','coach','mentor','speaker','author','investor','advocate']);\nconst STOPWORDS = new Set(['the','of','for','and','a','an','at','in','on','to','inc','llc','ltd','corp','corporation','co','company','group','holdings','plc','org','organization','organisation']);\nconst PLACEHOLDER_NAMES = new Set(['john doe','jane doe','john smith','jane smith','alice smith','alice johnson','alice','margaret smith','test user']);\n\nfunction orgTokens(name) {\n  const toks = String(name || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').split(/\\s+/).filter(Boolean);\n  const meaningful = toks.filter(t => !STOPWORDS.has(t));\n  return { toks, meaningful, distinctive: meaningful.filter(t => !ROLE_WORDS.has(t)) };\n}\n\n// Lead Pool stores credentials in the name: 'RJ Lott, CGFM, MPA, AICP, CPM, PHR'.\n// Searching the credentials finds nothing, so cut at the first comma.\nfunction cleanName(n) {\n  let s = String(n || '').split(',')[0];\n  s = s.replace(/\\([^)]*\\)/g, ' ');\n  s = s.replace(/\\b(dr|rev|minister|bishop|mr|mrs|ms|prof|sr|jr)\\.?\\s+/gi, ' ');\n  s = s.replace(/[^A-Za-zÀ-ɏ\\s'\\-]/g, ' ').replace(/\\s+/g, ' ').trim();\n  return s;\n}\n\nconst skipped = {};\nconst bump = (k) => { skipped[k] = (skipped[k] || 0) + 1; };\nconst out = [];\n\nfor (const item of $input.all()) {\n  const r = item.json;\n\n  if (!ne(r.provider_id)) { bump('no_provider_id'); continue; }\n  if (ONLY_PROVIDER_IDS.length && !ONLY_PROVIDER_IDS.includes(String(r.provider_id).trim())) { bump('not_in_fixture'); continue; }\n\n  const findStatus = String(r.email_find_status || '').trim().toLowerCase();\n  if (findStatus && !FIXTURE_MODE) {\n    // not_found stays not_found. Only transient failures are retried.\n    const retryable = findStatus === 'search_error' || findStatus === 'domain_not_found';\n    if (!(RETRY_SEARCH_ERRORS && retryable)) { bump('already_searched_' + findStatus); continue; }\n  }\n\n  if (ne(r.email_sent_at) && !FIXTURE_MODE) { bump('already_emailed'); continue; }\n  const sendStatus = String(r.email_send_status || '').toLowerCase();\n  if (sendStatus === 'unsubscribed' || sendStatus === 'bounced') { bump('suppressed'); continue; }\n\n  // Search when there is no address, or when the one we hold was invented.\n  const src = String(r.email_source || '').toLowerCase();\n  const hasRealEmail = ne(r.email) && !/pattern|guess|unevidenced/.test(src);\n  if (hasRealEmail && !FIXTURE_MODE) { bump('already_has_observed_email'); continue; }\n\n  if (ONLY_SLICE && String(r.slice || '').toLowerCase() !== ONLY_SLICE.toLowerCase()) { bump('wrong_slice'); continue; }\n\n  const org = orgTokens(r.company_name);\n  if (!org.toks.length) { bump('no_company_name'); continue; }\n  if (!org.distinctive.length) { bump('company_is_job_title'); continue; }\n\n  const person = cleanName(r.name);\n  const parts = person.split(' ').filter(Boolean);\n  if (parts.length < 2) { bump('name_not_a_person'); continue; }\n  if (PLACEHOLDER_NAMES.has(person.toLowerCase())) { bump('placeholder_name'); continue; }\n\n  // Reuse an already-evidenced domain and skip step 1 entirely. A domain from\n  // v1 is NOT evidence — v1 built domains out of company_name — so it only\n  // counts when company_domain_source says something actually found it.\n  const domSrc = String(r.company_domain_source || '').trim();\n  const trustedDomain = (ne(r.company_domain) && domSrc && !/pattern|guess|unevidenced/i.test(domSrc))\n    ? String(r.company_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '')\n    : '';\n\n  out.push({ json: Object.assign({}, r, {\n    _person: person,\n    _surname: parts[parts.length - 1],\n    _org: String(r.company_name).trim(),\n    _org_tokens: org.distinctive,\n    _domain: trustedDomain,\n    _domain_source: trustedDomain ? ('reused:' + domSrc) : ''\n  })});\n}\n\n// Spread the run across organisations instead of taking leads in sheet order.\n// We only need 2-3 successes at an org to learn its format; the rest of its\n// people get filled from the pattern. Without this cap, one org with 40 leads\n// eats the whole run and teaches us nothing after the third.\nconst MAX_PER_ORG = 3;\nconst perOrg = new Map();\nconst spread = [];\nfor (const o of out) {\n  const key = String(o.json._domain || o.json._org || '').toLowerCase();\n  const n = perOrg.get(key) || 0;\n  if (n >= MAX_PER_ORG) { bump('org_quota_reached'); continue; }\n  perOrg.set(key, n + 1);\n  spread.push(o);\n}\n\nconsole.log('Finder queue: ' + out.length + ' eligible, ' + spread.length + ' after per-org cap, searching ' + Math.min(spread.length, MAX_PER_RUN));\nconsole.log('Organisations covered this run: ' + perOrg.size);\nconsole.log('Already have a trusted domain: ' + out.filter(o => o.json._domain).length);\nconsole.log('Skipped: ' + JSON.stringify(skipped));\n\nreturn spread.slice(0, MAX_PER_RUN);"
+      },
+      "id": "select-candidates",
+      "name": "Select Candidates",
+      "position": [
+        -128,
+        384
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-leads",
+      "name": "Loop Over Leads",
+      "position": [
+        112,
+        384
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-domain",
+              "leftValue": "={{ $json._domain }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "if-have-domain",
+      "name": "Have Trusted Domain?",
+      "position": [
+        352,
+        512
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v2/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "firecrawlApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json._org + ' official website', limit: 8, sources: ['web'] }) }}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "alwaysOutputData": true,
+      "id": "find-org-domain",
+      "maxTries": 3,
+      "name": "Firecrawl: Find Org Domain",
+      "position": [
+        592,
+        736
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "firecrawlApi": {
+          "id": "pbeixWGwR0rjalUn",
+          "name": "Firecrawl account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Decide which host is the organisation's own website. Everything downstream\n// depends on this being right, so be conservative: no confident pick means\n// domain_not_found, which is retryable, rather than a guess.\nconst lead = $('Loop Over Leads').item.json;\nconst res = $json || {};\nconst orgTok = Array.isArray(lead._org_tokens) ? lead._org_tokens : [];\n\nconst web = (res.data && Array.isArray(res.data.web)) ? res.data.web\n  : (Array.isArray(res.data) ? res.data : []);\n\nif (res.error || !web.length) {\n  return { json: Object.assign({}, lead, { _domain: '', _domain_source: '', _domain_fail: res.error ? ('search_error: ' + (function(e){ try { return typeof e === 'string' ? e : JSON.stringify(e); } catch (x) { return 'unreadable'; } })(res.error).slice(0, 300)) : 'no results' }) };\n}\n\n// Hosts that are never an organisation's own site.\nconst NEVER = /(linkedin|facebook|twitter|x\\.com|instagram|youtube|tiktok|pinterest|reddit|wikipedia|wikiwand|crunchbase|bloomberg|glassdoor|indeed|ziprecruiter|yelp|mapquest|tripadvisor|ballotpedia|govsalaries|transparentcalifornia|opencorporates|guidestar|charitynavigator|propublica|causeiq|idealist|zoominfo|rocketreach|starbridge|signalhire|apollo\\.io|lusha|contactout|leadiq|hunter\\.io|snov\\.io|clearbit|aeroleads|datanyze|usphonebook|spokeo|radaris|whitepages|peoplefinder|nuwber|fastpeoplesearch|beenverified|truepeoplesearch|lead411|uplead|anymailfinder|emailhippo|voilanorbert|bizapedia|dnb\\.com|manta|buzzfile|newsbreak|patch\\.com|legistar|granicus|civicplus)\\./i;\n\nconst STRIP_TLD = /\\.(com|org|net|edu|gov|io|co|us|uk|ca|info|biz|ngo|charity)(\\.[a-z]{2})?$/;\nconst rootOf = (h) => String(h || '').toLowerCase().replace(STRIP_TLD, '').replace(/[^a-z0-9]/g, '');\n// n8n's Code sandbox does not expose the URL constructor. new URL() here\n// returned '' for every result, so every host was discarded before scoring and\n// all 15 fixture leads came back 'no host matched org name; considered none'\n// even though the right domain was sitting at result #1. Parse with a regex.\nconst hostOf = (u) => { const m = String(u || '').match(/^[a-zA-Z][a-zA-Z0-9+.\\-]*:\\/\\/([^\\/?#:]+)/); return m ? m[1].replace(/^www\\./i, '').toLowerCase() : ''; };\n\nconst acro = orgTok.map(t => t[0]).join('');\nconst best = { host: '', score: -1 };\nconst considered = [];\n\nfor (let i = 0; i < web.length; i++) {\n  const host = hostOf(web[i].url);\n  if (!host || NEVER.test(host + '.')) continue;\n\n  const root = rootOf(host);\n  let score = 0;\n  let tokenHit = false;\n\n  for (const t of orgTok) {\n    if (t.length >= 4 && (root === t || root.startsWith(t) || root.endsWith(t))) { score += 40; tokenHit = true; break; }\n    if (t.length >= 7 && root.includes(t)) { score += 35; tokenHit = true; break; }\n    if (t.length === 3 && root === t) { score += 40; tokenHit = true; break; }\n  }\n  // Abbreviated hosts like wspmn.gov share no token with 'West St. Paul', so an\n  // acronym match is the rescue. Require 3+ letters to avoid coincidence.\n  if (!tokenHit && acro.length >= 3 && root === acro) { score += 35; tokenHit = true; }\n\n  if (/\\.gov$/.test(host)) score += 25;\n  else if (/\\.us$/.test(host)) score += 20;\n  else if (/\\.org$/.test(host)) score += 10;\n\n  if (/official|home|welcome/i.test(web[i].title || '')) score += 5;\n  score -= i;   // earlier results win ties\n\n  considered.push(host + ':' + score);\n\n  // Never accept a host with nothing to do with the org name. Without this the\n  // first non-broker result wins by default, which is how v1 ended up writing\n  // gates.org for the Gates Foundation and ag.org for an agri startup.\n  if (!tokenHit) continue;\n\n  if (score > best.score) { best.host = host; best.score = score; }\n}\n\nif (!best.host) {\n  return { json: Object.assign({}, lead, { _domain: '', _domain_source: '', _domain_fail: 'no host matched org name; considered ' + (considered.join(', ') || 'none') }) };\n}\n\nreturn { json: Object.assign({}, lead, {\n  _domain: best.host,\n  _domain_source: 'firecrawl_search:' + best.host,\n  _domain_fail: ''\n}) };"
+      },
+      "id": "pick-org-domain",
+      "name": "Pick Org Domain",
+      "position": [
+        800,
+        736
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "domain-found",
+              "leftValue": "={{ $json._domain }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "if-domain-found",
+      "name": "Domain Found?",
+      "position": [
+        992,
+        736
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Could not establish the organisation's own website, so there is nowhere\n// trustworthy to look. Retryable — the selector picks domain_not_found back up.\nreturn { json: {\n  provider_id: $json.provider_id,\n  email_find_status: 'domain_not_found',\n  email_evidence: String($json._domain_fail || 'no org domain resolved').slice(0, 400),\n  email_found_at: new Date().toISOString()\n}};"
+      },
+      "id": "mark-no-domain",
+      "name": "Mark No Org Domain",
+      "position": [
+        1232,
+        800
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v2/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "firecrawlApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json._surname + ' email contact', limit: 6, sources: ['web'], includeDomains: [$json._domain] }) }}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "alwaysOutputData": true,
+      "id": "search-org-site",
+      "maxTries": 3,
+      "name": "Firecrawl: Search Org Site",
+      "position": [
+        1232,
+        432
+      ],
+      "retryOnFail": true,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "firecrawlApi": {
+          "id": "pbeixWGwR0rjalUn",
+          "name": "Firecrawl account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Score the addresses visible in snippets from the organisation's OWN site.\n// Never construct an address. Nothing surviving is a real answer: not_found.\nconst lead = $('Loop Over Leads').item.json;\nconst res = $json || {};\nconst now = new Date().toISOString();\nconst pid = lead.provider_id;\nconst person = String(lead._person || lead.name || '');\nconst orgTok = Array.isArray(lead._org_tokens) ? lead._org_tokens : [];\n\nconst web = (res.data && Array.isArray(res.data.web)) ? res.data.web\n  : (Array.isArray(res.data) ? res.data : []);\n\n// ---------- search failed: retryable, not a verdict ----------\nif (res.error || (!res.data && !web.length)) {\n  let msg = 'search returned no usable payload';\n  if (res.error) { try { msg += ': ' + (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)).slice(0, 300); } catch (e) {} }\n  return { json: { provider_id: pid, email_find_status: 'search_error', email_evidence: msg, email_found_at: now }};\n}\n\nconst EMAIL_RE = /[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}/g;\nconst OURS = /@(gofunditnow|deeplearningintelligence|gmail|googlemail|google)\\./i;\nconst BAD_LOCAL = /^(noreply|no-reply|donotreply|do-not-reply|mailer-daemon|postmaster|example|email|yourname|your-email|name|username|user|test|sample|someone|firstname|lastname|first|last)$/i;\nconst NOT_A_TLD = /\\.(png|jpe?g|gif|webp|svg|pdf|docx?|xlsx?|pptx?|zip|css|js|html?|aspx?|php)$/i;\nconst ROLE_LOCALS = new Set(['info','admin','administrator','contact','support','hello','office','mail','team','sales','billing','help','webmaster','enquiries','inquiries','general','donations','volunteer','assistance','press','media','pr','marketing','hr','careers','jobs','service','services','customerservice','reception','secretary','accounts','finance','legal','privacy','abuse','security','feedback','subscribe','newsletter','communications','development','grants','outreach','clerk','cityhall','planning','ecdev','econdev','economicdevelopment','citycouncil','council','communitydevelopment','commdev']);\n\nconst STRIP_TLD = /\\.(com|org|net|edu|gov|io|co|us|uk|ca|info|biz|ngo|charity)(\\.[a-z]{2})?$/;\nconst rootOf = (d) => String(d || '').toLowerCase().replace(STRIP_TLD, '').replace(/[^a-z0-9]/g, '');\n// Same fix as Pick Org Domain: the Code sandbox has no URL constructor.\nconst hostOf = (u) => { const m = String(u || '').match(/^[a-zA-Z][a-zA-Z0-9+.\\-]*:\\/\\/([^\\/?#:]+)/); return m ? m[1].replace(/^www\\./i, '').toLowerCase() : ''; };\n\n// name parts for local-part matching\nconst parts = person.toLowerCase().replace(/[^a-z\\s'\\-]/g, ' ').split(/\\s+/).filter(Boolean);\nconst first = parts[0] || '';\nconst last = parts.length > 1 ? parts[parts.length - 1] : '';\nconst lastBits = last.split(/[\\-']/).filter(Boolean);\n\nfunction localMatchesName(local) {\n  const l = local.toLowerCase().replace(/[^a-z0-9]/g, '');\n  if (!first || !last) return false;\n  const fi = first[0], li = last[0];\n  const cands = new Set([first + last, fi + last, first + li, last + first, last + fi, fi + li + last, first, last]);\n  for (const b of lastBits) { cands.add(fi + b); cands.add(first + b); cands.add(b); cands.add(fi + lastBits.join('')); }\n  if (cands.has(l)) return true;\n  // catches Councilmember.Fani-Gonzalez -> councilmemberfanigonzalez\n  const lastJoined = lastBits.join('');\n  if (lastJoined.length >= 5 && l.includes(lastJoined)) return true;\n  if (last.length >= 5 && l.includes(last.replace(/[^a-z]/g, ''))) return true;\n  return false;\n}\n\nconst BACK_OFFICE = new Set(['hr','careers','jobs','accounts','finance','billing','legal','privacy','abuse','security','webmaster','postmaster','reception','secretary','subscribe','newsletter']);\n\nconst rejected = {};\nconst rej = (k) => { rejected[k] = (rejected[k] || 0) + 1; };\nconst seen = new Map();\n\nfor (let i = 0; i < web.length; i++) {\n  const r = web[i] || {};\n  const link = r.url || '';\n  const host = hostOf(link);\n  const blob = [r.title, r.description, r.snippet, r.markdown].filter(Boolean).join(' \\n ');\n  const found = blob.match(EMAIL_RE) || [];\n\n  for (const raw of found) {\n    const email = raw.replace(/[.,;:)\\]]+$/, '');\n    const lower = email.toLowerCase();\n    const local = lower.split('@')[0] || '';\n    const domain = lower.split('@')[1] || '';\n\n    if (NOT_A_TLD.test(domain)) { rej('looks_like_filename'); continue; }\n    if (OURS.test('@' + domain)) { rej('our_own_domain'); continue; }\n    if (BAD_LOCAL.test(local)) { rej('placeholder_or_daemon'); continue; }\n    if (domain.length < 4 || !domain.includes('.')) { rej('malformed_domain'); continue; }\n\n    // The search was confined to the org's own site, but verify rather than\n    // assume: the address must sit on the same root as the page it was found\n    // on, or relate to the org name. A newspaper's customerservice@iniusa.org\n    // quoted on an org page is exactly what this rejects.\n    const sameRootAsPage = !!host && rootOf(host) === rootOf(domain);\n    // Match at the edges of the domain, not anywhere inside it. 'Ottobock Care'\n    // produced info@procarepando.com because 'care' sits inside 'procarepando'.\n    // Same class of error as 'city' matching 'cityofpowdersprings'.\n    const dr = rootOf(domain);\n    const relatedToOrg = orgTok.some(t =>\n      (t.length >= 4 && (dr === t || dr.startsWith(t) || dr.endsWith(t))) ||\n      (t.length >= 7 && dr.includes(t)) ||\n      (t.length === 3 && dr === t));\n    if (!sameRootAsPage && !relatedToOrg) { rej('domain_not_the_org'); continue; }\n\n    const isRole = ROLE_LOCALS.has(local) || /^(info|admin|contact|support|office|hello|press|media|assistance|enquir|inquir|councilmember)[._\\-]/.test(local);\n    const nameMatch = localMatchesName(local);\n    if (!nameMatch && !isRole) { rej('local_part_matches_neither_person_nor_role'); continue; }\n\n    let score = 0;\n    if (nameMatch) score += 50;\n    if (isRole && !nameMatch) score += 10;\n    // Back-office mailboxes are the wrong fallback for these leads. Buckeye's\n    // directory listed ecdev@, hr@ and pmo@ side by side and hr@ won on\n    // ordering alone, for an economic-development lead.\n    if (isRole && BACK_OFFICE.has(local)) score -= 30;\n    if (sameRootAsPage) score += 25;\n    if (relatedToOrg) score += 15;\n    score -= Math.min(i, 9);\n\n    const prev = seen.get(lower);\n    if (!prev || score > prev.score) {\n      seen.set(lower, {\n        email: email, domain: domain, score: score, isRole: isRole, nameMatch: nameMatch,\n        link: link, host: host,\n        evidence: blob.replace(/\\s+/g, ' ').slice(0, 400)\n      });\n    }\n  }\n}\n\nconst ranked = Array.from(seen.values()).sort((a, b) => b.score - a.score);\nif (!ranked.length) {\n  return { json: {\n    provider_id: pid,\n    email_find_status: 'not_found',\n    email_evidence: 'searched ' + (lead._domain || 'org site') + ', no candidate survived: ' + (Object.keys(rejected).length ? JSON.stringify(rejected) : 'no addresses in snippets'),\n    email_found_at: now\n  }};\n}\n\n// A personal address always beats a role address, even on a lower score.\nconst pick = ranked.find(c => c.nameMatch) || ranked[0];\n\nreturn { json: {\n  provider_id: pid,\n  email: pick.email,\n  email_source: pick.nameMatch ? 'firecrawl_site_search' : 'firecrawl_role_account',\n  email_confidence: pick.nameMatch ? 80 : 45,\n  company_domain: pick.domain,\n  company_domain_source: lead._domain_source || ('firecrawl_search:' + pick.host),\n  email_source_url: pick.link,\n  email_evidence: pick.evidence,\n  email_find_status: pick.nameMatch ? 'found' : 'role_account',\n  email_found_at: now\n}};"
+      },
+      "id": "extract-address",
+      "name": "Extract Address",
+      "position": [
+        1440,
+        432
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Lead Pool",
+          "mode": "list",
+          "value": 1474100927
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "public_identifier",
+              "displayName": "public_identifier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "linkedin_link",
+              "displayName": "linkedin_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "network_distance",
+              "displayName": "network_distance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "slice",
+              "displayName": "slice",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "outreach_sent_at",
+              "displayName": "outreach_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_action",
+              "displayName": "last_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replied_at",
+              "displayName": "replied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "connected_at",
+              "displayName": "connected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain",
+              "displayName": "company_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified",
+              "displayName": "email_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enriched_status",
+              "displayName": "enriched_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_domain_source",
+              "displayName": "company_domain_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_candidates",
+              "displayName": "email_candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lead_source",
+              "displayName": "lead_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_sent_at",
+              "displayName": "email_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_send_status",
+              "displayName": "email_send_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_check_result",
+              "displayName": "email_check_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_is_role",
+              "displayName": "email_is_role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sendability",
+              "displayName": "sendability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_verified_at",
+              "displayName": "email_verified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain_age_years",
+              "displayName": "domain_age_years",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "bounced_at",
+              "displayName": "bounced_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_source_url",
+              "displayName": "email_source_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_evidence",
+              "displayName": "email_evidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_find_status",
+              "displayName": "email_find_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_found_at",
+              "displayName": "email_found_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "write-result",
+      "name": "Write Result To Lead Pool",
+      "position": [
+        1664,
+        528
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 7
+      },
+      "id": "pace-requests",
+      "name": "Pace Requests",
+      "position": [
+        1888,
+        528
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "webhookId": "d077b1ee-d12f-4f78-9294-d534049b1775"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Both producer nodes run inside the batch loop, so $(...).all() returns only\n// the LAST batch. Walk every run index for the true total — this is the bug\n// that made the outreach run report 1 email sent when it had sent 25.\nfunction collect(nodeName) {\n  const rows = [];\n  for (let r = 0; r < 2000; r++) {\n    let batch;\n    try { batch = $(nodeName).all(0, r); } catch (e) { break; }\n    if (!batch || batch.length === 0) break;\n    rows.push(...batch.map(i => i.json));\n  }\n  return rows;\n}\n\nlet rows = [];\ntry { rows = rows.concat(collect('Extract Address')); } catch (e) {}\ntry { rows = rows.concat(collect('Mark No Org Domain')); } catch (e) {}\n\nconst tally = {};\nfor (const r of rows) {\n  const k = r.email_find_status || 'unknown';\n  tally[k] = (tally[k] || 0) + 1;\n}\n\nconst addresses = rows\n  .filter(r => r.email)\n  .map(r => ({ provider_id: r.provider_id, email: r.email, status: r.email_find_status, source: r.email_source_url }));\n\nreturn [{ json: {\n  run_id: $execution.id,\n  finished_at: new Date().toISOString(),\n  searched_this_run: rows.length,\n  by_status: tally,\n  found_rate: rows.length ? Math.round(((tally.found || 0) / rows.length) * 100) + '%' : '0%',\n  addresses: addresses\n}}];"
+      },
+      "id": "run-summary",
+      "name": "Run Summary",
+      "position": [
+        352,
+        240
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The search we just paid for showed us a whole staff directory. The finder\n// keeps the one address matching our lead and would otherwise bin the rest.\n// Those discarded pairs are exactly what the pattern learner needs, so bank\n// every one of them here. Costs nothing - the request is already made.\n// Runs once per batch, not per item: the batch size is 1, so .first() is this\n// lead. 'run once for each item' mode cannot be used here because this node\n// emits MANY rows from ONE input item - that mode requires exactly one object\n// back and rejects an array with \"a 'json' property isn't an object\".\nconst lead = $('Loop Over Leads').first().json;\nconst res = $('Firecrawl: Search Org Site').first().json || {};\nconst now = new Date().toISOString();\nconst domain = String(lead._domain || '').toLowerCase();\n\nconst web = (res.data && Array.isArray(res.data.web)) ? res.data.web\n  : (Array.isArray(res.data) ? res.data : []);\nif (!web.length || !domain) return [];\n\nconst EMAIL_RE = /[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}/g;\nconst NAME_RE = /\\b([A-Z][a-z]{1,15})\\s+(?:[A-Z]\\.?\\s+)?([A-Z][a-zA-Z'\\-]{1,20})\\b/g;\nconst ROLE_LOCALS = new Set(['info','admin','administrator','contact','support','hello','office','mail','team','sales','billing','help','webmaster','postmaster','enquiries','inquiries','general','donations','volunteer','assistance','press','media','marketing','hr','careers','jobs','service','services','reception','secretary','accounts','finance','legal','privacy','abuse','security','feedback','subscribe','newsletter','communications','development','grants','outreach','clerk','cityhall','planning','ecdev','econdev','economicdevelopment','citycouncil','council','commdev','records','permits','utilities','court','library','museum','parks','police','fire','water','sewer']);\nconst NOT_A_NAME = new Set(['staff','directory','contact','city','town','county','department','office','email','phone','main','street','road','avenue','suite','public','works','human','resources','economic','community','development','police','fire','parks','recreation','skip','content','read','more','view','all','site','map','privacy','policy','terms','use','home','page','search','menu','close','open','click','here','learn','copyright','rights','reserved','government','services','business','residents','quick','links','records','division','board','committee','center','centre','foundation','church','temple','school','university','college','hospital','clinic','district','authority','commission','association','society','institute','trust','fund','group','our','people','meet','about']);\n\nconst norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');\nfunction formatsFor(first, last) {\n  const f = first[0], l = last[0];\n  return [f + last, first + '.' + last, first + last, f + '.' + last, first + '_' + last,\n    first + '-' + last, first + l, last + f, last + '.' + first, last + first, first, last, f + l];\n}\n\nconst emails = new Map();\nconst names = new Map();\n\nfor (const r of web) {\n  const url = r.url || '';\n  const text = [r.title, r.description, r.snippet, r.markdown].filter(Boolean).join(' \\n ');\n  if (!text) continue;\n\n  for (const raw of (text.match(EMAIL_RE) || [])) {\n    const em = raw.replace(/[.,;:)\\]]+$/, '');\n    const lower = em.toLowerCase();\n    const local = lower.split('@')[0] || '';\n    const d = lower.split('@')[1] || '';\n    if (d !== domain && !d.endsWith('.' + domain)) continue;\n    if (ROLE_LOCALS.has(local)) continue;\n    if (!emails.has(lower)) emails.set(lower, { email: em, local: local, url: url });\n  }\n\n  let m; NAME_RE.lastIndex = 0;\n  while ((m = NAME_RE.exec(text)) !== null) {\n    const first = m[1].toLowerCase(), last = m[2].toLowerCase();\n    if (NOT_A_NAME.has(first) || NOT_A_NAME.has(last)) continue;\n    if (first.length < 2 || last.length < 2) continue;\n    names.set(first + ' ' + last, { first: first, last: last });\n  }\n}\n\n// Only bank a pair when the address can actually be built from the name. An\n// address we cannot attribute teaches us nothing about the format.\nconst rows = [];\nfor (const [lower, e] of emails) {\n  const ln = norm(e.local);\n  let who = '';\n  for (const [key, n] of names) {\n    const built = formatsFor(n.first, n.last);\n    if (built.indexOf(e.local.toLowerCase()) !== -1 || built.some(b => norm(b) === ln)) { who = key; break; }\n  }\n  if (!who) continue;\n  rows.push({ json: {\n    pair_key: domain + '|' + lower,\n    domain: domain,\n    person_name: who,\n    email: e.email,\n    local_part: e.local,\n    source_url: e.url,\n    seen_at: now,\n    found_by: 'email_finder'\n  }});\n}\n\nreturn rows;"
+      },
+      "id": "collect-pairs",
+      "name": "Collect Observed Pairs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "cachedResultName": "GFIN Discovery & Outreach",
+          "mode": "list",
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4"
+        },
+        "sheetName": {
+          "__rl": true,
+          "cachedResultName": "Observed Addresses",
+          "mode": "list",
+          "value": 2090882799
+        },
+        "columns": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "pair_key"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "write-pairs",
+      "name": "Write Observed Addresses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1792,
+        848
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Domain Found?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Firecrawl: Search Org Site",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Mark No Org Domain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract Address": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write Result To Lead Pool",
+            "type": "main"
+          },
+          {
+            "node": "Collect Observed Pairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Firecrawl: Find Org Domain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Pick Org Domain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Firecrawl: Search Org Site": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Address",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Have Trusted Domain?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Firecrawl: Search Org Site",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Firecrawl: Find Org Domain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Loop Over Leads": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Run Summary",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Have Trusted Domain?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Read Lead Pool",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Mark No Org Domain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write Result To Lead Pool",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Pace Requests": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Leads",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Pick Org Domain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Domain Found?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Select Candidates",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Select Candidates": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Leads",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Write Result To Lead Pool": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Pace Requests",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Collect Observed Pairs": {
+      "main": [
+        [
+          {
+            "node": "Write Observed Addresses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600,
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "5451c842-dc8b-4072-86ed-c678f769ebdf",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-10-13T11:49:30.892Z",
+      "createdAt": "2026-10-13T11:49:30.892Z",
+      "role": "workflow:owner",
+      "workflowId": "OfAmN5BuQQ1uTKZu",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
