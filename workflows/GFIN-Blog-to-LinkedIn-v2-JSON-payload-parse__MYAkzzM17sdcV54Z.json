@@ -1,0 +1,557 @@
+{
+  "updatedAt": "2026-08-04T10:03:17.699Z",
+  "createdAt": "2026-07-28T13:16:19.802Z",
+  "id": "MYAkzzM17sdcV54Z",
+  "name": "GFIN — Blog to LinkedIn v2 (JSON payload parse)",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "height": 460,
+        "width": 460
+      },
+      "id": "09a73b5a-6d37-4706-97fa-7afd42d8dce0",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "40de85f8-d9c1-4e8f-8f44-a85d72f967bf",
+      "name": "Daily 7am Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I",
+          "mode": "list",
+          "cachedResultName": "GFIN Thinking Blog Repurpose",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hWOKWB_AYaVtBtY-cRmVVrpG7dcQapl4JiUntHgES-I/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "c5877340-3aa6-4367-9551-64c86c3f03c8",
+      "name": "Read Processed Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        352
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://app.gofunditnow.dev/thinking",
+        "options": {}
+      },
+      "id": "a5f5cfc0-f88d-49a4-9e3a-15b66ff429dc",
+      "name": "Fetch Thinking Listing Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "a[href^='/thinking/'] h2, a[href^='/thinking/'] .title",
+              "returnArray": true
+            },
+            {
+              "key": "url",
+              "cssSelector": "a[href^='/thinking/']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "date",
+              "cssSelector": "a[href^='/thinking/'] time, a[href^='/thinking/'] .date",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ad63e07b-2a82-4702-bc9d-b2916311627d",
+      "name": "Extract Article List",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        352
+      ],
+      "notes": "Selectors are best-guess — verify against live page source and correct before production use (see Setup Notes)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dedupe article list by normalized title (this blog republishes near-identical\n// essays under new slugs/dates), keep only the most recent per title, then\n// filter out anything already present in the processed-log sheet.\n\nconst extracted = items[0].json;\nconst titles = extracted.title || [];\nconst urls = extracted.url || [];\nconst dates = extracted.date || [];\n\nconst raw = titles.map((t, i) => ({\n  title: (t || '').trim(),\n  url: (urls[i] || '').startsWith('http')\n    ? urls[i]\n    : `https://app.gofunditnow.dev${urls[i] || ''}`,\n  slug: (urls[i] || '').split('/').filter(Boolean).pop() || '',\n  date: (dates[i] || '').trim()\n}));\n\n// Keep most recent slug per normalized title\nconst byTitle = new Map();\nfor (const article of raw) {\n  const key = article.title.toLowerCase().replace(/\\s+/g, ' ').trim();\n  if (!key || !article.slug) continue;\n  const existing = byTitle.get(key);\n  if (!existing || new Date(article.date) > new Date(existing.date)) {\n    byTitle.set(key, article);\n  }\n}\nconst deduped = Array.from(byTitle.values());\n\n// Filter out slugs already logged as processed\nconst logRows = $node['Read Processed Log'].json ? $items('Read Processed Log') : [];\nconst processedSlugs = new Set(\n  logRows.map(r => (r.json.slug || '').trim()).filter(Boolean)\n);\n\nconst newArticles = deduped.filter(a => !processedSlugs.has(a.slug));\n\nreturn newArticles.map(a => ({ json: a }));"
+      },
+      "id": "a21fa21f-3fc1-43f3-b180-220bc9809997",
+      "name": "Dedupe + Filter New",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3801e7f0-d02a-4c05-950f-08cd28395197",
+      "name": "Loop Over New Articles",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1200,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "592dcd8e-cd5c-4dd1-8c3c-f8a53482b193",
+      "name": "Fetch Full Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1472,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "bodyText",
+              "cssSelector": "article, main"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e602b2fc-578c-42fa-ab03-b32b05ed70c6",
+      "name": "Extract Article Body",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1712,
+        224
+      ],
+      "notes": "Verify 'article, main' actually captures the essay body and not nav/footer chrome."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.anthropicApi.apiKey }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-6\",\n  max_tokens: 1500,\n  system: \"You are GFIN's content director rewriting a blog essay into a native LinkedIn post. Rules: (1) Re-architect for LinkedIn behavior — hook-first, short paragraphs, one argument, plain language. Do NOT summarize or trim the blog paragraphs verbatim. (2) Map the essay to exactly one of these 8 pillars: REFRAME, MYTH-BUST, BEHIND-THE-DATA, PROOF, AUDIENCE-ED, CAPACITY-BUILD, DEADLINE-WATCH, SERIES. (3) Assign exactly one audience: NONPROFIT, FAITH-BASED, GOVERNMENT, ENTERPRISE, or ALL (only if genuinely cross-audience). (4) Use asset-framing — never savior language, never deficit framing. AI (ARTEMIS) is infrastructure, never the hero; humans decide and are the accountable submitter. (5) Never invent statistics, client names, funders, deadlines, or results — if the source article states a number without a cited source, mark it '[VERIFIED STAT NEEDED]'. (6) CTA must be: Take the Funding Readiness Assessment (Phase 1 awareness — this is the current phase). (7) Set needs_review true if the draft contains any statistic/dollar figure, targets a FAITH-BASED audience, or names a specific funder/deadline/client. Respond with ONLY valid JSON, no prose, no markdown fences, matching this schema: {\\\"pillar\\\": string, \\\"audience\\\": string, \\\"hook_direct\\\": string, \\\"hook_contrarian\\\": string, \\\"hook_human\\\": string, \\\"linkedin_draft\\\": string, \\\"needs_review\\\": boolean, \\\"needs_review_reasons\\\": string[]}\",\n  messages: [\n    { role: \"user\", content: \"Source article title: \" + $json.title + \"\\n\\nSource article body:\\n\" + $json.bodyText }\n  ]\n}) }}",
+        "options": {}
+      },
+      "id": "10a46fb1-f02c-4d72-9a64-feb18366b357",
+      "name": "Claude Rewrite for LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1952,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON response and attach the required 4-tag family.\nconst apiResponse = items[0].json;\nconst textBlock = (apiResponse.content || []).find(b => b.type === 'text');\nlet parsed;\ntry {\n  parsed = JSON.parse((textBlock && textBlock.text) || '{}');\n} catch (e) {\n  parsed = {\n    pillar: 'UNKNOWN',\n    audience: 'UNKNOWN',\n    hook_direct: '', hook_contrarian: '', hook_human: '',\n    linkedin_draft: '',\n    needs_review: true,\n    needs_review_reasons: ['Failed to parse model output — manual review required.']\n  };\n}\n\nconst article = $node['Loop Over New Articles'].json;\n\nreturn [{\n  json: {\n    ...parsed,\n    title: article.title,\n    source_url: article.url,\n    slug: article.slug,\n    date_published: article.date,\n    tags: {\n      source: 'REPURPOSED-BLOG',\n      pillar: parsed.pillar,\n      audience: parsed.audience,\n      phase: 'AWARENESS' // update when campaign moves to Phase 2/3\n    }\n  }\n}];"
+      },
+      "id": "4b348c48-630c-4403-8630-9ac52bea9996",
+      "name": "Build Tags + Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.needs_review }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20ed152e-7cdb-4b91-b3a3-eb2f94c04ac8",
+      "name": "Needs Human Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "andre@gofunditnow.com",
+        "subject": "=[GFIN Review Needed] {{ $json.title }}",
+        "message": "=Flagged reasons: {{ $json.needs_review_reasons.join(', ') }}\n\nPillar: {{ $json.tags.pillar }}\nAudience: {{ $json.tags.audience }}\nSource: {{ $json.source_url }}\n\n--- Draft ---\n{{ $json.linkedin_draft }}\n\n--- Hooks ---\nDirect: {{ $json.hook_direct }}\nContrarian: {{ $json.hook_contrarian }}\nHuman: {{ $json.hook_human }}",
+        "options": {}
+      },
+      "id": "146f121d-0644-4319-9eec-27920e7823e9",
+      "name": "Email for Review",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2672,
+        128
+      ],
+      "webhookId": "1feb4001-ec64-4ad0-a6b9-a51a1e33e825"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "PASTE_BUFFER_ACCESS_TOKEN"
+            },
+            {
+              "name": "profile_ids[]",
+              "value": "PASTE_LINKEDIN_PROFILE_ID"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.linkedin_draft }}"
+            },
+            {
+              "name": "now",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ac54bde4-0f93-4960-bc24-d69ba0c7034b",
+      "name": "Create Buffer Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2672,
+        320
+      ],
+      "notes": "Classic Buffer API — swap for the connected Buffer MCP action if preferred. Link placement per platform norms goes in the first comment, added manually or via a second Buffer call."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "PASTE_GOOGLE_SHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "processed_slugs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "slug": "={{ $json.slug }}",
+            "title": "={{ $json.title }}",
+            "url": "={{ $json.source_url }}",
+            "date_published": "={{ $json.date_published }}",
+            "date_processed": "={{ $now.toISO() }}",
+            "pillar": "={{ $json.tags.pillar }}",
+            "audience": "={{ $json.tags.audience }}",
+            "needs_review": "={{ $json.needs_review }}",
+            "status": "={{ $json.needs_review ? 'flagged_for_review' : 'drafted_to_buffer' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "ef1e2af4-8245-4761-a633-3a2107bf6235",
+      "name": "Log as Processed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2912,
+        224
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "158a866c-0671-4eaa-a3db-7ba9aefb9006",
+      "name": "Setup Notes1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        640
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 7am Check": {
+      "main": [
+        [
+          {
+            "node": "Read Processed Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Processed Log": {
+      "main": [
+        [
+          {
+            "node": "Fetch Thinking Listing Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Thinking Listing Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Article List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Article List": {
+      "main": [
+        [
+          {
+            "node": "Dedupe + Filter New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedupe + Filter New": {
+      "main": [
+        [
+          {
+            "node": "Loop Over New Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over New Articles": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fetch Full Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Full Article": {
+      "main": [
+        [
+          {
+            "node": "Extract Article Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Article Body": {
+      "main": [
+        [
+          {
+            "node": "Claude Rewrite for LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Rewrite for LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Build Tags + Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tags + Draft": {
+      "main": [
+        [
+          {
+            "node": "Needs Human Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human Review?": {
+      "main": [
+        [
+          {
+            "node": "Email for Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Buffer Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email for Review": {
+      "main": [
+        [
+          {
+            "node": "Log as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Buffer Draft": {
+      "main": [
+        [
+          {
+            "node": "Log as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log as Processed": {
+      "main": [
+        [
+          {
+            "node": "Loop Over New Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "eb6e1fd3-2156-4868-a2e5-81f354086904",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-07-28T13:16:19.802Z",
+      "createdAt": "2026-07-28T13:16:19.802Z",
+      "role": "workflow:owner",
+      "workflowId": "MYAkzzM17sdcV54Z",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
