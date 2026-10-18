@@ -1,0 +1,3017 @@
+{
+  "updatedAt": "2026-03-09T11:41:20.151Z",
+  "createdAt": "2025-11-17T06:54:24.765Z",
+  "id": "9glI5P7LGr1NgWru",
+  "name": "Damu Linkedin Outreach (Podcast) - Unipile",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        416
+      ],
+      "id": "cf1a450e-a7e6-4726-ad9d-9ec6906485ba",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map((item, index) => {\n  const linkedinUrl = item.json.linkedin_url;\n  let publicIdentifier = null;\n  \n  const pattern = /linkedin\\.com\\/in\\/([^\\/\\?]+)/;\n  const match = linkedinUrl ? linkedinUrl.match(pattern) : null;\n  \n  if (match) {\n    publicIdentifier = match[1];\n  }\n  \n  // Calculate row number based on array index + 2 (for header row)\n  const rowNumber = index + 2;\n  \n  return {\n    json: {\n      ...item.json,\n      public_identifier: publicIdentifier,\n      row_number: rowNumber,\n      processed_at: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        864
+      ],
+      "id": "cdaf60d5-58f9-476a-918e-e9b3d97e8118",
+      "name": "Extract URL ID"
+    },
+    {
+      "parameters": {
+        "url": "=https://api10.unipile.com:14011/api/v1/users/{{ $json.public_identifier }}?account_id=DZFi1PeCTDmiB9H8O0aiPw",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        32,
+        864
+      ],
+      "id": "074a7f64-a8bc-4b23-9fce-acffd8a5514a",
+      "name": "Get LinkedIn Provider ID",
+      "retryOnFail": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api10.unipile.com:14011/api/v1/users/invite",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "account_id",
+              "value": "DZFi1PeCTDmiB9H8O0aiPw"
+            },
+            {
+              "name": "provider_id",
+              "value": "={{ $('Get LinkedIn Provider ID').item.json.provider_id }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message.content.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        1104
+      ],
+      "id": "716cfd86-b5c6-42d5-ac59-29e7405bc935",
+      "name": "Send LinkedIn Message"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8",
+          "mode": "list",
+          "cachedResultName": "dataset_apollo-io-scraper_2025-08-06_08-26-52-702",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 814207568,
+          "mode": "list",
+          "cachedResultName": "dataset_apollo-io-scraper_2025-08-06_08-26-52-702",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8/edit#gid=814207568"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1088,
+        -48
+      ],
+      "id": "4fde8068-7fd4-4592-abd0-ac2f525219bc",
+      "name": "raw_scraped_leads",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs",
+          "mode": "list",
+          "cachedResultName": "Cleaned Outreach Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "last_name": "={{ $json.last_name }}",
+            "first_name": "={{ $json.first_name }}",
+            "name": "={{ $json.first_name }} {{ $json.last_name }}",
+            "linkedin_url": "={{ $json.linkedin_url }}",
+            "title": "={{ $json.title }}",
+            "organization": "={{ $json.organization_name }}",
+            "email": "={{ $json.personal_email }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization",
+              "displayName": "organization",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telephone",
+              "displayName": "telephone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sent_date",
+              "displayName": "sent_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_template",
+              "displayName": "message_template",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invitation_id",
+              "displayName": "invitation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -640,
+        -48
+      ],
+      "id": "fd9c0ff7-b591-4160-9e19-48bb21cc8ee3",
+      "name": "add to cleaned list",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8",
+          "mode": "list",
+          "cachedResultName": "dataset_apollo-io-scraper_2025-08-06_08-26-52-702",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 814207568,
+          "mode": "list",
+          "cachedResultName": "dataset_apollo-io-scraper_2025-08-06_08-26-52-702",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MzJj5FMiFs-ypRgIglnLHZE65C7JV7UYAkQhyCeVst8/edit#gid=814207568"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status }}",
+            "email": "={{ $json.email }}",
+            "row_number": "={{ $('raw_scraped_leads').item.json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "organization_name",
+              "displayName": "organization_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization_twitter_url",
+              "displayName": "organization_twitter_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "organization_website_url",
+              "displayName": "organization_website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization_total_funding_printed",
+              "displayName": "organization_total_funding_printed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization_phone",
+              "displayName": "organization_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization_linkedin_uid",
+              "displayName": "organization_linkedin_uid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "personal_email",
+              "displayName": "personal_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/alexa_ranking",
+              "displayName": "organization/alexa_ranking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/angellist_url",
+              "displayName": "organization/angellist_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/blog_url",
+              "displayName": "organization/blog_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/city",
+              "displayName": "organization/city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/country",
+              "displayName": "organization/country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/crunchbase_url",
+              "displayName": "organization/crunchbase_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/estimated_num_employees",
+              "displayName": "organization/estimated_num_employees",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/facebook_url",
+              "displayName": "organization/facebook_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/founded_year",
+              "displayName": "organization/founded_year",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/id",
+              "displayName": "organization/id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/industries",
+              "displayName": "organization/industries",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/industries/0",
+              "displayName": "organization/industries/0",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/industries/1",
+              "displayName": "organization/industries/1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/industries/2",
+              "displayName": "organization/industries/2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/industry",
+              "displayName": "organization/industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords",
+              "displayName": "organization/keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/0",
+              "displayName": "organization/keywords/0",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/1",
+              "displayName": "organization/keywords/1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/2",
+              "displayName": "organization/keywords/2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/3",
+              "displayName": "organization/keywords/3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/4",
+              "displayName": "organization/keywords/4",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/5",
+              "displayName": "organization/keywords/5",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/6",
+              "displayName": "organization/keywords/6",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/7",
+              "displayName": "organization/keywords/7",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/8",
+              "displayName": "organization/keywords/8",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/9",
+              "displayName": "organization/keywords/9",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/10",
+              "displayName": "organization/keywords/10",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/11",
+              "displayName": "organization/keywords/11",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/12",
+              "displayName": "organization/keywords/12",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/13",
+              "displayName": "organization/keywords/13",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/14",
+              "displayName": "organization/keywords/14",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/15",
+              "displayName": "organization/keywords/15",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/16",
+              "displayName": "organization/keywords/16",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/17",
+              "displayName": "organization/keywords/17",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/18",
+              "displayName": "organization/keywords/18",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/19",
+              "displayName": "organization/keywords/19",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/20",
+              "displayName": "organization/keywords/20",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/21",
+              "displayName": "organization/keywords/21",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/22",
+              "displayName": "organization/keywords/22",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/23",
+              "displayName": "organization/keywords/23",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/24",
+              "displayName": "organization/keywords/24",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/25",
+              "displayName": "organization/keywords/25",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/26",
+              "displayName": "organization/keywords/26",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/27",
+              "displayName": "organization/keywords/27",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/28",
+              "displayName": "organization/keywords/28",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/29",
+              "displayName": "organization/keywords/29",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/30",
+              "displayName": "organization/keywords/30",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/31",
+              "displayName": "organization/keywords/31",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/32",
+              "displayName": "organization/keywords/32",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/33",
+              "displayName": "organization/keywords/33",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/34",
+              "displayName": "organization/keywords/34",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/35",
+              "displayName": "organization/keywords/35",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/36",
+              "displayName": "organization/keywords/36",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/37",
+              "displayName": "organization/keywords/37",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/38",
+              "displayName": "organization/keywords/38",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/39",
+              "displayName": "organization/keywords/39",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/40",
+              "displayName": "organization/keywords/40",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/41",
+              "displayName": "organization/keywords/41",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/42",
+              "displayName": "organization/keywords/42",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/43",
+              "displayName": "organization/keywords/43",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/44",
+              "displayName": "organization/keywords/44",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/45",
+              "displayName": "organization/keywords/45",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/46",
+              "displayName": "organization/keywords/46",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/47",
+              "displayName": "organization/keywords/47",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/48",
+              "displayName": "organization/keywords/48",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/49",
+              "displayName": "organization/keywords/49",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/50",
+              "displayName": "organization/keywords/50",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/51",
+              "displayName": "organization/keywords/51",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/52",
+              "displayName": "organization/keywords/52",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/53",
+              "displayName": "organization/keywords/53",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/54",
+              "displayName": "organization/keywords/54",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/55",
+              "displayName": "organization/keywords/55",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/56",
+              "displayName": "organization/keywords/56",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/57",
+              "displayName": "organization/keywords/57",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/58",
+              "displayName": "organization/keywords/58",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/59",
+              "displayName": "organization/keywords/59",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/60",
+              "displayName": "organization/keywords/60",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/61",
+              "displayName": "organization/keywords/61",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/62",
+              "displayName": "organization/keywords/62",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/63",
+              "displayName": "organization/keywords/63",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/64",
+              "displayName": "organization/keywords/64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/65",
+              "displayName": "organization/keywords/65",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/66",
+              "displayName": "organization/keywords/66",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/67",
+              "displayName": "organization/keywords/67",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/68",
+              "displayName": "organization/keywords/68",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/69",
+              "displayName": "organization/keywords/69",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/70",
+              "displayName": "organization/keywords/70",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/71",
+              "displayName": "organization/keywords/71",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/72",
+              "displayName": "organization/keywords/72",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/73",
+              "displayName": "organization/keywords/73",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/74",
+              "displayName": "organization/keywords/74",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/75",
+              "displayName": "organization/keywords/75",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/76",
+              "displayName": "organization/keywords/76",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/77",
+              "displayName": "organization/keywords/77",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/78",
+              "displayName": "organization/keywords/78",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/79",
+              "displayName": "organization/keywords/79",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/80",
+              "displayName": "organization/keywords/80",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/81",
+              "displayName": "organization/keywords/81",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/82",
+              "displayName": "organization/keywords/82",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/83",
+              "displayName": "organization/keywords/83",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/84",
+              "displayName": "organization/keywords/84",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/85",
+              "displayName": "organization/keywords/85",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/86",
+              "displayName": "organization/keywords/86",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/87",
+              "displayName": "organization/keywords/87",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/88",
+              "displayName": "organization/keywords/88",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/89",
+              "displayName": "organization/keywords/89",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/90",
+              "displayName": "organization/keywords/90",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/91",
+              "displayName": "organization/keywords/91",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/92",
+              "displayName": "organization/keywords/92",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/93",
+              "displayName": "organization/keywords/93",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/94",
+              "displayName": "organization/keywords/94",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/95",
+              "displayName": "organization/keywords/95",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/96",
+              "displayName": "organization/keywords/96",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/97",
+              "displayName": "organization/keywords/97",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/98",
+              "displayName": "organization/keywords/98",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/99",
+              "displayName": "organization/keywords/99",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/100",
+              "displayName": "organization/keywords/100",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/101",
+              "displayName": "organization/keywords/101",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/102",
+              "displayName": "organization/keywords/102",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/103",
+              "displayName": "organization/keywords/103",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/104",
+              "displayName": "organization/keywords/104",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/105",
+              "displayName": "organization/keywords/105",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/106",
+              "displayName": "organization/keywords/106",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/107",
+              "displayName": "organization/keywords/107",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/108",
+              "displayName": "organization/keywords/108",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/109",
+              "displayName": "organization/keywords/109",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/110",
+              "displayName": "organization/keywords/110",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/111",
+              "displayName": "organization/keywords/111",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/112",
+              "displayName": "organization/keywords/112",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/keywords/113",
+              "displayName": "organization/keywords/113",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/0",
+              "displayName": "organization/languages/0",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/1",
+              "displayName": "organization/languages/1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/2",
+              "displayName": "organization/languages/2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/3",
+              "displayName": "organization/languages/3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/4",
+              "displayName": "organization/languages/4",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/5",
+              "displayName": "organization/languages/5",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/6",
+              "displayName": "organization/languages/6",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/7",
+              "displayName": "organization/languages/7",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/languages/8",
+              "displayName": "organization/languages/8",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/linkedin_uid",
+              "displayName": "organization/linkedin_uid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/linkedin_url",
+              "displayName": "organization/linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/logo_url",
+              "displayName": "organization/logo_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/market_cap",
+              "displayName": "organization/market_cap",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/name",
+              "displayName": "organization/name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/organization_headcount_six_month_growth",
+              "displayName": "organization/organization_headcount_six_month_growth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/organization_headcount_twelve_month_growth",
+              "displayName": "organization/organization_headcount_twelve_month_growth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/organization_headcount_twenty_four_month_growth",
+              "displayName": "organization/organization_headcount_twenty_four_month_growth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/phone",
+              "displayName": "organization/phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/postal_code",
+              "displayName": "organization/postal_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/primary_domain",
+              "displayName": "organization/primary_domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/primary_phone/number",
+              "displayName": "organization/primary_phone/number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/primary_phone/sanitized_number",
+              "displayName": "organization/primary_phone/sanitized_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/primary_phone/source",
+              "displayName": "organization/primary_phone/source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/publicly_traded_exchange",
+              "displayName": "organization/publicly_traded_exchange",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/publicly_traded_symbol",
+              "displayName": "organization/publicly_traded_symbol",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/raw_address",
+              "displayName": "organization/raw_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/sanitized_phone",
+              "displayName": "organization/sanitized_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/secondary_industries",
+              "displayName": "organization/secondary_industries",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/secondary_industries/0",
+              "displayName": "organization/secondary_industries/0",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/secondary_industries/1",
+              "displayName": "organization/secondary_industries/1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/state",
+              "displayName": "organization/state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/street_address",
+              "displayName": "organization/street_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/twitter_url",
+              "displayName": "organization/twitter_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization/website_url",
+              "displayName": "organization/website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "facebook_url",
+              "displayName": "facebook_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization_country",
+              "displayName": "organization_country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -192,
+        -48
+      ],
+      "id": "ea454069-0b1d-4123-8ce2-8d355aa64183",
+      "name": "raw_scraped_leads1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff59c607-b0db-4aff-8b2f-da8da436c97b",
+              "name": "email",
+              "value": "={{ $('raw_scraped_leads').item.json.personal_email }}",
+              "type": "string"
+            },
+            {
+              "id": "7ac3936a-37f5-470c-8149-168dbbf146aa",
+              "name": "status",
+              "value": "cleaned",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        -48
+      ],
+      "id": "f6b533fc-bdea-4fb4-afd9-f2a400464e8d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f37e3c28-9e50-4352-9756-2d7778be3feb",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "1f8033f6-3901-44d8-951a-064a861bf15e",
+              "leftValue": "={{ $json.linkedin_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -528,
+        416
+      ],
+      "id": "6343c308-f759-4bd3-8e22-bfbe30506c41",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs",
+          "mode": "list",
+          "cachedResultName": "Cleaned Outreach Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1724013133,
+          "mode": "list",
+          "cachedResultName": "Podcasts List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit#gid=1724013133"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -688,
+        416
+      ],
+      "id": "74edc32f-955c-46c6-91df-975a766167a1",
+      "name": "fetch cleaned list",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Add row numbers for updating Google Sheets later\nreturn items.map((item, index) => {\n  // Calculate actual row number (add 2 for header + 0-based index)\n  const rowNumber = item.pairedItem.item + 2;\n  \n  return {\n    json: {\n      ...item.json,\n      row_number: rowNumber,\n      batch_index: index\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        416
+      ],
+      "id": "cb0d239e-82f4-4d55-a7d9-65be16a0c545",
+      "name": "Add Google Sheets Row Numbers"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "GPT-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a LinkedIn outreach expert. Create a short, personalized, professional connection request message.",
+              "role": "system"
+            },
+            {
+              "content": "Your task is to take as input a bunch of LinkedIn profile information as a user and then generate very short and very punchy icebreaker that I can use as a variable in my connection request.\n\nReturn your result in this format\n\n{icebreaker : 'icebreaker goes here'}\n\nIn order to makes ensure icebreakers are punchy and high-quality, make them follow this template\n\nHey {{name}}, loved seeing {{thing about them}}. I am also into {{plausible thing about them}}, thought I'd connect.\n\nFor {thing about them} and {{plausible thing about them}} never use the exact variable provided by LinkedIn as this makes it feel ai written. Instead always paraphrase. This makes it seem  human written, instead of just an automatic response. Also make it feel super short don't say stuff like 'passionate about turning vision into reality, or anything like that, be extremely laconic and spartan.\n"
+            },
+            {
+              "content": "={\n \"icebreaker\":\"Hey Danielle, loved seeing your creative agency journey. I'm also building brands, thought I'd connect.\"\n}",
+              "role": "assistant"
+            },
+            {
+              "content": "=You are a LinkedIn outreach expert. Create a short, personalized, professional connection request message.\n\nContext (from n8n expressions):\n\nTarget Name: {{ $json.first_name }} {{ $json.last_name }}\n\nTarget Company: {{ $('fetch cleaned list').item.json.organization }}\n\nTarget Headline: {{ $json.headline }}\n\nTarget Location: {{ $json.location }}\n\nRequirements:\n\nUnder 200 characters\n\nFriendly, warm, and personal — never sales-y\n\nDo NOT mention location or imply we are in the same city/country\n\nUse ONE specific detail about their work, company, or expertise\n\nGoal: Connect and express interest in being a guest or contributor on their podcast\n\nTone: Genuine, concise, and professional\n\nGenerate a personalized LinkedIn connection message focusing ONLY on:\n\nA light compliment about their podcast or work\n\nA clear, simple reason for connecting (being a guest / contributing)\n\nZero hype, zero selling, zero assumptions about proximity\n\n✅ Example of what the new prompt will produce:\n\nExample Output:\n“Hi {{ $json.first_name }}, love the work you’re doing with your podcast. I’d enjoy connecting and exploring a chance to share insights as a guest.”"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        224,
+        864
+      ],
+      "id": "7fee9e64-882c-48f4-9204-ad373464f3a7",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "mFLDConUMZiZTnjt",
+          "name": "Open AI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  let aiMessage = '';\n  \n  // Extract message from different AI providers\n  if (item.json.choices) {\n    // OpenAI response format\n    aiMessage = item.json.choices[0]?.message?.content || '';\n  } else if (item.json.content) {\n    // Claude response format\n    aiMessage = item.json.content[0]?.text || '';\n  } else if (item.json.output) {\n    // n8n AI Agent response format\n    aiMessage = item.json.output || '';\n  }\n  \n  // Clean up the message\n  aiMessage = aiMessage.trim().replace(/^[\"']|[\"']$/g, '');\n  \n  // Fallback if AI fails\n  if (!aiMessage || aiMessage.length < 10) {\n    const firstName = item.json.first_name || 'there';\n    const company = item.json.Company || 'your company';\n    aiMessage = `Hi ${firstName}, I'd love to connect and learn more about your work at ${company}!`;\n  }\n  \n  return {\n    json: {\n      ...item.json,\n      final_message: aiMessage,\n      ai_generated: true,\n      target_name: `${item.json.first_name || ''} ${item.json.last_name || ''}`.trim()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        1104
+      ],
+      "id": "da0b0d76-6571-43c8-ba88-96bb7fc33349",
+      "name": "Process AI message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const success = item.json.object === 'UserInvitationSent' && item.json.invitation_id;\n  const currentDate = new Date().toISOString().split('T')[0];\n  \n  return {\n    json: {\n      ...item.json,\n      invitation_success: success,\n      new_status: success ? 'sent' : 'error',\n      sent_date: success ? currentDate : '',\n      error_message: item.json.error || (success ? `Invitation sent (ID: ${item.json.invitation_id})` : 'Failed to send'),\n      invitation_id: item.json.invitation_id || '',\n      update_timestamp: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1104
+      ],
+      "id": "d9cce50e-d79d-43db-9312-53760af4f3fe",
+      "name": "process result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f37e3c28-9e50-4352-9756-2d7778be3feb",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -864,
+        -48
+      ],
+      "id": "17ce38dc-e46f-451f-9a58-7f4768822b19",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs",
+          "mode": "list",
+          "cachedResultName": "Cleaned Outreach Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1724013133,
+          "mode": "list",
+          "cachedResultName": "Podcasts List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit#gid=1724013133"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sent_date": "={{ $json.sent_date }}",
+            "Status": "={{ $json.new_status }}",
+            "notes": "={{ $json.error_message }}",
+            "message_template": "={{ $('Message a model').item.json.message.content.message }}",
+            "invitation_id": "={{ $json.invitation_id }}",
+            "row_number": "={{ $('fetch cleaned list').item.json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization",
+              "displayName": "organization",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telephone",
+              "displayName": "telephone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_date",
+              "displayName": "sent_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_template",
+              "displayName": "message_template",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invitation_id",
+              "displayName": "invitation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        624,
+        1424
+      ],
+      "id": "8c7a6f3e-8a35-4459-8698-99042a85ddba",
+      "name": "Update cleaned list1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 14
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -912,
+        336
+      ],
+      "id": "825b4531-f062-483e-8fd1-647c35d6e0ed",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 11
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -912,
+        512
+      ],
+      "id": "abdc16d2-2108-42c6-a0a5-08200f30e063",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -256,
+        640
+      ],
+      "id": "06064c2a-d7e8-42f0-9038-288fb02d113b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        1312
+      ],
+      "id": "7b603fe1-b0c1-4e3e-906d-c8e7845f7531",
+      "name": "Wait2",
+      "webhookId": "1629539d-e75d-416a-90ae-b834715ed1ff"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "GPT-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You're a helpful intelligent writing assistant",
+              "role": "system"
+            },
+            {
+              "content": "Your task is to take as input a bunch of LinkedIn profile information as a user and then generate very short and very punchy icebreaker that I can use as a variable in my connection request.\n\nReturn your result in this format\n\n{icebreaker : 'icebreaker goes here'}\n\nIn order to makes ensure icebreakers are punchy and high-quality, make them follow this template\n\nHey {{name}}, loved seeing {{thing about them}}. I am also into {{plausible thing about them}}, thought I'd connect.\n\nFor {thing about them} and {{plausible thing about them}} never use the exact variable provided by LinkedIn as this makes it feel ai written. Instead always paraphrase. This makes it seem  human written, instead of just an automatic response. Also make it feel super short don't say stuff like 'passionate about turning vision into reality, or anything like that, be extremely laconic and spartan.\n"
+            },
+            {
+              "content": "={\n \"icebreaker\":\"Hey Danielle, loved seeing your creative agency journey. I'm also building brands, thought I'd connect.\"\n}",
+              "role": "assistant"
+            },
+            {
+              "content": "=You are a LinkedIn outreach expert. Create a personalized, professional connection request message.\n\nContext:\n- Target Name: {{ $json.first_name }} {{ $json.last_name }}\n- Target Company: {{ $('fetch cleaned list').item.json.organization }}\n- Target Headline: {{ $json.headline }}\n- Target Location: {{ $json.location }}\n\nRequirements:\n- Keep message under 200 characters\n- Sound natural and personal, not sales-y\n- Mention something specific about their background/company\n- Professional but friendly tone\n- Include a clear reason for connecting\n\nGenerate a personalized LinkedIn connection message:"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        288,
+        1424
+      ],
+      "id": "eff98978-5956-414f-8b3b-7732840dac94",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "mFLDConUMZiZTnjt",
+          "name": "Open AI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs",
+          "mode": "list",
+          "cachedResultName": "Cleaned Outreach Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1724013133,
+          "mode": "list",
+          "cachedResultName": "Podcasts List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TEhbMeAvGe4FVcdppuZUR10L7q2lwBg-lYpY4ebq5Fs/edit#gid=1724013133"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sent_date": "={{ $json.sent_date }}",
+            "Status": "={{ $('process result').item.json.new_status }}",
+            "notes": "={{ $('process result').item.json.error_message }}",
+            "message_template": "={{ $('Message a model').item.json.message.content.message }}",
+            "invitation_id": "={{ $json.invitation_id }}",
+            "row_number": "={{ $('fetch cleaned list').item.json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "organization",
+              "displayName": "organization",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telephone",
+              "displayName": "telephone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_date",
+              "displayName": "sent_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_template",
+              "displayName": "message_template",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invitation_id",
+              "displayName": "invitation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        16,
+        624
+      ],
+      "id": "45eb37f1-413d-4c8a-9a40-6cefecd33623",
+      "name": "Update cleaned list",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Add Google Sheets Row Numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract URL ID": {
+      "main": [
+        [
+          {
+            "node": "Get LinkedIn Provider ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LinkedIn Provider ID": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "raw_scraped_leads": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "add to cleaned list": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "raw_scraped_leads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch cleaned list": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Google Sheets Row Numbers": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Process AI message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send LinkedIn Message": {
+      "main": [
+        [
+          {
+            "node": "process result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI message": {
+      "main": [
+        [
+          {
+            "node": "Send LinkedIn Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process result": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "add to cleaned list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "fetch cleaned list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "fetch cleaned list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Update cleaned list",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract URL ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update cleaned list1": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timeSavedPerExecution": 2,
+    "timeSavedMode": "fixed"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    },
+    "node:Schedule Trigger1": {
+      "recurrenceRules": []
+    },
+    "node:Schedule Trigger2": {
+      "recurrenceRules": []
+    },
+    "node:Schedule Trigger3": {
+      "recurrenceRules": []
+    },
+    "node:Schedule Trigger4": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "a0154589-4134-4052-938e-089d15cc9513",
+  "activeVersionId": null,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2025-11-17T06:54:24.765Z",
+      "createdAt": "2025-11-17T06:54:24.765Z",
+      "role": "workflow:owner",
+      "workflowId": "9glI5P7LGr1NgWru",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
