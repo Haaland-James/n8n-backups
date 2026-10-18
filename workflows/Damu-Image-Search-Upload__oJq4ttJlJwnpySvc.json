@@ -1,0 +1,360 @@
+{
+  "updatedAt": "2026-09-10T16:27:47.529Z",
+  "createdAt": "2026-08-08T07:32:05.231Z",
+  "id": "oJq4ttJlJwnpySvc",
+  "name": "Damu — Image Search & Upload",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "hook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "image-search-upload",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "notes": "POST { postId, query }  or  { posts: [ { postId, query }, ... ] }. Called from Claude during drafting, and by the Image Resolver as a fallback rung.",
+      "webhookId": "4802419d-7c7f-4767-b303-770b13fabbad"
+    },
+    {
+      "id": "subtrigger",
+      "name": "When Called By Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        200
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "normin",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Accepts a single post, a { posts: [...] } batch, or direct sub-workflow items.\nconst norm = (v) => String(v ?? '').trim();\nconst out = [];\n\nfor (const item of $input.all()) {\n  const j = item.json ?? {};\n  const payload = (j.body && typeof j.body === 'object') ? j.body : j;\n  const list = Array.isArray(payload.posts) ? payload.posts : [payload];\n\n  for (const p of list) {\n    const postId = norm(p.postId || p.Post_ID);\n    const query  = norm(p.query || p.storyTopic || p.Story_Topic || p.title);\n    if (!postId || !query) continue;\n    out.push({ json: { postId, query, publicId: `damu-linkedin/${postId}` } });\n  }\n}\n\nif (!out.length) return [{ json: { _empty: true, message: 'Need at least one { postId, query }' } }];\nreturn out;"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "search",
+      "name": "Google Images (SerpApi)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -140,
+        100
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://serpapi.com/search",
+        "authentication": "predefinedCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_images"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "ijn",
+              "value": "0"
+            },
+            {
+              "name": "safe",
+              "value": "active"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "nodeCredentialType": "serpApi"
+      },
+      "credentials": {
+        "serpApi": {
+          "id": "bFWJ3H9G6DdWIg87",
+          "name": "SerpAPI account"
+        }
+      },
+      "notes": "Uses the existing SerpApi credential, which appends api_key as a query param.",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "pick",
+      "name": "Pick Best Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const MIN_WIDTH = 600;\n// Hosts that block hotlinking, or that serve watermarked previews of paid stock.\nconst BAD_HOSTS = [\n  'lookaside.', 'fbsbx.com', 'instagram.f', 'x.com', 'twimg.com',\n  'dreamstime.com', 'shutterstock.com', 'alamy.com', 'gettyimages.',\n  'istockphoto.com', '123rf.com', 'depositphotos.com', 'stock.adobe.com',\n  'agefotostock.com', 'canstockphoto.', 'vectorstock.com', 'watermark.',\n];\n\nconst planned = $('Normalize Input').all().map(i => i.json);\nconst inputs  = $input.all();\nconst out = [];\n\nfor (let i = 0; i < inputs.length; i++) {\n  const plan = planned[i] ?? {};\n  const res  = inputs[i].json ?? {};\n  const list = Array.isArray(res.images_results) ? res.images_results : [];\n\n  const usable = list.filter(r => {\n    const u = String(r.original ?? '');\n    if (!/^https:\\/\\//i.test(u)) return false;\n    if (BAD_HOSTS.some(h => u.includes(h))) return false;\n    if (r.original_width && Number(r.original_width) < MIN_WIDTH) return false;\n    return true;\n  });\n\n  const hit = usable[0];\n\n  if (!hit) {\n    out.push({ json: { ...plan, found: false, reason: res?.error ?? 'no usable image in search results' } });\n    continue;\n  }\n\n  out.push({ json: {\n    ...plan,\n    found: true,\n    file: hit.original,\n    sourcePage: hit.link ?? '',\n    sourceSite: hit.source ?? '',\n    sourceTitle: hit.title ?? '',\n    width: hit.original_width ?? null,\n    height: hit.original_height ?? null,\n  } });\n}\n\nreturn out;"
+      },
+      "notes": "Takes the first result that is https, big enough, and not from a host that blocks hotlinking. Keeps the source page URL for provenance.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "gate",
+      "name": "Found One?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        340,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "f",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.found }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "upload",
+      "name": "Upload To Cloudinary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        580,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/yto9u5lp/image/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json.file }}"
+            },
+            {
+              "name": "public_id",
+              "value": "={{ $json.publicId }}"
+            },
+            {
+              "name": "overwrite",
+              "value": "true"
+            },
+            {
+              "name": "invalidate",
+              "value": "true"
+            },
+            {
+              "name": "context",
+              "value": "=source_page={{ $json.sourcePage }}|source_site={{ $json.sourceSite }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 800
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "8dI2AtXqAs8ycaPw",
+          "name": "Cloudinary"
+        }
+      },
+      "notes": "Cloudinary fetches the remote image and re-hosts it permanently. Provenance (source page + site) is stored on the asset as context metadata.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2500,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "result",
+      "name": "Build Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const CLOUD = 'yto9u5lp';\nconst planned = $('Pick Best Result').all().map(i => i.json);\nconst byId = {};\nfor (const p of planned) byId[p.postId] = p;\n\nconst results = {};\nconst inputs = $input.all();\n\nfor (let i = 0; i < inputs.length; i++) {\n  const j = inputs[i].json ?? {};\n\n  // Rows that never found an image arrive here straight from the IF false branch.\n  if (j.found === false) {\n    results[j.postId] = { postId: j.postId, imageUrl: '', imageSource: 'none', reason: j.reason ?? 'not found' };\n    continue;\n  }\n\n  const pid = String(j.public_id ?? '');\n  const postId = pid.includes('/') ? pid.split('/').pop() : (j.postId || planned[i]?.postId || '');\n  const plan = byId[postId] ?? planned[i] ?? {};\n\n  if (j.secure_url) {\n    results[postId] = {\n      postId,\n      imageUrl: `https://res.cloudinary.com/${CLOUD}/image/upload/f_jpg,q_auto:good,w_1200,h_1200,c_fit/${pid}.jpg`,\n      imageSource: 'google_search',\n      sourcePage: plan.sourcePage ?? '',\n      sourceSite: plan.sourceSite ?? '',\n    };\n  } else if (postId) {\n    results[postId] = {\n      postId,\n      imageUrl: '',\n      imageSource: 'none',\n      reason: j?.error?.message ?? j?.message ?? 'Cloudinary upload failed',\n      sourcePage: plan.sourcePage ?? '',\n    };\n  }\n}\n\nfor (const p of planned) {\n  if (!results[p.postId]) results[p.postId] = { postId: p.postId, imageUrl: '', imageSource: 'none', reason: p.reason ?? 'unresolved' };\n}\n\nconst out = Object.values(results);\nconsole.log(out.map(r => `${r.postId}: ${r.imageSource} ${r.imageUrl || '(' + (r.reason || 'none') + ')'}`).join('\\n'));\nreturn out.map(json => ({ json }));"
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Called By Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Google Images (SerpApi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Images (SerpApi)": {
+      "main": [
+        [
+          {
+            "node": "Pick Best Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Best Result": {
+      "main": [
+        [
+          {
+            "node": "Found One?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found One?": {
+      "main": [
+        [
+          {
+            "node": "Upload To Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload To Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Build Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "4168f6b9-be74-4bb9-b7dc-af417627a98c",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-08-08T07:32:05.231Z",
+      "createdAt": "2026-08-08T07:32:05.231Z",
+      "role": "workflow:owner",
+      "workflowId": "oJq4ttJlJwnpySvc",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
