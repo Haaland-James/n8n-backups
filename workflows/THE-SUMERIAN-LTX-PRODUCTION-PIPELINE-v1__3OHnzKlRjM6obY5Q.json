@@ -1,0 +1,4069 @@
+{
+  "updatedAt": "2026-10-05T07:15:32.857Z",
+  "createdAt": "2026-09-23T11:08:11.957Z",
+  "id": "3OHnzKlRjM6obY5Q",
+  "name": "THE SUMERIAN — LTX PRODUCTION PIPELINE v1",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 01–03 · RECEIVE, VALIDATE, NORMALIZE\nWebhook (header key) or Form (basic auth) → one JSON shot manifest.\nInternal schema is translated to the current LTX v2 schema in **03**. Swap the trigger for a direct API later without touching the rest.",
+        "height": 560,
+        "width": 1500,
+        "color": 7
+      },
+      "id": "3c5e1b5d-4e53-451a-9efd-f0a120ab4c85",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 04–05 · SAFETY / APPROVAL GATE\n`generation_authorized` must be **true**. Cost estimate vs `max_generation_cost`. SHOT_ID+VERSION duplicate check, then a **SUBMITTING** reservation row is written *before* any paid call.",
+        "height": 1000,
+        "width": 1700,
+        "color": 3
+      },
+      "id": "3e3e6b6a-cc66-42f6-9681-d440d4b6ca48",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 06–09 · ROUTE, PREPARE, SUBMIT (PAID)\nOnly path that spends LTX credits. No automatic retries on submit.",
+        "height": 560,
+        "width": 1450,
+        "color": 6
+      },
+      "id": "33c00691-86a3-4244-8c3e-96e169ac5976",
+      "name": "Note 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3088,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 10–12 · ASYNC POLLING\nWait 20 s → GET job → bounded loop (max 45 polls / 20 min). Transient errors tolerated 5×.",
+        "height": 700,
+        "width": 1000,
+        "color": 4
+      },
+      "id": "611684f2-81f0-44d2-a923-44eac508adc6",
+      "name": "Note 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4528,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 13–16 · CAPTURE → LIBRARY → REVIEW_REQUIRED\nCompleted clips are **never** auto-approved. LTX URLs expire: archive promptly.",
+        "height": 560,
+        "width": 1250,
+        "color": 5
+      },
+      "id": "c4ed5be3-69c4-4df2-b154-32249cc8d694",
+      "name": "Note 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5488,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ERROR · HANDLE FAILURE\nOne structured error shape. Updates the library row only when this run created the reservation. Credentials are never included.",
+        "height": 560,
+        "width": 1000,
+        "color": 2
+      },
+      "id": "e1277ad1-21cf-4a9f-ae93-0e328cce6fed",
+      "name": "Note 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3088,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sumerian/manifest",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ced19f4e-f390-4502-9520-84e9e5db87af",
+      "name": "01A — Receive Shot Manifest (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "c4eb7da4-1835-4b7e-8f92-b8b68b40cdc3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ui88vEZagu2MBlle",
+          "name": "SUMERIAN — Pipeline Webhook Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 01C — Extract Manifest Payload\n// Unifies Webhook (JSON body) and Form (pasted JSON text) inputs into one shape.\n// Swapping the trigger for a direct API later only requires producing { manifest } here.\nconst input = $input.first().json;\nconst receivedAt = new Date().toISOString();\nlet source = 'webhook';\nlet raw = null;\n\nconst FORM_FIELD = 'Shot Manifest JSON';\nif (input[FORM_FIELD] !== undefined || input.formMode !== undefined) {\n  source = 'form';\n  raw = input[FORM_FIELD] !== undefined ? input[FORM_FIELD] : '';\n} else if (input.body !== undefined) {\n  raw = input.body;\n} else {\n  raw = input;\n}\n\n// Webhook callers may also send the manifest wrapped as { \"manifest\": {...} } or as a JSON string.\nif (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.manifest !== undefined && raw.shot_id === undefined) {\n  raw = raw.manifest;\n}\n\nlet manifest = null;\nlet parseError = null;\nif (typeof raw === 'string') {\n  const text = raw.trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/, '').trim();\n  try {\n    manifest = JSON.parse(text);\n  } catch (e) {\n    parseError = 'Body is not valid JSON: ' + e.message;\n  }\n} else {\n  manifest = raw;\n}\n\nif (!parseError && (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest))) {\n  parseError = 'Manifest must be a single JSON object (one shot per submission).';\n}\nif (!parseError && Object.keys(manifest).length === 0) {\n  parseError = 'Manifest is empty. Send the shot manifest as the JSON request body.';\n}\n\nreturn [{ json: { source, received_at: receivedAt, parse_error: parseError, manifest: parseError ? null : manifest } }];\n"
+      },
+      "id": "afa3a43e-c208-4df4-a201-a30e5fb2aaf5",
+      "name": "01C — Extract Manifest Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 02 — Validate Required Fields\n// Produces { valid, error_status, errors[], warnings[] } alongside the untouched manifest.\nconst inp = $input.first().json;\nconst out = { ...inp, valid: false, error_status: null, errors: [], warnings: [] };\n\nif (inp.parse_error) {\n  out.error_status = 'VALIDATION_ERROR';\n  out.errors.push({ field: '$body', message: inp.parse_error });\n  return [{ json: out }];\n}\n\nconst m = inp.manifest;\nconst err = (field, message) => out.errors.push({ field, message });\nconst isStr = (v) => typeof v === 'string' && v.trim().length > 0;\n\nconst REQUIRED = ['project_id', 'episode_id', 'scene_id', 'shot_id', 'version', 'generation_type',\n  'shot_description', 'duration_seconds', 'generation_authorized'];\nfor (const f of REQUIRED) {\n  if (m[f] === undefined || m[f] === null || (typeof m[f] === 'string' && m[f].trim() === '')) {\n    err(f, 'Required field is missing or empty.');\n  }\n}\n\n// Permanent shot identifier: PROJECT-SEASON-EPISODE-SCENE-SHOT, e.g. SUM-S01-E01-SC01-SH001\nconst SHOT_RE = /^([A-Z0-9]{2,10})-(S\\d{2})-([A-Z0-9]{2,10})-(SC\\d{2,3})-(SH\\d{3,4})$/;\nif (isStr(m.shot_id)) {\n  const mm = m.shot_id.match(SHOT_RE);\n  if (!mm) {\n    err('shot_id', 'shot_id must match PROJECT-SXX-EPISODE-SCXX-SHXXX (e.g. SUM-S01-E01-SC01-SH001). Do not add version suffixes to shot_id.');\n  } else {\n    const [, p, s, e, sc] = mm;\n    if (isStr(m.project_id) && m.project_id !== p) err('shot_id', `shot_id project segment \"${p}\" does not match project_id \"${m.project_id}\".`);\n    if (isStr(m.season_id) && m.season_id !== s) err('shot_id', `shot_id season segment \"${s}\" does not match season_id \"${m.season_id}\".`);\n    if (isStr(m.episode_id) && m.episode_id !== e) err('shot_id', `shot_id episode segment \"${e}\" does not match episode_id \"${m.episode_id}\".`);\n    if (isStr(m.scene_id) && m.scene_id !== sc) err('shot_id', `shot_id scene segment \"${sc}\" does not match scene_id \"${m.scene_id}\".`);\n  }\n}\n\nif (m.version !== undefined && m.version !== null && !(Number.isInteger(m.version) && m.version >= 1)) {\n  err('version', 'version must be a positive integer (1, 2, 3 ...). Versions increment; shot_id never changes.');\n}\n\nif (m.generation_authorized !== undefined && typeof m.generation_authorized !== 'boolean') {\n  err('generation_authorized', 'generation_authorized must be the boolean true or false (not a string).');\n}\n\nconst TYPES = ['IMAGE_TO_VIDEO', 'TEXT_TO_VIDEO'];\nif (isStr(m.generation_type)) {\n  if (m.generation_type === 'AUDIO_TO_VIDEO') err('generation_type', 'AUDIO_TO_VIDEO is reserved for a later version and is not enabled in pipeline v1.');\n  else if (!TYPES.includes(m.generation_type)) err('generation_type', `generation_type must be one of ${TYPES.join(', ')}.`);\n}\n\nif (m.duration_seconds !== undefined && m.duration_seconds !== null) {\n  if (typeof m.duration_seconds !== 'number' || !isFinite(m.duration_seconds) || m.duration_seconds <= 0) err('duration_seconds', 'duration_seconds must be a positive number.');\n  else if (m.duration_seconds > 20) err('duration_seconds', 'duration_seconds exceeds the LTX maximum of 20 seconds per clip.');\n}\n\nif (m.aspect_ratio !== undefined && m.aspect_ratio !== null && !['16:9', '9:16'].includes(m.aspect_ratio)) {\n  err('aspect_ratio', 'LTX currently supports 16:9 (landscape) and 9:16 (portrait) only.');\n}\nif (m.quality_mode !== undefined && m.quality_mode !== null && !['DRAFT', 'STANDARD', 'FINAL'].includes(m.quality_mode)) {\n  err('quality_mode', 'quality_mode must be DRAFT, STANDARD or FINAL.');\n}\nif (m.max_generation_cost !== undefined && m.max_generation_cost !== null && !(typeof m.max_generation_cost === 'number' && m.max_generation_cost >= 0)) {\n  err('max_generation_cost', 'max_generation_cost must be null or a non-negative number (USD).');\n}\nfor (const f of ['characters', 'negative_constraints', 'reference_assets']) {\n  if (m[f] !== undefined && m[f] !== null && !Array.isArray(m[f])) err(f, `${f} must be an array.`);\n}\nif (m.camera !== undefined && m.camera !== null && (typeof m.camera !== 'object' || Array.isArray(m.camera))) err('camera', 'camera must be an object.');\n\n// Reference assets: URL must be something LTX accepts (HTTPS URL, LTX upload URI, or image data URI).\nconst ASSET_TYPES = ['FIRST_FRAME', 'STORYBOARD_FRAME', 'CHARACTER_REFERENCE', 'CHARACTER_MODEL_SHEET', 'ENVIRONMENT_REFERENCE',\n  'PROP_REFERENCE', 'VEHICLE_REFERENCE', 'STYLE_REFERENCE', 'WEAPON_REFERENCE'];\nconst validImageUri = (u) => isStr(u) && (\n  /^https:\\/\\/[a-z0-9.-]+\\.[a-z]{2,}(\\/|$|\\?)/i.test(u) ||\n  /^ltx:\\/\\/uploads\\/[A-Za-z0-9_-]+/.test(u) ||\n  /^data:image\\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(u));\nconst assets = Array.isArray(m.reference_assets) ? m.reference_assets : [];\nassets.forEach((a, i) => {\n  if (!a || typeof a !== 'object') return err(`reference_assets[${i}]`, 'Each reference asset must be an object.');\n  if (isStr(a.asset_type) && !ASSET_TYPES.includes(a.asset_type)) out.warnings.push(`reference_assets[${i}].asset_type \"${a.asset_type}\" is not a known type.`);\n  if (isStr(a.url) && !validImageUri(a.url)) err(`reference_assets[${i}].url`, 'URL must be public HTTPS (domain, no redirects), ltx://uploads/..., or a data:image/(png|jpeg|webp);base64 URI.');\n  if (isStr(a.url) && a.url.startsWith('data:') && a.url.length > 7 * 1024 * 1024) err(`reference_assets[${i}].url`, 'Data URI exceeds the LTX 7 MB limit; host the image over HTTPS instead.');\n});\n\nlet missingRef = false;\nif (m.generation_type === 'IMAGE_TO_VIDEO') {\n  // LTX image-to-video uses image_uri as the literal FIRST FRAME of the clip.\n  const FRAME_PRIORITY = ['FIRST_FRAME', 'STORYBOARD_FRAME', 'CHARACTER_REFERENCE', 'CHARACTER_MODEL_SHEET', 'ENVIRONMENT_REFERENCE'];\n  const usable = assets.filter((a) => a && validImageUri(a.url) && a.approved !== false);\n  const pick = FRAME_PRIORITY.map((t) => usable.find((a) => a.asset_type === t)).find(Boolean);\n  if (!pick) {\n    missingRef = true;\n    err('reference_assets', 'IMAGE_TO_VIDEO requires at least one approved reference asset (FIRST_FRAME / STORYBOARD_FRAME preferred) with a valid image URL.');\n  } else {\n    if (!['FIRST_FRAME', 'STORYBOARD_FRAME'].includes(pick.asset_type)) {\n      out.warnings.push(`LTX uses the image as the literal first frame. Using ${pick.asset_type} \"${pick.asset_id || ''}\"; a composed FIRST_FRAME/STORYBOARD_FRAME gives better shot control.`);\n    }\n    if (pick.approved !== true) out.warnings.push(`Reference \"${pick.asset_id || pick.url.slice(0, 40)}\" is not marked approved:true. Only approved assets should define character identity.`);\n  }\n}\n\nout.valid = out.errors.length === 0;\nif (!out.valid) out.error_status = (missingRef && out.errors.length === 1) ? 'MISSING_REFERENCE_ASSET' : (missingRef ? 'MISSING_REFERENCE_ASSET' : 'VALIDATION_ERROR');\nreturn [{ json: out }];\n"
+      },
+      "id": "7f34b733-354a-4eaa-a721-eeaa74816b47",
+      "name": "02 — Validate Required Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2f4ee240-d05a-487f-8870-0b594898a9cf",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d7fa450e-2a8c-473c-8d33-b41d7e15465a",
+      "name": "02A — Is Manifest Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 03 — Normalize Manifest\n// Translates the INTERNAL Sumerian schema into a normalized manifest + an LTX request plan.\n// LTX facts below verified against docs.ltx.io on 2026-09-23 (v2 async API). Update LTX_SPEC if LTX changes.\nconst inp = $input.first().json;\nconst m = inp.manifest;\nconst warnings = [...(inp.warnings || [])];\nconst s = (v) => (typeof v === 'string' ? v.trim() : '');\nconst arr = (v) => (Array.isArray(v) ? v : []);\n\nconst LTX_SPEC = {\n  api_base: 'https://api.ltx.io/v2',\n  endpoints: { IMAGE_TO_VIDEO: 'image-to-video', TEXT_TO_VIDEO: 'text-to-video' },\n  camera_motion: ['dolly_in', 'dolly_out', 'dolly_left', 'dolly_right', 'jib_up', 'jib_down', 'static', 'focus_shift'],\n  resolutions: { '16:9': { '720p': '1280x720', '1080p': '1920x1080', '1440p': '2560x1440', '4k': '3840x2160' },\n                 '9:16': { '720p': '720x1280', '1080p': '1080x1920', '1440p': '1440x2560', '4k': '2160x3840' } },\n  // USD per output second (text/image-to-video), from docs.ltx.io/pricing\n  price_per_second: {\n    'ltx-2-3-fast': { '720p': 0.03, '1080p': 0.06, '1440p': 0.12, '4k': 0.24 },\n    'ltx-2-3-pro':  { '720p': 0.04, '1080p': 0.08, '1440p': 0.16, '4k': 0.32 },\n    'ltx-2-5-fast': { '720p': 0.09, '1080p': 0.13, '1440p': 0.19, '4k': 0.30 },\n    'ltx-2-5-pro':  { '720p': 0.12, '1080p': 0.17, '1440p': 0.25, '4k': 0.39 },\n  },\n  pricing_verified: '2026-09-23',\n};\n// quality_mode → LTX model/tier. DRAFT is deliberately the cheapest usable configuration.\nconst QUALITY = {\n  DRAFT:    { model: 'ltx-2-3-fast', tier: '1080p' },\n  STANDARD: { model: 'ltx-2-3-pro',  tier: '1080p' },\n  FINAL:    { model: 'ltx-2-5-pro',  tier: '1080p' },\n};\n\nconst quality_mode = m.quality_mode || 'DRAFT';\nconst aspect_ratio = m.aspect_ratio || '16:9';\nconst q = QUALITY[quality_mode];\nconst model = (typeof m.ltx_model === 'string' && LTX_SPEC.price_per_second[m.ltx_model]) ? m.ltx_model : q.model;\nlet tier = (typeof m.ltx_resolution_tier === 'string' && ['720p', '1080p', '1440p', '4k'].includes(m.ltx_resolution_tier.toLowerCase())) ? m.ltx_resolution_tier.toLowerCase() : q.tier;\nconst fps = [24, 25, 48, 50].includes(m.fps) ? m.fps : 24;\nconst resolution = LTX_SPEC.resolutions[aspect_ratio][tier];\n\n// Allowed durations: even seconds 6..10, or 6..20 for *-fast at <=1080p and 24/25 fps.\nconst maxDur = (model.endsWith('-fast') && ['720p', '1080p'].includes(tier) && fps <= 25) ? 20 : 10;\nconst requested = m.duration_seconds;\nlet duration = Math.max(6, Math.ceil(requested / 2) * 2);\nlet duration_error = null;\nif (duration > maxDur) duration_error = `duration_seconds ${requested} exceeds ${maxDur}s for ${model} at ${tier}/${fps}fps.`;\nif (duration !== requested) warnings.push(`duration_seconds ${requested} normalized to ${duration}s (LTX accepts even durations from 6s; billing is per output second).`);\n\n// Camera: map to an LTX camera_motion preset only when it matches exactly; otherwise describe it in the prompt.\nconst cam = (m.camera && typeof m.camera === 'object') ? m.camera : {};\nconst movementKey = s(cam.movement).toLowerCase().replace(/[\\s-]+/g, '_');\nconst camera_motion = LTX_SPEC.camera_motion.includes(movementKey) ? movementKey : null;\n\n// Reference selection (LTX image_uri = literal first frame).\nconst assets = arr(m.reference_assets).filter((a) => a && typeof a === 'object').map((a) => ({\n  asset_id: s(a.asset_id), asset_type: s(a.asset_type) || 'CHARACTER_REFERENCE', url: s(a.url), approved: a.approved === true,\n}));\nconst FRAME_PRIORITY = ['FIRST_FRAME', 'STORYBOARD_FRAME', 'CHARACTER_REFERENCE', 'CHARACTER_MODEL_SHEET', 'ENVIRONMENT_REFERENCE'];\nconst firstFrame = m.generation_type === 'IMAGE_TO_VIDEO'\n  ? FRAME_PRIORITY.map((t) => assets.find((a) => a.asset_type === t && a.url)).find(Boolean) || null\n  : null;\n\n// Prompt assembly, following the LTX prompting guide order:\n// shot establishment → scene/lighting → action → character → camera → audio. Only shot-relevant context is included.\nconst sentence = (t) => { t = s(t); return t ? (/[.!?]$/.test(t) ? t : t + '.') : ''; };\nconst camBits = [s(cam.framing), s(cam.angle) && `${s(cam.angle)} angle`, s(cam.lens_intent)].filter(Boolean).join(', ');\nconst chars = arr(m.characters).map((c) => (typeof c === 'string' ? c : (c && (c.name || c.character_id)) || '')).filter(Boolean);\nconst parts = [\n  sentence(camBits ? `${camBits}. ${s(m.shot_description)}` : m.shot_description),\n  sentence([s(m.location), s(m.environment)].filter(Boolean).join(' — ')),\n  sentence(m.lighting),\n  sentence(m.character_action),\n  sentence(s(m.character_emotion) && `Emotion: ${s(m.character_emotion)}`),\n  sentence(s(cam.movement) && `Camera: ${s(cam.movement)}`),\n  sentence(m.visual_style),\n  sentence(m.continuity_notes && m.generation_type === 'IMAGE_TO_VIDEO' ? `Single continuous take, consistent with the opening frame. ${s(m.continuity_notes)}` : m.continuity_notes),\n  s(m.dialogue) ? `Dialogue: \"${s(m.dialogue).replace(/^\"|\"$/g, '')}\".` : '',\n  sentence(s(m.sound_requirements) && `Audio: ${s(m.sound_requirements)}`),\n  // LTX has no negative-prompt field; constraints are phrased as an exclusion sentence.\n  arr(m.negative_constraints).length ? `Keep the frame free of: ${arr(m.negative_constraints).join(', ')}.` : '',\n].filter(Boolean);\nconst prompt = parts.join(' ').replace(/\\s+/g, ' ').trim();\n\nconst generate_audio = typeof m.generate_audio === 'boolean' ? m.generate_audio : !/^(none|no audio|silent)$/i.test(s(m.sound_requirements));\nconst price = LTX_SPEC.price_per_second[model][tier];\nconst estimated_cost_usd = Math.round(price * duration * 100) / 100;\n\nconst version = m.version;\nconst normalized = {\n  project_id: s(m.project_id), season_id: s(m.season_id) || m.shot_id.split('-')[1], episode_id: s(m.episode_id),\n  scene_id: s(m.scene_id), shot_id: m.shot_id, version,\n  generation_key: `${m.shot_id}::v${version}`,\n  generation_authorized: m.generation_authorized === true,\n  force_regenerate: m.force_regenerate === true,\n  generation_type: m.generation_type,\n  story_purpose: s(m.story_purpose), shot_description: s(m.shot_description), characters: arr(m.characters),\n  location: s(m.location), reference_assets: assets, character_action: s(m.character_action), character_emotion: s(m.character_emotion),\n  camera: { framing: s(cam.framing), angle: s(cam.angle), movement: s(cam.movement), lens_intent: s(cam.lens_intent) },\n  environment: s(m.environment), lighting: s(m.lighting), visual_style: s(m.visual_style), continuity_notes: s(m.continuity_notes),\n  negative_constraints: arr(m.negative_constraints), dialogue: s(m.dialogue), sound_requirements: s(m.sound_requirements),\n  duration_seconds_requested: requested, duration_seconds: duration, aspect_ratio, quality_mode,\n  approval_status: 'PREPRODUCTION', max_generation_cost: (typeof m.max_generation_cost === 'number') ? m.max_generation_cost : null,\n  revision_of_version: Number.isInteger(m.revision_of_version) ? m.revision_of_version : null,\n  revision_notes: s(m.revision_notes),\n};\n\nconst ltx = {\n  endpoint: LTX_SPEC.endpoints[m.generation_type],\n  submit_url: `${LTX_SPEC.api_base}/${LTX_SPEC.endpoints[m.generation_type]}`,\n  model, resolution, resolution_tier: tier, fps, duration, generate_audio, camera_motion,\n  image_uri: firstFrame ? firstFrame.url : null,\n  first_frame_asset_id: firstFrame ? firstFrame.asset_id : null,\n  prompt,\n  estimated_cost_usd, price_per_second_usd: price, pricing_verified: LTX_SPEC.pricing_verified,\n};\n\nreturn [{ json: {\n  source: inp.source, received_at: inp.received_at,\n  normalize_error: duration_error, error_status: duration_error ? 'VALIDATION_ERROR' : null,\n  errors: duration_error ? [{ field: 'duration_seconds', message: duration_error }] : [],\n  warnings, manifest: normalized, ltx,\n} }];\n"
+      },
+      "id": "4b9140a6-e271-4414-961f-9e61631af120",
+      "name": "03 — Normalize Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "07030b2c-49a4-4974-8914-bde5d40c6a15",
+              "leftValue": "={{ !$json.error_status }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4414cebb-c340-412e-b5c0-3c39fa6ca76c",
+      "name": "03A — Normalization OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $json.manifest.generation_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "de535aa4-152e-4061-a835-aa4b548965a2",
+      "name": "03B — Load Existing Production Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// 04 — Check Generation Authorization\n// Paid generation requires generation_authorized === true AND (if set) estimated cost <= max_generation_cost.\nconst ctx = $('03 — Normalize Manifest').first().json;\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.generation_key);\nconst existing = rows.length ? rows[0] : null;\nconst m = ctx.manifest;\nconst ltx = ctx.ltx;\n\nlet gate = 'AUTHORIZED';\nlet reason = 'generation_authorized is true and the cost check passed.';\nif (m.generation_authorized !== true) {\n  gate = 'READY_FOR_APPROVAL';\n  reason = 'generation_authorized is false. No paid LTX request was made. Resubmit the same manifest with \"generation_authorized\": true to generate.';\n} else if (m.max_generation_cost !== null && ltx.estimated_cost_usd > m.max_generation_cost) {\n  gate = 'COST_LIMIT_EXCEEDED';\n  reason = `Estimated cost $${ltx.estimated_cost_usd} (${ltx.duration}s × $${ltx.price_per_second_usd}/s, ${ltx.model} @ ${ltx.resolution_tier}) exceeds max_generation_cost $${m.max_generation_cost}.`;\n}\n\nreturn [{ json: {\n  ...ctx,\n  gate, gate_reason: reason,\n  existing_record: existing,\n  error_status: gate === 'COST_LIMIT_EXCEEDED' ? 'COST_LIMIT_EXCEEDED' : null,\n  errors: gate === 'COST_LIMIT_EXCEEDED' ? [{ field: 'max_generation_cost', message: reason }] : [],\n} }];\n"
+      },
+      "id": "315e91af-d0f5-40d7-9b22-edb56c7c9d4b",
+      "name": "04 — Check Generation Authorization",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6627f335-0f97-4c08-949b-4079fb051d8d",
+                    "leftValue": "={{ $json.gate }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "AUTHORIZED"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AUTHORIZED"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b2fa83dc-52f0-4ca7-bb49-1f24ec8aa1ef",
+                    "leftValue": "={{ $json.gate }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "READY_FOR_APPROVAL"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "READY_FOR_APPROVAL"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4b874c99-72e6-4731-b876-ea92991d1d18",
+                    "leftValue": "={{ $json.gate }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "COST_LIMIT_EXCEEDED"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COST_LIMIT_EXCEEDED"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "OTHER"
+        }
+      },
+      "id": "125924cb-ce35-484b-a589-35a9df5a6a0b",
+      "name": "04A — Route Authorization",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 04B — Stage READY_FOR_APPROVAL\n// Records the normalized shot in the Production Library without spending credits.\n// Never overwrites a record that already has an LTX job or a review decision.\nconst ctx = $input.first().json;\nconst m = ctx.manifest;\nconst ex = ctx.existing_record;\nconst now = new Date().toISOString();\nconst PROTECTED = ['SUBMITTING', 'GENERATING', 'COMPLETED', 'FAILED'];\nconst canWrite = !ex || (!ex.ltx_job_id && !PROTECTED.includes(ex.generation_status));\n\nconst record = {\n  generation_key: m.generation_key, project_id: m.project_id, season_id: m.season_id, episode_id: m.episode_id,\n  scene_id: m.scene_id, shot_id: m.shot_id, version: m.version, generation_type: m.generation_type,\n  generation_status: 'NOT_SUBMITTED', approval_status: 'READY_FOR_APPROVAL',\n  ltx_endpoint: ctx.ltx.endpoint, ltx_model: ctx.ltx.model, ltx_resolution: ctx.ltx.resolution,\n  duration_seconds: ctx.ltx.duration, estimated_cost_usd: ctx.ltx.estimated_cost_usd,\n  submitted_prompt: ctx.ltx.prompt, reference_assets: JSON.stringify(m.reference_assets),\n  first_frame_asset_id: ctx.ltx.first_frame_asset_id || '',\n  manifest_json: JSON.stringify(m), metadata_json: JSON.stringify({ staged_at: now, source: ctx.source, warnings: ctx.warnings }),\n};\n\nconst response = {\n  result: 'READY_FOR_APPROVAL',\n  shot_id: m.shot_id, version: m.version, generation_key: m.generation_key,\n  message: ctx.gate_reason,\n  paid_generation_submitted: false,\n  production_library: canWrite ? 'Recorded as READY_FOR_APPROVAL.' : `Existing record kept unchanged (status ${ex.generation_status}/${ex.approval_status}).`,\n  existing_record: canWrite ? null : { generation_status: ex.generation_status, approval_status: ex.approval_status, ltx_job_id: ex.ltx_job_id || null, output_url: ex.output_url || null },\n  ltx_plan: { endpoint: ctx.ltx.endpoint, model: ctx.ltx.model, resolution: ctx.ltx.resolution, duration_seconds: ctx.ltx.duration,\n    fps: ctx.ltx.fps, generate_audio: ctx.ltx.generate_audio, camera_motion: ctx.ltx.camera_motion,\n    first_frame_asset_id: ctx.ltx.first_frame_asset_id, estimated_cost_usd: ctx.ltx.estimated_cost_usd,\n    pricing_source: `docs.ltx.io/pricing (verified ${ctx.ltx.pricing_verified})`, prompt: ctx.ltx.prompt },\n  warnings: ctx.warnings,\n  normalized_manifest: m,\n};\nreturn [{ json: { should_write: canWrite, record, response } }];\n"
+      },
+      "id": "d29b3e34-451f-4007-bbb8-7f621bc397b6",
+      "name": "04B — Stage READY_FOR_APPROVAL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f7facdba-eeb0-4a7a-80f6-714d0cb4628e",
+              "leftValue": "={{ $json.should_write }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "aac3eae5-a184-4a73-8099-d08ba81f2b1c",
+      "name": "04C — Safe to Record?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $json.record.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generation_key": "={{ $json.record.generation_key }}",
+            "project_id": "={{ $json.record.project_id }}",
+            "season_id": "={{ $json.record.season_id }}",
+            "episode_id": "={{ $json.record.episode_id }}",
+            "scene_id": "={{ $json.record.scene_id }}",
+            "shot_id": "={{ $json.record.shot_id }}",
+            "version": "={{ $json.record.version }}",
+            "generation_type": "={{ $json.record.generation_type }}",
+            "generation_status": "={{ $json.record.generation_status }}",
+            "approval_status": "={{ $json.record.approval_status }}",
+            "ltx_endpoint": "={{ $json.record.ltx_endpoint }}",
+            "ltx_model": "={{ $json.record.ltx_model }}",
+            "ltx_resolution": "={{ $json.record.ltx_resolution }}",
+            "duration_seconds": "={{ $json.record.duration_seconds }}",
+            "estimated_cost_usd": "={{ $json.record.estimated_cost_usd }}",
+            "submitted_prompt": "={{ $json.record.submitted_prompt }}",
+            "reference_assets": "={{ $json.record.reference_assets }}",
+            "first_frame_asset_id": "={{ $json.record.first_frame_asset_id }}",
+            "manifest_json": "={{ $json.record.manifest_json }}",
+            "metadata_json": "={{ $json.record.metadata_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "961229da-db1b-4294-b045-38a1ca3489f1",
+      "name": "04D — Save READY_FOR_APPROVAL Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('04B — Stage READY_FOR_APPROVAL').first().json.response, null, 2) }}",
+        "options": {
+          "responseCode": "={{ 200 }}"
+        }
+      },
+      "id": "df9137bc-3c62-40bc-a13d-2bea66f1bb69",
+      "name": "04E — Return READY_FOR_APPROVAL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 05 — Check Duplicate Shot Version\n// A generation attempt is identified by SHOT_ID + VERSION (generation_key). Any record that has been\n// submitted (or is mid-submission) blocks a new paid submission unless force_regenerate is set AND the\n// previous attempt is terminal-failed.\nconst ctx = $input.first().json;\nconst m = ctx.manifest;\nconst ex = ctx.existing_record;\nconst BLOCKING = ['SUBMITTING', 'GENERATING', 'COMPLETED'];\nconst BLOCKING_APPROVAL = ['GENERATING', 'REVIEW_REQUIRED', 'APPROVED', 'REVISION_REQUESTED', 'REJECTED'];\n\nlet duplicate = false;\nlet reason = null;\nif (ex) {\n  const active = BLOCKING.includes(ex.generation_status) || BLOCKING_APPROVAL.includes(ex.approval_status);\n  const failedWithJob = ex.generation_status === 'FAILED' && !!ex.ltx_job_id;\n  if (active) {\n    duplicate = true;\n    reason = `${m.generation_key} already has generation_status=${ex.generation_status}, approval_status=${ex.approval_status}${ex.ltx_job_id ? ', ltx_job_id=' + ex.ltx_job_id : ''}. Submit a new version number to regenerate.`;\n  } else if (failedWithJob && !m.force_regenerate) {\n    duplicate = true;\n    reason = `${m.generation_key} previously FAILED after an LTX job was created (${ex.ltx_job_id}; ${ex.error_status}). Check the LTX console, then either bump version or resend with \"force_regenerate\": true.`;\n  }\n}\n\nconst now = new Date().toISOString();\nreturn [{ json: {\n  ...ctx,\n  duplicate,\n  error_status: duplicate ? 'DUPLICATE_GENERATION' : null,\n  errors: duplicate ? [{ field: 'shot_id+version', message: reason }] : [],\n  reservation: duplicate ? null : {\n    generation_key: m.generation_key, project_id: m.project_id, season_id: m.season_id, episode_id: m.episode_id,\n    scene_id: m.scene_id, shot_id: m.shot_id, version: m.version, generation_type: m.generation_type,\n    generation_status: 'SUBMITTING', approval_status: 'AUTHORIZED',\n    ltx_job_id: '', ltx_endpoint: ctx.ltx.endpoint, ltx_model: ctx.ltx.model, ltx_resolution: ctx.ltx.resolution,\n    duration_seconds: ctx.ltx.duration, estimated_cost_usd: ctx.ltx.estimated_cost_usd,\n    submitted_prompt: ctx.ltx.prompt, reference_assets: JSON.stringify(m.reference_assets),\n    first_frame_asset_id: ctx.ltx.first_frame_asset_id || '', submitted_at: now, poll_attempts: 0,\n    error_status: '', error_detail: '', output_url: '', completed_at: '',\n    manifest_json: JSON.stringify(m),\n    metadata_json: JSON.stringify({ authorized_at: now, source: ctx.source, warnings: ctx.warnings, force_regenerate: m.force_regenerate }),\n  },\n} }];\n"
+      },
+      "id": "77a60b19-ec6a-4891-805a-d4442f1600ea",
+      "name": "05 — Check Duplicate Shot Version",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d99df52b-95ef-461f-a582-929c9ca6d4be",
+              "leftValue": "={{ !$json.duplicate }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc985b51-5233-4860-b9b8-406ce10e341f",
+      "name": "05A — Is New Generation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generation_key": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.generation_key }}",
+            "project_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.project_id }}",
+            "season_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.season_id }}",
+            "episode_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.episode_id }}",
+            "scene_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.scene_id }}",
+            "shot_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.shot_id }}",
+            "version": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.version }}",
+            "generation_type": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.generation_type }}",
+            "generation_status": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.generation_status }}",
+            "approval_status": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.approval_status }}",
+            "ltx_job_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.ltx_job_id }}",
+            "ltx_endpoint": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.ltx_endpoint }}",
+            "ltx_model": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.ltx_model }}",
+            "ltx_resolution": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.ltx_resolution }}",
+            "duration_seconds": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.duration_seconds }}",
+            "estimated_cost_usd": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.estimated_cost_usd }}",
+            "submitted_prompt": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.submitted_prompt }}",
+            "reference_assets": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.reference_assets }}",
+            "first_frame_asset_id": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.first_frame_asset_id }}",
+            "submitted_at": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.submitted_at }}",
+            "poll_attempts": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.poll_attempts }}",
+            "error_status": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.error_status }}",
+            "error_detail": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.error_detail }}",
+            "output_url": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.output_url }}",
+            "completed_at": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.completed_at }}",
+            "manifest_json": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.manifest_json }}",
+            "metadata_json": "={{ $('05 — Check Duplicate Shot Version').first().json.reservation.metadata_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "a035d33e-8a4f-4ed2-adc8-63be595af03b",
+      "name": "05B — Reserve Generation Slot (SUBMITTING)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "82e154b5-2ced-44f9-a127-785cebe8a510",
+                    "leftValue": "={{ $('05 — Check Duplicate Shot Version').first().json.manifest.generation_type }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "IMAGE_TO_VIDEO"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IMAGE_TO_VIDEO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a7d85e70-c2a0-4413-8b7b-ddf59193d006",
+                    "leftValue": "={{ $('05 — Check Duplicate Shot Version').first().json.manifest.generation_type }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "TEXT_TO_VIDEO"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TEXT_TO_VIDEO"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "OTHER"
+        }
+      },
+      "id": "89576cb8-bf40-46cf-a477-124eb810ac7c",
+      "name": "06 — Route Generation Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder branch for AUDIO_TO_VIDEO (future). Reaching here means the router saw an unknown type.\nconst c = $('05 — Check Duplicate Shot Version').first().json;\nreturn [{ json: { ...c, has_reservation: true, error_status: 'VALIDATION_ERROR', errors: [{ field: 'generation_type', message: 'No LTX route configured for ' + c.manifest.generation_type }] } }];"
+      },
+      "id": "d6076f4f-b0ea-49f0-bfdd-3342b9d45268",
+      "name": "06X — Unsupported Generation Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 07A — Prepare Image-to-Video\n// Maps the normalized manifest to POST https://api.ltx.io/v2/image-to-video (fields per docs.ltx.io).\nconst ctx = $('05 — Check Duplicate Shot Version').first().json;\nconst l = ctx.ltx;\nconst body = { image_uri: l.image_uri, prompt: l.prompt, model: l.model, duration: l.duration, resolution: l.resolution, fps: l.fps, generate_audio: l.generate_audio };\nif (l.camera_motion) body.camera_motion = l.camera_motion;\nreturn [{ json: { ...ctx, ltx_request: { endpoint: 'image-to-video', url: 'https://api.ltx.io/v2/image-to-video', body } } }];\n"
+      },
+      "id": "070ab068-03ed-4575-bfc2-844b927efc4b",
+      "name": "07A — Prepare Image-to-Video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 07B — Prepare Text-to-Video\n// Maps the normalized manifest to POST https://api.ltx.io/v2/text-to-video (fields per docs.ltx.io).\nconst ctx = $('05 — Check Duplicate Shot Version').first().json;\nconst l = ctx.ltx;\nconst body = { prompt: l.prompt, model: l.model, duration: l.duration, resolution: l.resolution, fps: l.fps, generate_audio: l.generate_audio };\nif (l.camera_motion) body.camera_motion = l.camera_motion;\nreturn [{ json: { ...ctx, ltx_request: { endpoint: 'text-to-video', url: 'https://api.ltx.io/v2/text-to-video', body } } }];\n"
+      },
+      "id": "96aa6d6c-6fad-4e42-9ec1-f2d2a26fa7f2",
+      "name": "07B — Prepare Text-to-Video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ltx_request.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ltx_request.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "8518df4e-3b0a-4d17-bbac-3927a5ec8ada",
+      "name": "08 — Submit LTX Async Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "XN6vJybDVjx2WZbc",
+          "name": "LTX VIDEO API — THE SUMERIAN"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 08A — Interpret LTX Submission\n// Classifies the submit response. NEVER retries a paid submission automatically.\nconst ctx = $('07A — Prepare Image-to-Video').isExecuted\n  ? $('07A — Prepare Image-to-Video').first().json\n  : $('07B — Prepare Text-to-Video').first().json;\nconst r = $input.first().json || {};\nconst status = typeof r.statusCode === 'number' ? r.statusCode : null;\nlet body = r.body;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\nconst apiErr = body && typeof body === 'object' && body.error ? body.error : null;\nconst now = new Date().toISOString();\nconst clip = (v) => String(v == null ? '' : (typeof v === 'string' ? v : JSON.stringify(v))).slice(0, 1500);\n\nlet accepted = false, error_status = null, detail = null, ambiguous = false;\nif (status === 202 || status === 200 || status === 201) {\n  if (body && body.id) accepted = true;\n  else { error_status = 'UNKNOWN_ERROR'; ambiguous = true; detail = 'LTX returned success without a job id: ' + clip(body); }\n} else if (status === 401 || status === 403) { error_status = 'LTX_AUTH_ERROR'; detail = apiErr ? `${apiErr.type}: ${apiErr.message}` : 'Authentication failed. Check the \"LTX VIDEO API — THE SUMERIAN\" credential.'; }\nelse if (status === 429) { error_status = 'LTX_RATE_LIMIT'; detail = (apiErr ? `${apiErr.type}: ${apiErr.message}` : 'Rate limited') + (r.headers && r.headers['retry-after'] ? ` (Retry-After ${r.headers['retry-after']}s)` : '') + '. Not retried automatically; resubmit later.'; }\nelse if (status === 402) { error_status = 'LTX_REQUEST_ERROR'; detail = 'insufficient_funds_error: LTX account has insufficient credits.'; }\nelse if (status && status >= 400 && status < 500) { error_status = 'LTX_REQUEST_ERROR'; detail = apiErr ? `${apiErr.type}: ${apiErr.message}` : `HTTP ${status}: ${clip(body)}`; }\nelse if (status && status >= 500) { error_status = 'UNKNOWN_ERROR'; ambiguous = true; detail = `LTX HTTP ${status} on submit. The job MAY have been created; not retried to avoid a duplicate charge. ${apiErr ? apiErr.type + ': ' + apiErr.message : ''}`; }\nelse { error_status = 'UNKNOWN_ERROR'; ambiguous = true; detail = 'No HTTP response from LTX (network/timeout). The job MAY have been created; not retried to avoid a duplicate charge. ' + clip(r.error && (r.error.message || r.error)); }\n\nreturn [{ json: {\n  ...ctx,\n  submission: { accepted, http_status: status, ltx_job_id: accepted ? body.id : null, ltx_created_at: accepted ? (body.created_at || null) : null, submitted_at: now, ambiguous },\n  error_status, errors: error_status ? [{ field: 'ltx_submit', message: detail }] : [],\n  has_reservation: true, already_responded: false,\n  poll: accepted ? { attempts: 0, max_attempts: 45, interval_seconds: 20, max_elapsed_minutes: 20, transient_errors: 0, started_at: now } : null,\n} }];\n"
+      },
+      "id": "df99bcb5-e445-467b-b606-7c8be17269c6",
+      "name": "08A — Interpret LTX Submission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "934df8e8-daea-4ead-8ae2-07c9b9f5c3c0",
+              "leftValue": "={{ $json.submission.accepted }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0cfa7dd5-393b-41aa-9d0f-513825ce7f23",
+      "name": "08B — Job Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $('08A — Interpret LTX Submission').first().json.manifest.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ltx_job_id": "={{ ({ ltx_job_id: $('08A — Interpret LTX Submission').first().json.submission.ltx_job_id, generation_status: 'GENERATING', approval_status: 'GENERATING', submitted_at: $('08A — Interpret LTX Submission').first().json.submission.submitted_at }).ltx_job_id }}",
+            "generation_status": "={{ ({ ltx_job_id: $('08A — Interpret LTX Submission').first().json.submission.ltx_job_id, generation_status: 'GENERATING', approval_status: 'GENERATING', submitted_at: $('08A — Interpret LTX Submission').first().json.submission.submitted_at }).generation_status }}",
+            "approval_status": "={{ ({ ltx_job_id: $('08A — Interpret LTX Submission').first().json.submission.ltx_job_id, generation_status: 'GENERATING', approval_status: 'GENERATING', submitted_at: $('08A — Interpret LTX Submission').first().json.submission.submitted_at }).approval_status }}",
+            "submitted_at": "={{ ({ ltx_job_id: $('08A — Interpret LTX Submission').first().json.submission.ltx_job_id, generation_status: 'GENERATING', approval_status: 'GENERATING', submitted_at: $('08A — Interpret LTX Submission').first().json.submission.submitted_at }).submitted_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "59080ca0-eb15-4e1a-866b-5290409e6476",
+      "name": "09 — Save LTX Job Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        4320,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify((() => { const c = $('08A — Interpret LTX Submission').first().json; return { result: 'GENERATING', shot_id: c.manifest.shot_id, version: c.manifest.version, generation_key: c.manifest.generation_key, ltx_job_id: c.submission.ltx_job_id, submitted_at: c.submission.submitted_at, estimated_cost_usd: c.ltx.estimated_cost_usd, message: 'Paid LTX job submitted. Polling in the background; the result lands in the Production Library as REVIEW_REQUIRED. Check status via the shot-status webhook.', warnings: c.warnings }; })(), null, 2) }}",
+        "options": {
+          "responseCode": "={{ 202 }}"
+        }
+      },
+      "id": "27363187-7e8d-483d-b88d-682ef54e2cad",
+      "name": "09A — Return GENERATING (202)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$('08A — Interpret LTX Submission').first().json, already_responded: true } }];"
+      },
+      "id": "3711d9b2-1e25-4ad4-a21c-88886fdcf612",
+      "name": "09B — Init Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "id": "af9156a1-2176-41f6-9994-7ff71b3afd78",
+      "name": "10 — Wait Before Poll",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4800,
+        208
+      ],
+      "webhookId": "cf49af75-6e35-47f2-bf00-3fe646bbabb4"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.ltx.io/v2/' + $json.ltx_request.endpoint + '/' + encodeURIComponent($json.submission.ltx_job_id) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "c63dac3d-bfb2-459d-b339-169c6449f7d9",
+      "name": "11 — Check LTX Job Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5040,
+        208
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "XN6vJybDVjx2WZbc",
+          "name": "LTX VIDEO API — THE SUMERIAN"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 12 — Evaluate Job Status\n// Bounded polling: stops after max_attempts or max_elapsed_minutes, whichever comes first.\nconst state = $('10 — Wait Before Poll').first().json;\nconst r = $input.first().json || {};\nconst status = typeof r.statusCode === 'number' ? r.statusCode : null;\nlet body = r.body;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep */ } }\nconst now = new Date();\nconst poll = { ...state.poll, attempts: (state.poll.attempts || 0) + 1, last_checked_at: now.toISOString(), last_http_status: status };\nconst elapsedMin = (now - new Date(state.poll.started_at)) / 60000;\nconst apiErr = body && typeof body === 'object' && body.error ? body.error : null;\n\nlet decision = 'CONTINUE', error_status = null, detail = null, job_status = body && body.status ? body.status : null;\nif (status === 200 && body && body.status) {\n  if (body.status === 'completed') decision = 'COMPLETED';\n  else if (body.status === 'failed') { decision = 'ERROR'; error_status = 'LTX_JOB_FAILED'; detail = apiErr ? `${apiErr.type}: ${apiErr.message}` : 'LTX reported the job as failed.'; }\n  else decision = 'CONTINUE'; // pending | processing\n} else if (status === 401 || status === 403) { decision = 'ERROR'; error_status = 'LTX_AUTH_ERROR'; detail = 'Authentication failed while polling.'; }\nelse if (status === 404) { decision = 'ERROR'; error_status = 'LTX_JOB_FAILED'; detail = 'Job not found (expired or unknown id).'; }\nelse { // 429 / 5xx / network: transient, keep polling within limits\n  poll.transient_errors = (poll.transient_errors || 0) + 1;\n  if (poll.transient_errors >= 6) { decision = 'ERROR'; error_status = status === 429 ? 'LTX_RATE_LIMIT' : 'UNKNOWN_ERROR'; detail = `Polling failed ${poll.transient_errors} times (last HTTP ${status}). Job ${state.submission.ltx_job_id} may still complete; check LTX before resubmitting.`; }\n}\nif (decision === 'CONTINUE' && (poll.attempts >= poll.max_attempts || elapsedMin >= poll.max_elapsed_minutes)) {\n  decision = 'ERROR'; error_status = 'LTX_JOB_TIMEOUT';\n  detail = `Job ${state.submission.ltx_job_id} still \"${job_status}\" after ${poll.attempts} polls / ${elapsedMin.toFixed(1)} min. Polling stopped. Record kept; do not resubmit the same version blindly.`;\n}\n\nreturn [{ json: {\n  ...state, poll, decision, job_status,\n  job: status === 200 ? body : null,\n  error_status, errors: error_status ? [{ field: 'ltx_job', message: detail }] : [],\n  has_reservation: true, already_responded: true,\n} }];\n"
+      },
+      "id": "315e688f-e087-4f73-816e-aa8fb2e1f3e0",
+      "name": "12 — Evaluate Job Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e082f131-50dd-487a-bb63-6198e80f5a7b",
+                    "leftValue": "={{ $json.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CONTINUE"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CONTINUE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "34657659-465c-4814-b4c7-4af9a1f11573",
+                    "leftValue": "={{ $json.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "COMPLETED"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COMPLETED"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ddd4f337-cc36-48ed-90bd-012cb2544eea",
+                    "leftValue": "={{ $json.decision }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "ERROR"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ERROR"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "OTHER"
+        }
+      },
+      "id": "adf4e982-aa1c-4627-a202-e39e364c228f",
+      "name": "12A — Route Job Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        5520,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $json.manifest.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "last_checked_at": "={{ ({ last_checked_at: $json.poll.last_checked_at, poll_attempts: $json.poll.attempts }).last_checked_at }}",
+            "poll_attempts": "={{ ({ last_checked_at: $json.poll.last_checked_at, poll_attempts: $json.poll.attempts }).poll_attempts }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c98ac954-263d-46c9-87d0-e5e64589df25",
+      "name": "12B — Record Poll Heartbeat",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        5040,
+        448
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('12 — Evaluate Job Status').first().json }];"
+      },
+      "id": "c8bbefff-72f3-4925-a5bf-9a96e8d69425",
+      "name": "12C — Carry Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 13 — Capture Completed Output\nconst ctx = $input.first().json;\nconst job = ctx.job || {};\nconst result = job.result || {};\nconst url = result.video_url || Object.values(result).find((v) => typeof v === 'string' && /^https:\\/\\//.test(v)) || null;\nconst ok = typeof url === 'string' && url.startsWith('https://');\nconst completed_at = job.completed_at || new Date().toISOString();\nconst submittedMs = new Date(ctx.submission.submitted_at).getTime();\nconst metadata = {\n  ltx_job_id: ctx.submission.ltx_job_id, ltx_created_at: job.created_at || ctx.submission.ltx_created_at, ltx_completed_at: job.completed_at || null,\n  generation_seconds: Math.round((new Date(completed_at).getTime() - submittedMs) / 1000),\n  poll_attempts: ctx.poll.attempts, result_keys: Object.keys(result),\n  request: ctx.ltx_request.body.image_uri && ctx.ltx_request.body.image_uri.startsWith('data:')\n    ? { ...ctx.ltx_request.body, image_uri: '[data-uri omitted]' } : ctx.ltx_request.body,\n  estimated_cost_usd: ctx.ltx.estimated_cost_usd, cost_basis: `${ctx.ltx.duration}s × $${ctx.ltx.price_per_second_usd}/s (docs.ltx.io/pricing, ${ctx.ltx.pricing_verified})`,\n  output_url_note: 'LTX output URLs expire. Download/archive the clip promptly.',\n  warnings: ctx.warnings,\n};\nreturn [{ json: {\n  ...ctx, output_ok: ok, output_url: url, completed_at, output_metadata: metadata,\n  error_status: ok ? null : 'OUTPUT_RETRIEVAL_FAILED',\n  errors: ok ? [] : [{ field: 'ltx_job.result', message: 'Job completed but no HTTPS video URL was found. Keys: ' + Object.keys(result).join(', ') }],\n} }];\n"
+      },
+      "id": "0e011da9-e98a-4c80-8018-14e5ecd208f7",
+      "name": "13 — Capture Completed Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5760,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3dc138d8-783a-4d50-ab8a-b10ccd6e6a68",
+              "leftValue": "={{ $json.output_ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9bec0ae3-3c3f-4032-9eb3-fbdb081485c0",
+      "name": "13A — Output Captured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6000,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $('13 — Capture Completed Output').first().json.manifest.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generation_status": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().generation_status }}",
+            "output_url": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().output_url }}",
+            "completed_at": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().completed_at }}",
+            "last_checked_at": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().last_checked_at }}",
+            "poll_attempts": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().poll_attempts }}",
+            "metadata_json": "={{ (() => { const c = $('13 — Capture Completed Output').first().json; return { generation_status: 'COMPLETED', output_url: c.output_url, completed_at: c.completed_at, last_checked_at: c.poll.last_checked_at, poll_attempts: c.poll.attempts, metadata_json: JSON.stringify(c.output_metadata) }; })().metadata_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1d5212d2-a4af-40a0-9697-aebcd30b96ab",
+      "name": "14 — Save Production Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        6240,
+        128
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $('13 — Capture Completed Output').first().json.manifest.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "approval_status": "={{ ({ approval_status: 'REVIEW_REQUIRED' }).approval_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "768a7fcc-7722-448a-b675-35ed1a013c0e",
+      "name": "15 — Set REVIEW_REQUIRED",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        6480,
+        128
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final structured result (execution output; also persisted in the Production Library).\nconst c = $('13 — Capture Completed Output').first().json;\nreturn [{ json: { result: 'REVIEW_REQUIRED', shot_id: c.manifest.shot_id, version: c.manifest.version, generation_key: c.manifest.generation_key, generation_type: c.manifest.generation_type, ltx_job_id: c.submission.ltx_job_id, generation_status: 'COMPLETED', approval_status: 'REVIEW_REQUIRED', output_url: c.output_url, submitted_at: c.submission.submitted_at, completed_at: c.completed_at, metadata: c.output_metadata, next_step: 'Human review required: POST to the review webhook (APPROVE / REJECT / REQUEST_REVISION).' } }];"
+      },
+      "id": "a1d520fc-9edb-463b-ae1c-6be4a3a7f7df",
+      "name": "16 — Return Production Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6720,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ERROR — Handle Failure\n// Single structured error shape for every failure path. Never includes credentials.\nconst j = $input.first().json || {};\nconst m = j.manifest || null;\nconst HTTP = {\n  VALIDATION_ERROR: 400, MISSING_REFERENCE_ASSET: 422, NOT_AUTHORIZED: 403, COST_LIMIT_EXCEEDED: 402,\n  DUPLICATE_GENERATION: 409, LTX_AUTH_ERROR: 502, LTX_RATE_LIMIT: 429, LTX_REQUEST_ERROR: 502,\n  LTX_JOB_FAILED: 502, LTX_JOB_TIMEOUT: 504, OUTPUT_RETRIEVAL_FAILED: 502, UNKNOWN_ERROR: 500,\n};\nlet error_status = j.error_status || (j.decision === 'UNSUPPORTED' ? 'VALIDATION_ERROR' : 'UNKNOWN_ERROR');\nif (!HTTP[error_status]) error_status = 'UNKNOWN_ERROR';\nconst scrub = (s) => String(s).replace(/Bearer\\s+[A-Za-z0-9._\\-]+/gi, 'Bearer [redacted]').replace(/(api[_-]?key|token|secret|password)[\"']?\\s*[:=]\\s*[\"']?[^\"',\\s}]+/gi, '$1=[redacted]');\nconst errors = (j.errors || []).map((e) => ({ field: e.field, message: scrub(e.message) }));\nconst shot_id = (m && m.shot_id) || (j.manifest && j.manifest.shot_id) || null;\nconst version = m ? m.version : null;\nconst generation_key = m && m.generation_key ? m.generation_key : null;\nconst now = new Date().toISOString();\n\nconst response_body = {\n  result: 'ERROR', error_status, shot_id, version, generation_key,\n  errors, warnings: j.warnings || [],\n  paid_generation_submitted: !!(j.submission && (j.submission.accepted || j.submission.ambiguous)),\n  ltx_job_id: j.submission ? j.submission.ltx_job_id : null,\n  existing_record: error_status === 'DUPLICATE_GENERATION' && j.existing_record ? {\n    generation_status: j.existing_record.generation_status, approval_status: j.existing_record.approval_status,\n    ltx_job_id: j.existing_record.ltx_job_id || null, output_url: j.existing_record.output_url || null,\n    submitted_at: j.existing_record.submitted_at || null, completed_at: j.existing_record.completed_at || null,\n  } : null,\n  timestamp: now,\n};\nreturn [{ json: {\n  http_status: HTTP[error_status],\n  response_body,\n  // Only overwrite the library row when THIS execution created the reservation (never for duplicates/validation).\n  record_update: j.has_reservation && generation_key ? {\n    generation_key, generation_status: 'FAILED', approval_status: 'FAILED', error_status,\n    error_detail: scrub(errors.map((e) => e.message).join(' | ')).slice(0, 2000),\n    ltx_job_id: (j.submission && j.submission.ltx_job_id) || '',\n    last_checked_at: j.poll ? j.poll.last_checked_at || now : now,\n    poll_attempts: j.poll ? j.poll.attempts || 0 : 0,\n  } : null,\n  already_responded: j.already_responded === true,\n} }];\n"
+      },
+      "id": "c38cd007-baaf-47e8-8aae-eab799c59db9",
+      "name": "ERROR — Handle Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9125c19d-ef3c-44b9-a7f8-e1a8f0cd77b4",
+              "leftValue": "={{ !!$json.record_update }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3603d91e-1638-446c-8e27-abb700d5aadb",
+      "name": "ERROR — Update Library Row?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lXrzXmn2mo8J7K0Z",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "generation_key",
+              "keyValue": "={{ $('ERROR — Handle Failure').first().json.record_update.generation_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generation_status": "={{ $('ERROR — Handle Failure').first().json.record_update.generation_status }}",
+            "approval_status": "={{ $('ERROR — Handle Failure').first().json.record_update.approval_status }}",
+            "error_status": "={{ $('ERROR — Handle Failure').first().json.record_update.error_status }}",
+            "error_detail": "={{ $('ERROR — Handle Failure').first().json.record_update.error_detail }}",
+            "ltx_job_id": "={{ $('ERROR — Handle Failure').first().json.record_update.ltx_job_id }}",
+            "last_checked_at": "={{ $('ERROR — Handle Failure').first().json.record_update.last_checked_at }}",
+            "poll_attempts": "={{ $('ERROR — Handle Failure').first().json.record_update.poll_attempts }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generation_key",
+              "displayName": "generation_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "project_id",
+              "displayName": "project_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "season_id",
+              "displayName": "season_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "episode_id",
+              "displayName": "episode_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "scene_id",
+              "displayName": "scene_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "shot_id",
+              "displayName": "shot_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "version",
+              "displayName": "version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_type",
+              "displayName": "generation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "generation_status",
+              "displayName": "generation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "approval_status",
+              "displayName": "approval_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_job_id",
+              "displayName": "ltx_job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ltx_endpoint",
+              "displayName": "ltx_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_model",
+              "displayName": "ltx_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ltx_resolution",
+              "displayName": "ltx_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_prompt",
+              "displayName": "submitted_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reference_assets",
+              "displayName": "reference_assets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "first_frame_asset_id",
+              "displayName": "first_frame_asset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_checked_at",
+              "displayName": "last_checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "poll_attempts",
+              "displayName": "poll_attempts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "output_url",
+              "displayName": "output_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "manifest_json",
+              "displayName": "manifest_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "metadata_json",
+              "displayName": "metadata_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_notes",
+              "displayName": "review_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_history",
+              "displayName": "review_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "aec4cffa-c559-4c82-8924-146a05c99b65",
+      "name": "ERROR — Record Failure",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        3840,
+        608
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "405c2466-e851-47de-ad57-03734ba18c57",
+              "leftValue": "={{ !$json.already_responded }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "664d7801-9871-46f1-acfa-4fe48633b948",
+      "name": "ERROR — Caller Still Waiting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('ERROR — Handle Failure').first().json.response_body, null, 2) }}",
+        "options": {
+          "responseCode": "={{ $('ERROR — Handle Failure').first().json.http_status }}"
+        }
+      },
+      "id": "d5f87132-37e3-4ec5-ab89-9deba0083651",
+      "name": "ERROR — Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3840,
+        800
+      ]
+    }
+  ],
+  "connections": {
+    "01A — Receive Shot Manifest (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "01C — Extract Manifest Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01C — Extract Manifest Payload": {
+      "main": [
+        [
+          {
+            "node": "02 — Validate Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 — Validate Required Fields": {
+      "main": [
+        [
+          {
+            "node": "02A — Is Manifest Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02A — Is Manifest Valid?": {
+      "main": [
+        [
+          {
+            "node": "03 — Normalize Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 — Normalize Manifest": {
+      "main": [
+        [
+          {
+            "node": "03A — Normalization OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03A — Normalization OK?": {
+      "main": [
+        [
+          {
+            "node": "03B — Load Existing Production Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03B — Load Existing Production Record": {
+      "main": [
+        [
+          {
+            "node": "04 — Check Generation Authorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 — Check Generation Authorization": {
+      "main": [
+        [
+          {
+            "node": "04A — Route Authorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04A — Route Authorization": {
+      "main": [
+        [
+          {
+            "node": "05 — Check Duplicate Shot Version",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04B — Stage READY_FOR_APPROVAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04B — Stage READY_FOR_APPROVAL": {
+      "main": [
+        [
+          {
+            "node": "04C — Safe to Record?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04C — Safe to Record?": {
+      "main": [
+        [
+          {
+            "node": "04D — Save READY_FOR_APPROVAL Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04E — Return READY_FOR_APPROVAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04D — Save READY_FOR_APPROVAL Record": {
+      "main": [
+        [
+          {
+            "node": "04E — Return READY_FOR_APPROVAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 — Check Duplicate Shot Version": {
+      "main": [
+        [
+          {
+            "node": "05A — Is New Generation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05A — Is New Generation?": {
+      "main": [
+        [
+          {
+            "node": "05B — Reserve Generation Slot (SUBMITTING)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05B — Reserve Generation Slot (SUBMITTING)": {
+      "main": [
+        [
+          {
+            "node": "06 — Route Generation Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 — Route Generation Type": {
+      "main": [
+        [
+          {
+            "node": "07A — Prepare Image-to-Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "07B — Prepare Text-to-Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "06X — Unsupported Generation Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06X — Unsupported Generation Type": {
+      "main": [
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07A — Prepare Image-to-Video": {
+      "main": [
+        [
+          {
+            "node": "08 — Submit LTX Async Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07B — Prepare Text-to-Video": {
+      "main": [
+        [
+          {
+            "node": "08 — Submit LTX Async Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 — Submit LTX Async Job": {
+      "main": [
+        [
+          {
+            "node": "08A — Interpret LTX Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08A — Interpret LTX Submission": {
+      "main": [
+        [
+          {
+            "node": "08B — Job Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08B — Job Accepted?": {
+      "main": [
+        [
+          {
+            "node": "09 — Save LTX Job Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 — Save LTX Job Record": {
+      "main": [
+        [
+          {
+            "node": "09A — Return GENERATING (202)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09A — Return GENERATING (202)": {
+      "main": [
+        [
+          {
+            "node": "09B — Init Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09B — Init Poll State": {
+      "main": [
+        [
+          {
+            "node": "10 — Wait Before Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 — Wait Before Poll": {
+      "main": [
+        [
+          {
+            "node": "11 — Check LTX Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 — Check LTX Job Status": {
+      "main": [
+        [
+          {
+            "node": "12 — Evaluate Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 — Evaluate Job Status": {
+      "main": [
+        [
+          {
+            "node": "12A — Route Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12A — Route Job Status": {
+      "main": [
+        [
+          {
+            "node": "12B — Record Poll Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "13 — Capture Completed Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12B — Record Poll Heartbeat": {
+      "main": [
+        [
+          {
+            "node": "12C — Carry Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12C — Carry Poll State": {
+      "main": [
+        [
+          {
+            "node": "10 — Wait Before Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 — Capture Completed Output": {
+      "main": [
+        [
+          {
+            "node": "13A — Output Captured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13A — Output Captured?": {
+      "main": [
+        [
+          {
+            "node": "14 — Save Production Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ERROR — Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14 — Save Production Record": {
+      "main": [
+        [
+          {
+            "node": "15 — Set REVIEW_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15 — Set REVIEW_REQUIRED": {
+      "main": [
+        [
+          {
+            "node": "16 — Return Production Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ERROR — Handle Failure": {
+      "main": [
+        [
+          {
+            "node": "ERROR — Update Library Row?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ERROR — Caller Still Waiting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ERROR — Update Library Row?": {
+      "main": [
+        [
+          {
+            "node": "ERROR — Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ERROR — Caller Still Waiting?": {
+      "main": [
+        [
+          {
+            "node": "ERROR — Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "d68a4375-1b71-4bad-8cf9-26db01fe5613",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-09-23T11:08:11.957Z",
+      "createdAt": "2026-09-23T11:08:11.957Z",
+      "role": "workflow:owner",
+      "workflowId": "3OHnzKlRjM6obY5Q",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
