@@ -1,0 +1,809 @@
+{
+  "updatedAt": "2026-09-10T16:27:44.297Z",
+  "createdAt": "2026-08-02T22:42:32.512Z",
+  "id": "lXrhRGpHyIVAjScI",
+  "name": "Damu — Sheet to Buffer",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "trigDaily",
+      "name": "Daily 07:00 GST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -704,
+        0
+      ],
+      "notes": "Scans the sheet each morning and sends anything approved and not yet scheduled to Buffer."
+    },
+    {
+      "parameters": {},
+      "id": "trigManual",
+      "name": "Run Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        192
+      ],
+      "notes": "Posts to Buffer for real."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.buffer.com",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "bufferApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"query\":\"query GetScheduledPosts { posts(input: {organizationId: \\\"694486bc467d109517b74823\\\", filter: {status: [scheduled] } } ) { edges { node { id dueAt } } } }\"}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "headroom",
+      "name": "Check Buffer Headroom",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -464,
+        80
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "bufferApi": {
+          "id": "KtqJZeqhoxb2voUw",
+          "name": "Damu Buffer"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Buffer's free plan holds max 10 scheduled posts. This counts what is already there so we never send more than fits."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1bOMgX32nQWQx10w2wK4lLyF4I7XUGVZJhweO12YuguM",
+          "mode": "id",
+          "cachedResultName": "Damu Winston Content Sheet"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 521347784,
+          "mode": "list",
+          "cachedResultName": "Post Schedule",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bOMgX32nQWQx10w2wK4lLyF4I7XUGVZJhweO12YuguM/edit#gid=521347784"
+        },
+        "options": {}
+      },
+      "id": "readsheet",
+      "name": "Read Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -288,
+        80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============ CONFIG ============\nconst TZ_OFFSET       = '+04:00';            // Asia/Dubai\nconst DAILY_SLOTS     = ['10:00', '13:00'];  // 2 per day\nconst SKIP_WEEKDAYS   = [0];                 // 0 = Sunday\nconst BUFFER_PLAN_CAP = 10;\nconst LEAD_MINUTES    = 15;\nconst LOOKAHEAD_DAYS  = 30;\nconst SKIP_STATUSES   = ['skip', 'archived'];\n// ================================\n\nconst norm   = (v) => String(v ?? '').trim();\nconst lower  = (v) => norm(v).toLowerCase();\nconst isDate = (v) => /^\\d{4}-\\d{2}-\\d{2}$/.test(v);\nconst slotMs = (d, t) => new Date(`${d}T${t}:00${TZ_OFFSET}`).getTime();\n\nconst nowMs = Date.now() + LEAD_MINUTES * 60000;\n\nconst cleanTime = (v) => {\n  const m = norm(v).match(/^(\\d{1,2}):(\\d{2})/);\n  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';\n};\n\n\n// ============================================================\n// 1. BUILD OCCUPIED SLOT LIST\n// ============================================================\n// Every slot already spoken for, so we never double-book.\nconst occupied = new Set();\n\n\n// ---- From the previous node / sheet ----\nfor (const item of $input.all()) {\n  const r = item.json;\n\n  const d = norm(r.Scheduled_Date).slice(0, 10);\n  const t = cleanTime(r.Scheduled_Time);\n\n  if (isDate(d) && t) {\n    occupied.add(`${d}T${t}`);\n  }\n}\n\n\n// ---- From Buffer's live queue ----\n// Buffer is also treated as a source of truth because its schedule\n// may not perfectly match the sheet.\ntry {\n  const edges =\n    $('Check Buffer Headroom')\n      .first()\n      .json\n      ?.data\n      ?.posts\n      ?.edges ?? [];\n\n  for (const e of edges) {\n    const due = e?.node?.dueAt;\n\n    if (!due) continue;\n\n    // Convert UTC Buffer date into Dubai local time.\n    const local = new Date(\n      new Date(due).getTime() + 4 * 3600 * 1000\n    );\n\n    const date = local.toISOString().slice(0, 10);\n    const time = local.toISOString().slice(11, 16);\n\n    occupied.add(`${date}T${time}`);\n  }\n} catch (e) {\n  // Don't fail the workflow just because Buffer data\n  // isn't available.\n}\n\n\n// ============================================================\n// 2. BUILD FORWARD-LOOKING FREE SLOT GRID\n// ============================================================\nconst grid = [];\n\nconst today = new Date(\n  Date.now() + 4 * 3600 * 1000\n); // Dubai local\n\nfor (let i = 0; i < LOOKAHEAD_DAYS; i++) {\n\n  const day = new Date(\n    Date.UTC(\n      today.getUTCFullYear(),\n      today.getUTCMonth(),\n      today.getUTCDate() + i\n    )\n  );\n\n  // Skip configured weekdays.\n  if (SKIP_WEEKDAYS.includes(day.getUTCDay())) {\n    continue;\n  }\n\n  const dateStr = day.toISOString().slice(0, 10);\n\n  for (const t of DAILY_SLOTS) {\n\n    const ms = slotMs(dateStr, t);\n\n    // Don't schedule anything in the past or too close to now.\n    if (ms <= nowMs) {\n      continue;\n    }\n\n    // Don't double-book.\n    if (occupied.has(`${dateStr}T${t}`)) {\n      continue;\n    }\n\n    grid.push({\n      date: dateStr,\n      time: t,\n      ms,\n    });\n  }\n}\n\n\n// Sort available slots chronologically.\ngrid.sort((a, b) => a.ms - b.ms);\n\nlet gridPos = 0;\n\nconst takeNextSlot = () => {\n  return gridPos < grid.length\n    ? grid[gridPos++]\n    : null;\n};\n\n\n// ============================================================\n// 3. DETERMINE WHICH POSTS ARE ELIGIBLE\n// ============================================================\nconst dated   = [];\nconst undated = [];\nconst skipped = [];\n\n\n// ------------------------------------------------------------\n// DUPLICATE-ROW GUARD\n// ------------------------------------------------------------\n// The sheet write-back matches on Post_ID and updates the FIRST\n// matching row. So if the same Post_ID exists twice, sending the\n// second copy stamps the Buffer ID onto the FIRST row and leaves\n// the copy blank. A blank Buffer_post_id reads as \"never sent\",\n// so that copy gets re-posted on every single run, forever.\n//\n// This is exactly what produced 13 duplicate posts in Buffer\n// from 9 duplicated rows (rows 39-47 repeating rows 29-37).\n// ------------------------------------------------------------\nconst fingerprint = (t) =>\n  norm(t).replace(/\\s+/g, ' ').slice(0, 120).toLowerCase();\n\nconst sentIds   = new Set();   // Post_IDs that already carry a Buffer ID\nconst sentTexts = new Set();   // and their text, to catch copies under a new ID\n\nfor (const item of $input.all()) {\n  const r = item.json;\n  if (!norm(r.Buffer_post_id)) continue;\n  sentIds.add(norm(r.Post_ID));\n  sentTexts.add(fingerprint(r.Post_Text));\n}\n\nconst seenIds   = new Set();   // guards against two copies inside one run\nconst seenTexts = new Set();\n\nfor (const item of $input.all()) {\n\n  // Entire original JSON object from the previous node.\n  const r = item.json;\n\n  const postId = norm(r.Post_ID);\n  const text   = norm(r.Post_Text);\n\n  const skip = (why) => {\n    skipped.push(\n      `${postId || '(no id)'}: ${why}`\n    );\n  };\n\n\n  // ----------------------------------------------------------\n  // Required values\n  // ----------------------------------------------------------\n  if (!postId || !text) {\n    continue;\n  }\n\n\n  // ----------------------------------------------------------\n  // Must be approved\n  // ----------------------------------------------------------\n  if (lower(r.Approved) !== 'approved') {\n    skip('not approved');\n    continue;\n  }\n\n\n  // ----------------------------------------------------------\n  // Don't send posts already created in Buffer\n  // ----------------------------------------------------------\n  if (norm(r.Buffer_post_id)) {\n    continue;\n  }\n\n\n  // ----------------------------------------------------------\n  // Duplicate guard - see notes at the top of section 3\n  // ----------------------------------------------------------\n  const fp = fingerprint(text);\n\n  // A copy of a row that has already been sent\n  if (sentIds.has(postId)) {\n    skip('DUPLICATE ROW - this Post_ID already has a Buffer ID on another row');\n    continue;\n  }\n\n  if (sentTexts.has(fp)) {\n    skip('DUPLICATE TEXT - this exact content has already been sent');\n    continue;\n  }\n\n  // Two copies of the same post inside this one run\n  if (seenIds.has(postId)) {\n    skip('DUPLICATE ROW - Post_ID appears more than once in the sheet');\n    continue;\n  }\n\n  if (seenTexts.has(fp)) {\n    skip('DUPLICATE TEXT - identical content appears more than once in the sheet');\n    continue;\n  }\n\n  seenIds.add(postId);\n  seenTexts.add(fp);\n\n\n  // ----------------------------------------------------------\n  // Don't process skipped / archived records\n  // ----------------------------------------------------------\n  if (SKIP_STATUSES.includes(lower(r.Status))) {\n    skip(`status ${lower(r.Status)}`);\n    continue;\n  }\n\n\n  // ----------------------------------------------------------\n  // Normalize useful post properties\n  // ----------------------------------------------------------\n  const hashtags = norm(r.Hashtags);\n  const imageUrl = norm(r.Image_URL);\n\n\n  // ==========================================================\n  // IMPORTANT:\n  // Preserve ALL JSON fields from the previous node.\n  //\n  // ...r means fields such as:\n  //\n  // row_number\n  // Post_ID\n  // Week_Of\n  // Story_Topic\n  // Vertical\n  // Post_Variant\n  // Platform\n  // Post_Text\n  // Hashtags\n  // Scheduled_Date\n  // Scheduled_Time\n  // Status\n  // Source_Link\n  // Image_URL\n  // Character_Count\n  // Approved\n  // Notes\n  // Buffer_scheduled_at\n  // Buffer_post_id\n  //\n  // plus ANY future columns you add upstream.\n  // ==========================================================\n  const base = {\n\n    // Preserve all original JSON\n    ...r,\n\n    // Add normalized / workflow-friendly fields\n    postId,\n\n    fullText: hashtags\n      ? `${text}\\n\\n${hashtags}`\n      : text,\n\n    imageUrl,\n\n    hasImage: /^https?:\\/\\//i.test(imageUrl),\n\n    topic: norm(r.Story_Topic),\n\n    notes: norm(r.Notes),\n  };\n\n\n  // ----------------------------------------------------------\n  // Check existing scheduled date/time\n  // ----------------------------------------------------------\n  const d = norm(r.Scheduled_Date).slice(0, 10);\n  const t = cleanTime(r.Scheduled_Time);\n\n\n  // ==========================================================\n  // ALREADY HAS A VALID DATE + TIME\n  // ==========================================================\n  if (isDate(d) && t) {\n\n    // Don't send stale scheduled posts.\n    if (slotMs(d, t) <= nowMs) {\n      skip(\n        `${d} ${t} already passed - clear the date to let it be rescheduled`\n      );\n      continue;\n    }\n\n\n    dated.push({\n      ...base,\n\n      dateStr: d,\n      timeStr: t,\n\n      // False means this was already scheduled upstream.\n      assigned: false,\n    });\n\n  } else {\n\n    // No valid schedule, so we'll assign one.\n    undated.push(base);\n  }\n}\n\n\n// ============================================================\n// 4. ASSIGN FREE SLOTS TO UNDATED POSTS\n// ============================================================\nfor (const p of undated) {\n\n  const g = takeNextSlot();\n\n  if (!g) {\n    skipped.push(\n      `${p.postId}: no free slot in the next ${LOOKAHEAD_DAYS} days`\n    );\n    continue;\n  }\n\n\n  dated.push({\n    ...p,\n\n    dateStr: g.date,\n    timeStr: g.time,\n\n    // True means this Code node assigned the slot.\n    assigned: true,\n  });\n}\n\n\n// ============================================================\n// 5. ADD FINAL BUFFER SCHEDULING FIELDS\n// ============================================================\ndated.forEach((p) => {\n\n  p.dueAt =\n    `${p.dateStr}T${p.timeStr}:00${TZ_OFFSET}`;\n\n  p.when =\n    `${p.dateStr} ${p.timeStr}`;\n\n  p.sortMs =\n    slotMs(p.dateStr, p.timeStr);\n});\n\n\n// Process oldest / soonest first.\ndated.sort((a, b) => a.sortMs - b.sortMs);\n\n\n// ============================================================\n// 6. DETERMINE CURRENT BUFFER HEADROOM\n// ============================================================\nlet inBuffer = null;\n\ntry {\n\n  const edges =\n    $('Check Buffer Headroom')\n      .first()\n      .json\n      ?.data\n      ?.posts\n      ?.edges;\n\n  if (Array.isArray(edges)) {\n    inBuffer = edges.length;\n  }\n\n} catch (e) {\n  // Leave inBuffer as null.\n}\n\n\n// If Buffer couldn't be checked, default to sending only 2.\n// Otherwise respect configured Buffer ceiling.\nconst headroom =\n  inBuffer === null\n    ? 2\n    : Math.max(\n        0,\n        BUFFER_PLAN_CAP - inBuffer\n      );\n\n\n// Only send as many posts as Buffer currently has room for.\nconst send = dated.slice(0, headroom);\n\n\n// Everything else waits.\ndated\n  .slice(headroom)\n  .forEach((p) => {\n\n    skipped.push(\n      `${p.postId}: waiting - Buffer full (${inBuffer}/${BUFFER_PLAN_CAP})`\n    );\n\n  });\n\n\n// ============================================================\n// 7. DEBUG LOGGING\n// ============================================================\nconsole.log(\n  `Buffer ${inBuffer ?? '?'}/${BUFFER_PLAN_CAP}. ` +\n  `Ready ${dated.length}, sending ${send.length}.`\n);\n\nconsole.log(\n  'SENDING:\\n  ' +\n  (\n    send\n      .map(\n        (p) =>\n          `${p.when}  ${p.postId}` +\n          `${p.assigned ? '  (slot assigned)' : ''}`\n      )\n      .join('\\n  ')\n    ||\n    'nothing'\n  )\n);\n\nif (skipped.length) {\n\n  console.log(\n    'SKIPPED:\\n  ' +\n    skipped.join('\\n  ')\n  );\n\n}\n\n\n// ============================================================\n// 8. OUTPUT\n// ============================================================\n//\n// Each output item now contains:\n//\n// 1. ALL original JSON fields from the previous node\n// 2. Normalized convenience fields\n// 3. Assigned scheduling fields\n//\n// Example access downstream:\n//\n// {{$json.Post_ID}}\n// {{$json.Post_Text}}\n// {{$json.Source_Link}}\n// {{$json.Image_URL}}\n// {{$json.Vertical}}\n// {{$json.Post_Variant}}\n//\n// PLUS:\n//\n// {{$json.postId}}\n// {{$json.fullText}}\n// {{$json.imageUrl}}\n// {{$json.hasImage}}\n// {{$json.dateStr}}\n// {{$json.timeStr}}\n// {{$json.dueAt}}\n// {{$json.when}}\n// {{$json.assigned}}\n//\n\nreturn send.map((json) => ({\n  json\n}));"
+      },
+      "id": "select",
+      "name": "Pick Posts To Send",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        80
+      ],
+      "notes": "Approved + not already in Buffer. Undated rows get the next free slot (10:00 / 13:00, Mon-Sat), written back to the sheet. DUPLICATE GUARD: skips any row whose Post_ID or post text has already been sent, or appears twice in the sheet - the write-back only updates the first matching row, so duplicates would otherwise re-post every run."
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "loop",
+      "name": "One At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        272,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "img",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "hasimage",
+      "name": "Has Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        432,
+        208
+      ],
+      "notes": "Whatever is in Image_URL gets attached. Blank means a text post. The workflow never makes images."
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "organizationId": "694486bc467d109517b74823",
+        "channelId": "69bd19f47be9f8b171766b4d|linkedin",
+        "postText": "={{ $json.fullText }}",
+        "shareMode": "customScheduled",
+        "dueAt": "={{ $json.dueAt }}",
+        "attachmentType": "image",
+        "imageUrl": "={{ $json.imageUrl }}",
+        "imageThumbnailUrl": "={{ $json.imageUrl }}"
+      },
+      "id": "postimage",
+      "name": "Buffer — With Image",
+      "type": "@bufferapp/n8n-nodes-buffer.buffer",
+      "typeVersion": 1,
+      "position": [
+        672,
+        112
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "bufferApi": {
+          "id": "KtqJZeqhoxb2voUw",
+          "name": "Damu Buffer"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "organizationId": "694486bc467d109517b74823",
+        "channelId": "69bd19f47be9f8b171766b4d|linkedin",
+        "postText": "={{ $json.fullText }}",
+        "shareMode": "customScheduled",
+        "dueAt": "={{ $json.dueAt }}"
+      },
+      "id": "posttext",
+      "name": "Buffer — Text Only",
+      "type": "@bufferapp/n8n-nodes-buffer.buffer",
+      "typeVersion": 1,
+      "position": [
+        672,
+        320
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "bufferApi": {
+          "id": "KtqJZeqhoxb2voUw",
+          "name": "Damu Buffer"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('One At A Time').first().json ?? {};\nconst res = $input.first().json ?? {};\n\nconst bufferPostId = res.id ?? res?.post?.id ?? res?.data?.createPost?.post?.id ?? '';\nconst ok = Boolean(bufferPostId);\n\nlet err = '';\nif (!ok) {\n  err = res?.error?.message ?? res?.error ?? res?.message ?? res?.data?.createPost?.message\n    ?? (Array.isArray(res?.errors) ? res.errors.map(e => e.message).join('; ') : '')\n    ?? 'Buffer returned no post ID';\n}\n\nconst stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');\n\nreturn [{ json: {\n  Post_ID: src.postId,\n  // Written back so the sheet shows when it actually goes out\n  Scheduled_Date: src.dateStr,\n  Scheduled_Time: src.timeStr,\n  Status: ok ? 'Scheduled' : 'Failed',\n  Buffer_post_id: bufferPostId,\n  Buffer_scheduled_at: ok ? (res.dueAt ?? res?.post?.dueAt ?? src.dueAt ?? '') : '',\n  Notes: ok ? src.notes : [src.notes, `[${stamp}] ${err}`].filter(Boolean).join(' ').slice(0, 480),\n  _ok: ok,\n  _when: src.when,\n  _topic: src.topic,\n  _img: src.hasImage ? 'image' : 'text',\n  _assigned: !!src.assigned,\n} }];"
+      },
+      "id": "normalize",
+      "name": "Read Buffer Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        208
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1bOMgX32nQWQx10w2wK4lLyF4I7XUGVZJhweO12YuguM",
+          "mode": "id",
+          "cachedResultName": "Damu Winston Content Sheet"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 521347784,
+          "mode": "list",
+          "cachedResultName": "Post Schedule",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bOMgX32nQWQx10w2wK4lLyF4I7XUGVZJhweO12YuguM/edit#gid=521347784"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post_ID": "={{ $json.Post_ID }}",
+            "Scheduled_Date": "={{ $json.Scheduled_Date }}",
+            "Scheduled_Time": "={{ $json.Scheduled_Time }}",
+            "Status": "={{ $json.Status }}",
+            "Buffer_post_id": "={{ $json.Buffer_post_id }}",
+            "Buffer_scheduled_at": "={{ $json.Buffer_scheduled_at }}",
+            "Notes": "={{ $json.Notes }}"
+          },
+          "matchingColumns": [
+            "Post_ID"
+          ],
+          "schema": [
+            {
+              "id": "Post_ID",
+              "displayName": "Post_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Week_Of",
+              "displayName": "Week_Of",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Story_Topic",
+              "displayName": "Story_Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Vertical",
+              "displayName": "Vertical",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post_Variant",
+              "displayName": "Post_Variant",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Platform",
+              "displayName": "Platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post_Text",
+              "displayName": "Post_Text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Hashtags",
+              "displayName": "Hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scheduled_Date",
+              "displayName": "Scheduled_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scheduled_Time",
+              "displayName": "Scheduled_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source_Link",
+              "displayName": "Source_Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image_URL",
+              "displayName": "Image_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Character_Count",
+              "displayName": "Character_Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Approved",
+              "displayName": "Approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Buffer_scheduled_at",
+              "displayName": "Buffer_scheduled_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Buffer_post_id",
+              "displayName": "Buffer_post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgent",
+              "displayName": "Urgent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image_Source",
+              "displayName": "Image_Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "writeback",
+      "name": "Mark Done In Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1152,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Writes back the slot the workflow chose, plus the Buffer ID that stops it ever being sent twice."
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "wait",
+      "name": "Wait 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        208
+      ],
+      "webhookId": "c59cf614-a531-454f-891d-13c51a421690"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The loop's done output carries every row that passed through the sheet write,\n// one per iteration. Success = a Buffer ID came back.\nconst rows = $input.all().map(i => i.json ?? {});\n\nconst ok     = rows.filter(r => String(r.Buffer_post_id ?? '').trim());\nconst failed = rows.filter(r => !String(r.Buffer_post_id ?? '').trim());\n\nconst lines = [`Sent ${ok.length} of ${rows.length} to Buffer.`];\n\nif (ok.length) {\n  lines.push('');\n  ok.forEach(r => lines.push(`  ${r.Scheduled_Date} ${r.Scheduled_Time}  ${r.Post_ID}`));\n}\nif (failed.length) {\n  lines.push('', 'FAILED');\n  failed.forEach(r => lines.push(`  ${r.Post_ID}  ${r.Notes ?? ''}`));\n}\nif (!rows.length) lines.push('Nothing sent. See the Pick Posts To Send console for why.');\n\nconst summary = lines.join('\\n');\nconsole.log(summary);\nreturn [{ json: { sent: ok.length, failed: failed.length, summary } }];"
+      },
+      "id": "summary",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -96
+      ],
+      "notes": "Reads the loop's done output, which holds every row written back. Referencing 'Read Buffer Result' here only ever returned the LAST iteration, which made a 7-post run report as 1."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bc87291c-7a12-4856-bfdd-66d4fa622b47",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Draft",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "beee6358-04d3-4d8e-a375-fcbe05bf1eb3",
+              "leftValue": "={{ $json.Approved }}",
+              "rightValue": "=approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "b357104d-e488-41ec-a683-329f5ba18bff",
+              "leftValue": "={{ $json.Buffer_scheduled_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        64,
+        80
+      ],
+      "id": "5e701d97-aa60-4251-b7a7-588da3b1ba2a",
+      "name": "If",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Daily 07:00 GST": {
+      "main": [
+        [
+          {
+            "node": "Check Buffer Headroom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now": {
+      "main": [
+        [
+          {
+            "node": "Check Buffer Headroom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Buffer Headroom": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet": {
+      "main": [
+        [
+          {
+            "node": "Pick Posts To Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Posts To Send": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One At A Time": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Buffer — With Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buffer — Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer — With Image": {
+      "main": [
+        [
+          {
+            "node": "Read Buffer Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer — Text Only": {
+      "main": [
+        [
+          {
+            "node": "Read Buffer Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Buffer Result": {
+      "main": [
+        [
+          {
+            "node": "Mark Done In Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Done In Sheet": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:Every Sunday 18:00 GST": {
+      "recurrenceRules": []
+    },
+    "node:Every Morning 07:00 GST": {
+      "recurrenceRules": []
+    },
+    "node:Sunday 18:00 — Plan Week": {
+      "recurrenceRules": []
+    },
+    "node:Daily 07:00 — Top Up": {
+      "recurrenceRules": []
+    },
+    "node:Hourly 08-20 — Urgent Sweep": {
+      "recurrenceRules": []
+    },
+    "node:Daily 07:00 — Watch Sheet": {
+      "recurrenceRules": []
+    },
+    "node:Daily 07:00 GST": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "6104fad7-c25a-4d69-8652-55132d6b08eb",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-08-02T22:42:32.512Z",
+      "createdAt": "2026-08-02T22:42:32.512Z",
+      "role": "workflow:owner",
+      "workflowId": "lXrhRGpHyIVAjScI",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:54:30.174Z",
+      "createdAt": "2026-08-03T13:54:30.174Z",
+      "id": "94KWmPdzyc1YEP11",
+      "name": "social"
+    }
+  ]
+}
