@@ -1,0 +1,1989 @@
+{
+  "updatedAt": "2026-08-08T03:00:32.538Z",
+  "createdAt": "2026-01-12T08:03:47.225Z",
+  "id": "sCHO1DVXcoxw6k9D",
+  "name": "Damu Winston - LinkedIn Influencer Content to Post",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🎯 UNIPILE INFLUENCER TRACKING\n\n**Purpose:** Track 30 LinkedIn influencers daily, identify trending topics, generate Damu's institutional opinion posts\n\n**Flow:**\n1. Fetch last 10 posts from 30 influencers\n2. Filter to last 24 hours\n3. AI extracts trending topics\n4. Match with Damu's expertise\n5. Select best topic\n6. Generate opinion post\n7. Quality check\n8. Merge with main workflow\n\n**Output:** Opinion post on trending topic OR article-based post\n\n**Frequency:** Every 12 hours\n\n**Cost:** \n- Unipile: ~$50-100/mo\n- OpenAI: ~$15-25/mo\n- Total: ~$65-125/mo",
+        "height": 440,
+        "width": 320,
+        "color": 5
+      },
+      "id": "75fc3237-d9c7-4e8c-8b05-f1af38b2a58f",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-safeguard-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        1520
+      ],
+      "id": "75546a94-1b65-4450-ac8a-7d0bf7f1d87f",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "Br1md6Jijpx4CMyA",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.unsplash.com/search/photos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.output.split(' ').slice(0, 5).join(' ') }} business professional"
+            },
+            {
+              "name": "per_page",
+              "value": "5"
+            },
+            {
+              "name": "orientation",
+              "value": "landscape"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Client-ID vHWsxLZy0eZ8yNZfpkAaQziqU_Lcc3QlP24mRmSoju4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "526aba5e-1a53-4018-b4e8-563188812ede",
+      "name": "Search Unsplash (Fallback)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        1392
+      ],
+      "notes": "Searches Unsplash for professional image if no article image"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Based on this LinkedIn post content, generate a search query to find a relevant, professional image:\n\nPOST CONTENT:\n{{ $('Edit Fields1').item.json['LInkedin Post'] }}\n\nGenerate a concise search query (2-5 words) for Unsplash that would find:\n- Professional, business-appropriate imagery\n- Related to the post topic (AI, blockchain, tokenization, finance, technology)\n- Suitable for institutional/executive audience\n- High quality, modern aesthetic\n\nExamples:\n- \"blockchain enterprise technology\"\n- \"artificial intelligence boardroom\"\n- \"digital finance infrastructure\"\n- \"tokenization financial technology\"\n- \"institutional crypto compliance\"\n\nReturn ONLY the search query, nothing else.",
+        "options": {
+          "systemMessage": "=You're an AI prompt engineer specializing in creating prompts that will be used to create images for an Jobs of the Future a think tank company that analyses trends. \n\nYou will receive txt data about a topic or post. Analyze this text to Identify key elements such as the subject, action, setting and additional details.\n\nUse the information extracted from the text to fill in the following AI image generation prompt template:\n\n[subject], [action], [setting], [additional details]. The image must be natural, realistic, in 2018, style raw, 4k taken on an iPhone --ar 16:\n\n\n-[subject] should be the main focus of the image like a person, object, creature, or concept. Be as specific as possible.\n- [action] should describe what the subject is doing using active. descriptive verbs.\n- [setting] should paint a vivid picture of the location, background, or environment surrounding the subject.\n-[additional details] can include extra elements to enhance the image, such as clothing, colors, lightening, composition, or artistic references.\n\n3.) Always end the generated prompt with exact phrase: 'The image must feel natural, realistic, in 2018, style raw, 4k, taken on an iPhone, --ar 16:9'\n\n\n4) Ensure that the final prompt is well formatted and includes all the necessary components. Avoid incomplete or poorly structures prompts.\n\n5) Output the complete AI image generation, ready for use.\n\nExample input text:\n\n\"In the heart of a dense forest, a majestic stag stands alert, its antlers glistening in dappled sunlight filtering the canopy. The rich earthy hues of the foliage create a vivid backdrop for the striking creature\"\n\nExample output prompt:\nA majestic stag standing alert in the heart of a dense forest, antlers glistening in dappled sunlight, rich earthy hues of foliage creating a vivid backdrop. The image must be natural, realistic, in 2018, style raw, 4k, taken on iPhone, --ar 16:9"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1376,
+        1392
+      ],
+      "id": "8bdeed6e-2a0a-4873-8528-f95875f2e2db",
+      "name": "Image Prompt Generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Top 30 LinkedIn influencers to track\nconst influencers = [\n  {\n    name: \"Harvey Li\",\n    linkedin_username: \"harvey-l-1357a418a\",\n    linkedin_url: \"https://www.linkedin.com/in/harvey-l-1357a418a/\",\n    category: \"business\"\n  },\n  {\n    name: \"Linas Beliunas\",\n    linkedin_username: \"linasbeliunas\",\n    linkedin_url: \"https://www.linkedin.com/in/linasbeliunas/\",\n    category: \"fintech\"\n  }\n];\n\nconsole.log(`Tracking ${influencers.length} influencers`);\n\nreturn influencers.map(i => ({ json: i }));"
+      },
+      "id": "fbf19d2f-e473-45af-a4d9-fb14b7eb04f2",
+      "name": "Set Influencer List3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        272
+      ],
+      "notes": "List of 30 LinkedIn influencers to track"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map((item, index) => {\n  const linkedinUrl = item.json.linkedin_url;\n  let publicIdentifier = null;\n  \n  const pattern = /linkedin\\.com\\/in\\/([^\\/\\?]+)/;\n  const match = linkedinUrl ? linkedinUrl.match(pattern) : null;\n  \n  if (match) {\n    publicIdentifier = match[1];\n  }\n  \n  // Calculate row number based on array index + 2 (for header row)\n  const rowNumber = index + 2;\n  \n  return {\n    json: {\n      ...item.json,\n      public_identifier: publicIdentifier,\n      row_number: rowNumber,\n      processed_at: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        272
+      ],
+      "id": "d0f6b60b-cba1-4b24-9193-9483fecfb166",
+      "name": "Extract URL ID2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allInputs = $input.all();\nconst posts = [];\n\n// Collect all posts from all influencers\nfor (const input of allInputs) {\n  const response = input.json;\n  \n  // Unipile returns nested structure\n  if (response.items && Array.isArray(response.items)) {\n    for (const post of response.items) {\n      posts.push({\n        ...post,\n        influencer_name: post.author?.name || 'Unknown',\n        influencer_username: post.author?.public_identifier || 'unknown',\n        influencer_url: `https://www.linkedin.com/in/${post.author?.public_identifier || 'unknown'}`,\n        category: 'general' // Will be added from influencer list later\n      });\n    }\n  }\n}\n\nconsole.log(`Collected ${posts.length} total posts from Unipile`);\n\nif (posts.length === 0) {\n  console.log('No posts collected from influencers');\n  return [];\n}\n\n// Parse relative time to check freshness\nfunction isRecent(dateStr) {\n  if (!dateStr) return false;\n  \n  const lower = dateStr.toLowerCase();\n  \n  // \"12h\", \"5h\", \"1h\" = recent\n  if (lower.includes('h')) {\n    const hours = parseInt(lower.match(/(\\d+)h/)?.[1] || '999');\n    return hours <= 24;\n  }\n  \n  // \"1d\", \"2d\" = check days\n  if (lower.includes('d')) {\n    const days = parseInt(lower.match(/(\\d+)d/)?.[1] || '999');\n    return days <= 1;\n  }\n  \n  // \"5m\", \"30m\" = very recent\n  if (lower.includes('m')) {\n    return true;\n  }\n  \n  return false;\n}\n\n// Filter to last 24 hours using relative time\nconst recentPosts = posts.filter(post => {\n  const isFresh = isRecent(post.date);\n  return isFresh && post.text && post.text.length > 50;\n});\n\nconsole.log(`Filtered to ${recentPosts.length} posts from last 24 hours`);\n\nif (recentPosts.length === 0) {\n  console.log('No posts from last 24 hours');\n  return [];\n}\n\n// Sort by engagement (likes + comments + shares)\nrecentPosts.sort((a, b) => {\n  const engagementA = (a.reaction_counter || 0) + (a.comment_counter || 0) + (a.repost_counter || 0);\n  const engagementB = (b.reaction_counter || 0) + (b.comment_counter || 0) + (b.repost_counter || 0);\n  return engagementB - engagementA;\n});\n\n// Add engagement metrics\nconst enrichedPosts = recentPosts.map(post => ({\n  ...post,\n  total_engagement: (post.reaction_counter || 0) + (post.comment_counter || 0) + (post.repost_counter || 0),\n  engagement_rate: ((post.reaction_counter || 0) + (post.comment_counter || 0)) / Math.max(post.impressions_counter || 1, 1),\n  filtered_at: new Date().toISOString(),\n  // Add image URL if exists\n  image_url: post.attachments?.[0]?.url || null,\n  has_video: post.attachments?.some(a => a.type === 'video') || false\n}));\n\nconsole.log('Top 5 posts by engagement:');\nenrichedPosts.slice(0, 5).forEach((p, i) => {\n  console.log(`${i + 1}. ${p.influencer_name}: ${p.total_engagement} engagement - \"${p.text.substring(0, 60)}...\"`);\n});\n\nreturn enrichedPosts.map(p => ({ json: p }));"
+      },
+      "id": "0d94fe71-2677-4ce1-9447-73f87e9e7a0f",
+      "name": "Filter Recent Posts (24h)3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        464
+      ],
+      "notes": "Filter to posts from last 24 hours and sort by engagement"
+    },
+    {
+      "parameters": {
+        "url": "=https://api10.unipile.com:14011/api/v1/users/{{ $json.public_identifier }}?account_id=DZFi1PeCTDmiB9H8O0aiPw",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "oCnP46KZ.+Z6WelBZWkF5XntFFx/xh7V77sm2oZM+h4GsA+pVO8w="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        480
+      ],
+      "id": "9835cb74-4176-4f8f-a0a5-b415d3562b13",
+      "name": "Get LinkedIn Provider ID2",
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "3b951fad-fb94-497a-a0b4-c52b01f3ab9d",
+      "name": "Aggregate All Posts1",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        464
+      ],
+      "notes": "Combines all 5 posts for batch analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract image URL from Unsplash response\nconst response = $input.first().json;\nlet imageUrl = null;\n\nif (response?.results?.length > 0) {\n  imageUrl = response.results[0].urls.regular;\n  console.log('✅ Found image:', imageUrl);\n} else {\n  console.log('⚠️ No image found, will post without image');\n}\n\nreturn [{\n  json: {\n    image_url: imageUrl,\n    has_image: !!imageUrl\n  }\n}];"
+      },
+      "id": "d2f80d6f-255b-475d-8b59-eafe0e946885",
+      "name": "Extract Image URL1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        1392
+      ],
+      "notes": "Extracts image URL from Unsplash response"
+    },
+    {
+      "parameters": {
+        "person": "3HOcLC_CAZ",
+        "text": "={{ $('Edit Fields').item.json[\"LInkedin Post\"] }}",
+        "shareMediaCategory": "IMAGE",
+        "additionalFields": {}
+      },
+      "id": "4db67c02-6e58-46d4-93f4-da9eab154736",
+      "name": "Post to LinkedIn1",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        1904
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "EOU4g5lQSZ7RBgQO",
+          "name": "Damu's Linkedin Account"
+        }
+      },
+      "notes": "Posts to LinkedIn with text and optional image"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1SwGc5tF9YOvXXeisTDyx7FYtMin3OPzFkegRiDi3Baw",
+          "mode": "list",
+          "cachedResultName": "Damu Content Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SwGc5tF9YOvXXeisTDyx7FYtMin3OPzFkegRiDi3Baw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SwGc5tF9YOvXXeisTDyx7FYtMin3OPzFkegRiDi3Baw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run ID": "={{ $('extract best post1').item.json.best_post_id }}",
+            "Status": "posted",
+            "Image Source": "={{ $('extract best post1').item.json.best_post['image-url'] }}",
+            "Posted to LinkedIn": "true",
+            "Has Video": "={{ $('extract best post1').item.json.best_post['video-url'] }}",
+            "Image URL": "={{ $('extract best post1').item.json.best_post['image-url'] }}",
+            "Source URL": "={{ $('Rate Post Agent').item.json.choices[0].message.content.best_post.author }}",
+            "Source": "LInkeIn",
+            "Quality Score": "={{ $('extract best post1').item.json.best_post.quality_score }}",
+            "Posted Date": "={{ new Date().toISOString() }}",
+            "LinkedIn Post ID": "={{ $json.urn }}",
+            "Timestamp": "={{ new Date().toISOString() }}",
+            "Original Post Content": "={{ $('extract best post1').item.json.best_post.original_text }}",
+            "Post Content ": "={{ $('Edit Fields').item.json['LInkedin Post'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Run ID",
+              "displayName": "Run ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Quality Score",
+              "displayName": "Quality Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Original Post Content",
+              "displayName": "Original Post Content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source URL",
+              "displayName": "Source URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image Source",
+              "displayName": "Image Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Has Video",
+              "displayName": "Has Video",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post Content ",
+              "displayName": "Post Content ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Posted to LinkedIn",
+              "displayName": "Posted to LinkedIn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Posted Date",
+              "displayName": "Posted Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LinkedIn Post ID",
+              "displayName": "LinkedIn Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Impressions",
+              "displayName": "Impressions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Engagement",
+              "displayName": "Engagement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Comments",
+              "displayName": "Comments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "cc818868-60ab-4075-b4a0-36efb7bc8561",
+      "name": "Save to Google Sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1648,
+        1904
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "notes": "Logs post to Google Sheet for tracking"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * n8n Function node script\n * Goal:\n * - Trust ChatGPT's explicit `best_post` selection (by `post_id`)\n * - Then fetch the matching post from `analyzed_posts` to get full details/content\n * - Do NOT \"pick max score\" (prevents ties / multiple >40 from changing selection)\n *\n * Output:\n * - best_post_id\n * - best_total_score\n * - best_original_text\n * - best_author\n * - best_recommended_action\n * - best_confidence\n * - best_post (merged, full object)\n */\n\nfunction safeJsonParse(x) {\n  if (typeof x === \"string\") {\n    try { return JSON.parse(x); } catch { return null; }\n  }\n  return x ?? null;\n}\n\nconst root = $json;\n\n// 1) Get ChatGPT content payload\nlet content = root?.choices?.[0]?.message?.content;\ncontent = safeJsonParse(content)\n  ?? safeJsonParse(root?.message?.content)\n  ?? safeJsonParse(root?.content)\n  ?? safeJsonParse(root?.data?.choices?.[0]?.message?.content);\n\nif (!content) {\n  throw new Error(\"Could not find ChatGPT message content. Check the node output path.\");\n}\n\nconst analyzed = Array.isArray(content.analyzed_posts) ? content.analyzed_posts : [];\nconst bestFromModel = content.best_post ? safeJsonParse(content.best_post) : null;\n\nif (!bestFromModel || bestFromModel.post_id == null) {\n  throw new Error(\"ChatGPT output missing `best_post.post_id`. Ensure your prompt requires it.\");\n}\n\nconst bestPostId = String(bestFromModel.post_id);\n\n// 2) Find the matching analyzed post by post_id\nconst analyzedMatch = analyzed.find(p => String(p?.post_id) === bestPostId) || null;\n\n// 3) Build a merged best_post object:\n// Prefer analyzed_posts fields for detailed scoring/reasoning,\n// but keep best_post fields like original_text/author/recommended_action/confidence if present.\nconst mergedBest = {\n  ...(analyzedMatch || {}),\n  ...bestFromModel,\n};\n\n// 4) Ensure original text exists (best_post.original_text preferred)\nconst originalText =\n  mergedBest?.original_text ??\n  analyzedMatch?.original_text ??\n  analyzedMatch?.text ??\n  null;\n\nconst out = {\n  best_post_id: mergedBest?.post_id ?? bestFromModel.post_id,\n  best_total_score: Number(mergedBest?.total_score ?? bestFromModel.total_score ?? null),\n  best_author: mergedBest?.author ?? null,\n  best_recommended_action: mergedBest?.recommended_action ?? null,\n  best_confidence: mergedBest?.confidence ?? null,\n  best_post: mergedBest,\n\n  // Convenience flags for IF node routing:\n  should_publish:\n    mergedBest?.recommended_action === \"research_and_publish\" ||\n    mergedBest?.recommended_action === \"research_and_post\",\n\n  meets_threshold: Number(mergedBest?.total_score ?? 0) >= 40\n};\n\nreturn [{ json: out }];"
+      },
+      "id": "7f4609b5-7ca6-42cb-9d34-826e9ef1fc9b",
+      "name": "extract best post1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        688
+      ],
+      "notes": "Filter to posts from last 24 hours and sort by engagement"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-oss-120b",
+          "mode": "list",
+          "cachedResultName": "gpt-oss-120b"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1680,
+        704
+      ],
+      "id": "f05e9ddd-303a-4f6c-adaf-7fda2bc9d296",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "keMKnrUTpwLwaWCt",
+          "name": "Cerebras account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are researching a topic for Damu Winston to write about on LinkedIn.\n\n**DAMU'S PROFILE:**\n- Former Global Head, Web3 Innovation at Amazon\n- 2x bestselling author on blockchain and AI\n- Boardroom advisor to UHNWIs, Family Offices, Sovereign Wealth Funds\n- 15+ years at intersection of cloud, AI/ML, Web3, smart infrastructure\n\n**TOPIC SIGNAL (for direction only — do NOT treat as factual source):**\nPost Score: {{ $json.best_total_score }}/50\nKey Angle: {{ $json.best_post.key_angle }}\nInstitutional Hook: {{ $json.best_post.institutional_hook }}\n\n**REFERENCE POST (treat as inspiration for topic direction ONLY — verify all claims independently):**\n{{ $json.best_post.original_text }}\n\n⚠️ WARNING: The above post is from social media and may contain unverified statistics, \nfabricated reports, or exaggerated claims. Do NOT repeat any specific numbers, \ncompany names, projections, or regulatory references from it without independently \nverifying them from primary sources.\n\n**YOUR RESEARCH TASK:**\n1. Identify the core topic/theme from the post above\n2. Search for what is ACTUALLY happening on that topic from primary sources\n3. Find 3-5 credible sources published in the last 30-90 days\n4. Build a research summary based ONLY on what you can verify — not what the \n   original post claims\n\n**VERIFICATION RULES:**\n- Every specific statistic must have a direct source URL\n- If you cannot verify a claim from the original post, explicitly note: \n  \"The original post claimed X — this could not be verified\"\n- Regulatory references must link to actual filings or official announcements\n- Company actions (LOIs, pilots, filings) must be confirmed via press release \n  or news coverage from Tier 1 outlets\n\n**RESEARCH FOCUS:**\n- Institutional applications (not retail/consumer)\n- Board-level strategic implications\n- Risk, compliance, governance considerations\n- Forward-looking analysis grounded in verified facts\n\n**OUTPUT FORMAT:**\nProvide a structured research summary per the system prompt guidelines.\nInclude a section: \"CLAIMS FROM ORIGINAL POST THAT COULD NOT BE VERIFIED\" \nlisting any specific numbers or events that lacked primary source confirmation.",
+        "options": {
+          "systemMessage": "You are a research assistant for Damu Winston, helping him prepare institutional-quality LinkedIn content.\n\n**DAMU'S BACKGROUND:**\n- Former Global Head, Web3 Innovation at Amazon\n- Boardroom advisor to UHNWIs, Family Offices, and Sovereign Wealth Funds\n- Expert in AI, Web3, tokenization, stablecoins, and digital asset infrastructure\n- Writes for C-suite executives and institutional decision-makers\n\n**TOPIC TO RESEARCH:**\n\n{{ TOPIC_FROM_SELECTED_POST }}\n\n**YOUR RESEARCH OBJECTIVE:**\n\nUse web search to find current, credible information that will help Damu write an authoritative LinkedIn post for an institutional audience.\n\n**WHAT TO SEARCH FOR:**\n\n1. **Recent Developments (Last 30 Days)**\n   - Breaking news on this topic\n   - Major announcements from companies or regulators\n   - New partnerships, acquisitions, or funding rounds\n   - Regulatory changes or policy updates\n\n2. **Specific Data Points**\n   - Dollar amounts (funding, market size, transaction volumes)\n   - Percentages (growth rates, adoption metrics, market share)\n   - Company names and executive quotes\n   - Dates of important events or milestones\n\n3. **Institutional Angles**\n   - How are enterprises/institutions approaching this?\n   - What are family offices or institutional investors doing?\n   - Compliance, governance, or risk considerations\n   - Board-level strategic implications\n\n4. **Credible Sources**\n   - Priority: Bloomberg, Financial Times, WSJ, Reuters, CoinDesk (for crypto)\n   - Company announcements and press releases\n   - Regulatory filings (SEC, CFTC, etc.)\n   - Industry research reports from reputable firms\n\n**WHAT TO AVOID:**\n\n❌ Retail/consumer angles (focus on institutional)\n❌ Speculation or rumors (stick to confirmed facts)\n❌ Opinion pieces without data backing\n❌ Social media hot takes (unless from notable executives)\n❌ Old news (prefer last 30 days, max 90 days)\n\n**OUTPUT FORMAT:**\n\nProvide a concise research summary (200-300 words) structured as follows:\n\n---\n\n**TOPIC:** [One clear sentence describing what you researched]\n\n**KEY FINDINGS:**\n\n[2-3 paragraphs covering:]\n- What's happening now (recent developments)\n- Specific data points with numbers\n- Notable companies/executives involved\n- Institutional/enterprise implications\n- Why this matters for family offices, UHNWIs, or institutional allocators\n\n**KEY DATA POINTS:**\n- [Specific stat 1 with source]\n- [Specific stat 2 with source]\n- [Specific stat 3 with source]\n\n**GOVERNANCE/COMPLIANCE ANGLE:** (if relevant)\n[1-2 sentences on regulatory, risk, or compliance considerations]\n\n**SOURCES:**\n1. [Source name] - [URL]\n2. [Source name] - [URL]\n3. [Source name] - [URL]\n\n---\n\n**RESEARCH QUALITY GUIDELINES:**\n\n✅ **Good Research:**\n- \"BlackRock filed for a Bitcoin ETF with the SEC on June 15, 2024, seeking to manage up to $2B in assets\"\n- \"JPMorgan's Onyx blockchain processed $700B in repo transactions in Q3 2024, up 40% YoY\"\n- \"The EU's MiCA regulation takes effect January 2025, requiring stablecoin issuers to maintain 1:1 reserves\"\n\n❌ **Poor Research:**\n- \"Many companies are interested in blockchain\"\n- \"AI is growing rapidly in financial services\"\n- \"Experts say tokenization will be big\"\n\n**INSTITUTIONAL FOCUS:**\n\nRemember: Damu's audience includes CFOs, family office principals, sovereign wealth fund managers, and board members. They care about:\n- Fiduciary responsibility\n- Regulatory compliance\n- Risk management\n- Strategic positioning\n- Concrete ROI and business cases\n\nNOT:\n- Hype or speculation\n- Retail consumer trends\n- Technical implementation details\n- Price predictions\n\n**SEARCH STRATEGY:**\n\nStart broad, then narrow:\n1. Search general topic for recent news\n2. Search \"[topic] + institutional\" or \"[topic] + enterprise\"\n3. Search \"[topic] + regulation\" or \"[topic] + compliance\"\n4. Search specific companies mentioned in initial results\n5. Verify numbers and dates from multiple sources\n\n**TIME SENSITIVITY:**\n\n- Breaking news (<7 days): Highest priority\n- Recent developments (7-30 days): High priority\n- Notable trends (30-90 days): Medium priority\n- Older than 90 days: Only if evergreen/fundamental\n\nNow conduct your research and provide the summary."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        688
+      ],
+      "id": "e925dd5f-7d0c-472d-923f-53148713bc87",
+      "name": "Find Relatable Articles3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=RESEARCH SUMMARY:\n{{ $json.output }}\n\nWrite a LinkedIn post for Damu Winston using the voice and structure defined in your instructions.\n\nThe post should:\n- Open with a declarative sentence that reframes the story — not a headline summary\n- Use → arrows for any list or breakdown\n- Include a specific GCC/UAE angle if the story connects to the region\n- Close with a strategic question directed at Damu's audience (founders, operators, institutional leaders)\n- Be 220–320 words\n- Use 2–3 emojis maximum\n- End with 5–6 plain hashtags on the last line\n\nReturn only the post. No extra commentary.",
+        "options": {
+          "systemMessage": "=You are a ghostwriter for Damu Winston — an innovation strategist and founder based in Dubai, building at the intersection of AI, automation, tokenization, and future-of-work strategy. His audience is founders, operators, investors, family offices, and institutional leaders operating in GCC/global markets.\n\nYOUR JOB: Write one LinkedIn post per research summary. The post must sound like Damu's natural voice — not like an AI content template.\n\nDAMU'S VOICE RULES:\n- Declarative, specific opening line. Never a question. Never \"I'm excited to share.\"\n- Use \"...\" for pacing instead of em dashes\n- Arrow format (→) for lists, never bullet points (•)\n- Close with a strategic question that implicates the reader — not a call to like/follow/comment\n- Never use the word \"Startup\" — use \"Venture\" or \"Innovation\"\n- Plain text only. No markdown. No asterisks. No bold formatting.\n- Hashtags at the end as plain #hashtag — never \"hashtag#word\"\n\nSTRUCTURAL PATTERN:\n1. Hook — one short declarative sentence that reframes the news, not summarizes it\n2. Context — what happened, with enough specific detail to feel insider-level\n3. Arrow breakdown — key facts and data points with →\n4. Strategic insight — where Damu connects the news to a bigger structural pattern\n5. Closing question — directs attention forward, makes the reader feel implicated\n\nTONE:\n- Executive but commercially grounded\n- Visionary but never hype-driven\n- Sounds like someone who saw this coming and is being patient with everyone else catching up\n- GCC/UAE lens when relevant — substantive and specific, not cosmetic\n\nBANNED PHRASES — never use these:\n- \"it's not about X, it's about Y\"\n- \"asymmetric bet\"\n- \"transformative move\"\n- \"here's what this pivot means\"\n- \"it's no longer about\"\n- \"here is what I keep coming back to\"\n- \"game-changer\"\n- \"this is wild\"\n\nFORMAT RULES:\n- Length: 220–320 words\n- Emojis: 2–3 maximum, used as punctuation not decoration\n- Hashtags: 5–6 at the end, plain format (#blockchain not hashtag#blockchain)\n- No markdown. No asterisks. No bold. No headers. Post must be copy-paste ready.\n\nReturn ONLY the post text. No JSON. No metadata. No commentary."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        688
+      ],
+      "id": "caf12b11-26f9-42ea-aaa0-adfb94823b23",
+      "name": "Post Maker"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "gpt-5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1584,
+        704
+      ],
+      "id": "efb9a359-3357-4ddf-bc9d-20030375c3e5",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "mFLDConUMZiZTnjt",
+          "name": "Open AI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1776,
+        704
+      ],
+      "id": "3ac6b4cc-1213-4324-85b7-da9a38eb5e0a",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "aDuwh40U1lK3zJ6B",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f0134d5-309c-4b88-b4bf-a5fd3f86de84",
+              "name": "LInkedin Post",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "b7e34fb3-e14a-43c6-b517-d2652c49ad76",
+              "name": "image-link",
+              "value": "={{ $('extract best post1').item.json.best_post[\"image-url\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "5148ec93-9c14-4b53-9bbd-0625a5b35577",
+              "name": "video-link",
+              "value": "={{ $('extract best post1').item.json.best_post[\"video-url\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "87abd328-8774-4d6e-9185-03176e00b285",
+              "name": "total_score",
+              "value": "={{ $('extract best post1').item.json.best_post.total_score }}",
+              "type": "number"
+            },
+            {
+              "id": "8c5c7857-f02f-436f-8d52-d70968fc5abf",
+              "name": "author",
+              "value": "={{ $('extract best post1').item.json.best_post.author }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        960
+      ],
+      "id": "0256b27d-cca6-4657-aee6-ce1145a13e2f",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0f36c76e-ced8-413a-bc7b-53c51bec77a5",
+              "leftValue": "={{ JSON.stringify($json['image-link']) }}",
+              "rightValue": "null",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        960
+      ],
+      "id": "3c0b1aa5-56c5-4c35-a612-30d1fdf09a5b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f0134d5-309c-4b88-b4bf-a5fd3f86de84",
+              "name": "Post",
+              "value": "={{ $json[\"LInkedin Post\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "9a91a15e-f907-434c-981f-5cdbc6d624e1",
+              "name": "image",
+              "value": "={{ $json['image-link'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        1904
+      ],
+      "id": "f9d57b78-0bf1-42ec-be59-be8db0ae6a59",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        512,
+        1904
+      ],
+      "id": "d0087390-bf70-4236-ad35-70e2fcb3f116",
+      "name": "Merge",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Edit Fields').item.json['image-link'] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+            },
+            {
+              "name": "Referer",
+              "value": "https://www.linkedin.com/"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        1904
+      ],
+      "id": "eede248e-73da-43fa-ba0e-2c179f679ab9",
+      "name": "Fetch Article Image",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "0jLW9TKlrEat2tBB",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Used Post Curator",
+          "cachedResultUrl": "/projects/GI4HhIuLBJaOsUEi/datatables/0jLW9TKlrEat2tBB"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "LinkedInPostId",
+              "keyValue": "={{ $('extract best post1').item.json.best_post.linkedIn_post_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LinkedInPostId": "={{ $('extract best post1').item.json.best_post.linkedIn_post_id }}",
+            "unique_post_id": "={{ $('extract best post1').item.json.best_post.unique_id }}",
+            "selected_score": "={{ $('extract best post1').item.json.best_total_score }}",
+            "used__date": "={{ new Date().toISOString() }}",
+            "post_url": "={{ $('extract best post1').item.json.best_post.post_url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "LinkedInPostId",
+              "displayName": "LinkedInPostId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "unique_post_id",
+              "displayName": "unique_post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "post_url",
+              "displayName": "post_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "selected_score",
+              "displayName": "selected_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "used__date",
+              "displayName": "used__date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        1904
+      ],
+      "id": "4478b4a7-c454-4cae-b7d4-81d2ace1555c",
+      "name": "Upsert row(s)"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        464
+      ],
+      "id": "4dae4f2a-7d97-4649-b458-66c5f7838041",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "=https://api10.unipile.com:14011/api/v1/users/{{ $json.provider_id }}/posts?account_id=DZFi1PeCTDmiB9H8O0aiPw",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "oCnP46KZ.+Z6WelBZWkF5XntFFx/xh7V77sm2oZM+h4GsA+pVO8w="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "b891e276-620b-46e9-8adc-c5e8e2377539",
+      "name": "Unipile: Fetch Posts3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        464
+      ],
+      "notes": "Fetch last 10 posts from each influencer via Unipile API"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "0jLW9TKlrEat2tBB",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Used Post Curator",
+          "cachedResultUrl": "/projects/GI4HhIuLBJaOsUEi/datatables/0jLW9TKlrEat2tBB"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        496,
+        272
+      ],
+      "id": "c31a88a6-3885-40c8-ad0d-88df4035f001",
+      "name": "Get Used Posts from Sheet"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "c5d853b8-4477-4dfb-9b0a-75b5d3365724",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        272
+      ],
+      "notes": "Runs every 12 hours to check influencer posts"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-oss-120b",
+          "mode": "list",
+          "cachedResultName": "GPT-OSS-120B"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are analyzing LinkedIn posts to identify content strategically relevant to Damu Winston’s institutional expertise and authority.\n\nDAMU’S CORE EXPERTISE:\n- Enterprise AI & Machine Learning\n- Web3 & Blockchain (institutional adoption)\n- Tokenization of real-world assets & securities\n- Stablecoins (regulated, institutional use)\n- Digital asset & payments infrastructure\n- Institutional DeFi & on-chain finance\n- Regulatory compliance & crypto governance\n- Family office, UHNWI & sovereign wealth advisory\n- GCC, US, and cross-border capital strategy\n\nDUPLICATE FILTERING (PROCESS FIRST):\n\nBefore analyzing any post, check if it has an \"is_duplicate\" field:\n- If is_duplicate === true: SKIP THIS POST IMMEDIATELY. Do not score it. Do not include it in the analyzed_posts array.\n- If is_duplicate === false or field is missing: Proceed with normal analysis.\n\nWhen building the final JSON output, exclude all flagged posts from the \"analyzed_posts\" array and ensure \"best_post\" is selected ONLY from non-flagged posts.\n\nAdd to the summary section of your output:\n\"duplicates_filtered\": X (count of posts skipped due to is_duplicate === true)\n\nPOSTS TO ANALYZE:\n{{ JSON.stringify($json.data, null, 2) }}\n\nYOUR TASK:\nAnalyze each post and score it (0–10) across the following dimensions.\n\n1. RELEVANCE TO DAMU’S EXPERTISE (0–10)\n- Direct relevance to AI, Web3, tokenization, stablecoins, or institutional crypto\n- Focus on enterprise, institutional, or regulatory use cases\n- Explicit or implicit governance, compliance, or fiduciary implications\n\n2. INSTITUTIONAL APPEAL (0–10)\n- Relevance to family offices, UHNWIs, sovereign wealth funds, or boards\n- Addresses capital allocation, risk, infrastructure, or regulation\n- Strategic framing over tactical or creator-focused content\n\n3. CONTENT QUALITY & SIGNAL DENSITY (0–10)\n- Uses concrete data, named entities, or real developments\n- Demonstrates original insight or second-order thinking\n- Avoids generic motivation, growth hacks, or surface-level commentary\n\n4. STRATEGIC CONVERSATION POTENTIAL (0–10)\n- Would Damu’s response attract senior decision-makers?\n- Can it lead to private discussions, advisory work, or institutional trust?\n- Is there room for research-backed expansion?\n\n5. TIMELINESS & MACRO SIGNAL (0–10)\n- Reflects a current or emerging institutional trend\n- Signals shifts in regulation, capital flows, infrastructure, or power\n- Relevant within a 6–12 month strategic horizon\n\n6. DAMU AUTHORITY LIFT (0–10)\n- Can Damu credibly add insight from lived experience (not opinion)?\n- Does this strengthen his positioning as a board-level AI & digital asset advisor?\n- Would silence here be a missed leadership opportunity?\n\nNEGATIVE PENALTIES (apply as needed):\n- Minus points for creator-economy advice, motivational content, or retail-only crypto\n- Minus points for speculative or unverified claims\n- Minus points for posts where Damu would sound derivative\n\nOUTPUT FORMAT (JSON ONLY):\n```json\n{\n  \"analyzed_posts\": [\n    {\n      \"post_id\": 1,\n      \"linkedIn_post_id\": the linkedin post id itself\n      \"relevance_score\": 8.5,\n      \"institutional_score\": 9.0,\n      \"quality_score\": 7.5,\n      \"strategic_conversation_score\": 8.0,\n      \"timeliness_score\": 9.0,\n      \"authority_lift_score\": 8.5,\n      \"total_score\": 49.5,\n      \"reasoning\": \"Why this scored high or low\",\n      \"key_angle\": \"Unique strategic angle Damu should take\",\n      \"institutional_hook\": \"Why family offices/UHNWIs/SWFs would care\",\n      \"signal_interpretation\": \"What this signals about markets, regulation, or infrastructure\",\n      \"research_directions\": [\n        \"Research topic 1\",\n        \"Research topic 2\",\n        \"Research topic 3\"\n      ],\n      \"recommended_content_type\": \"LinkedIn post | Long-form analysis | Investor memo | Masterclass slide\"\n    }\n  ],\n  \"best_post\": {\n    \"post_id\": 1,\n    \"unique_id\": generate a unique post id use to identify orignal post,\n    \"linkedIn_post_id\": the linkedin post id itself\n    \"post_url\": the actual post url from share_url\n    \"original_text\": \"Full text of the selected post\",\n    \"author\": \"Author name\",\n    \"total_score\": 49.5,\n    \"recommended_action\": \"research_and_publish\",\n    \"confidence\": \"high\"\n    \"image-url\": the imageurl of the post if it exist\n    \"video-url\": the video url of the post if it exist\n  }\n}\n\n**SCORING GUIDELINES:**\n\n- Total Score 40+: Excellent match for Damu\n- Total Score 35-39: Good match, proceed\n- Total Score 30-34: Marginal, consider alternatives\n- Total Score <30: Skip, find different content\n\nAnalyze all posts and return JSON with the best one selected.\n\nReturn ONLY the JSON, no other text."
+            },
+            {
+              "content": "You are an institutional AI analyst and strategic advisor operating at board, family office, and sovereign wealth fund level.\n\nYour primary responsibility is to protect and enhance Damu Winston’s authority as a global advisor in:\n- Enterprise AI & Machine Learning\n- Institutional Web3, blockchain, and tokenization\n- Regulated stablecoins and digital asset infrastructure\n- AI + capital markets + regulation convergence\n- Family office, UHNWI, and sovereign wealth strategy\n\nDEFAULT OPERATING MODE:\n- Think like a CIO, regulator, or investment committee member.\n- Prioritize signal over noise.\n- Favor governance, infrastructure, regulation, capital flows, and systemic impact.\n- Avoid creator economy tropes, motivational language, growth hacks, and retail crypto framing.\n\nEVALUATION PRINCIPLES:\n- Institutional relevance always outweighs popularity or engagement.\n- A post with low likes but high strategic signal is preferable to viral content with no fiduciary relevance.\n- Treat unverified or speculative claims conservatively and apply penalties where appropriate.\n- Assume the audience includes regulators, allocators, board members, and policymakers.\n\nVOICE & OUTPUT CONSTRAINTS:\n- Be precise, analytical, and grounded.\n- Avoid hype, emojis, slang, or casual tone.\n- Use clear reasoning that would stand up in an investment memo or board briefing.\n- Never flatter the source post; critique when necessary.\n\nDAMU POSITIONING RULES:\n- Only recommend content where Damu can add *unique, experience-based insight*.\n- If Damu would sound like a commentator rather than a leader, downgrade the score.\n- Optimize for long-term credibility and inbound institutional trust, not short-term reach.\n\nAUTOMATION RULES:\n- Always follow the requested output schema exactly.\n- Return JSON only when instructed.\n- Do not add explanations outside the specified output format.\n\nFAILURE CONDITIONS:\n- If none of the posts meet institutional standards, explicitly recommend skipping all and explain why within the output schema.\n",
+              "role": "system"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        480,
+        688
+      ],
+      "id": "0c5a546c-1ddd-49d9-b970-19f6315bbc3b",
+      "name": "Rate Post Agent",
+      "alwaysOutputData": false,
+      "credentials": {
+        "openAiApi": {
+          "id": "keMKnrUTpwLwaWCt",
+          "name": "Cerebras account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * n8n Code node\n * Compares Unipile posts ($input) against \"Get Used Posts from Sheet\" output\n * Flags duplicates by:\n *  - numeric LinkedIn activity ID (best signal)\n *  - canonical URL match (utm stripped)\n */\n\n// ---------- helpers ----------\nconst isNonEmpty = (v) => v !== null && v !== undefined && String(v).trim() !== \"\";\n\nconst norm = (v) => String(v ?? \"\").trim().toLowerCase();\n\nfunction extractDigits(str) {\n  const m = String(str ?? \"\").match(/(\\d{10,})/);\n  return m ? m[1] : null;\n}\n\n// social_id examples:\n// urn:li:activity:7419014408254709760\n// urn:li:ugcPost:7419456267800231936  (not always same as activity id)\nfunction extractIdFromSocialId(socialId) {\n  if (!isNonEmpty(socialId)) return null;\n  // grab last numeric group\n  const m = String(socialId).match(/urn:li:(?:activity|ugcPost):(\\d{10,})/i);\n  return m?.[1] ?? extractDigits(socialId);\n}\n\n// share_url example includes:\n// ...activity-7419014408254709760-SG2e?utm_source=...\nfunction extractActivityIdFromShareUrl(url) {\n  if (!isNonEmpty(url)) return null;\n  const s = String(url);\n\n  let m = s.match(/activity-(\\d{10,})/i);\n  if (m?.[1]) return m[1];\n\n  m = s.match(/activity\\/(\\d{10,})/i);\n  if (m?.[1]) return m[1];\n\n  // fallback: any long digit sequence\n  return extractDigits(s);\n}\n\nfunction canonicalizeUrl(raw) {\n  if (!isNonEmpty(raw)) return null;\n  try {\n    const u = new URL(String(raw).trim());\n    u.hash = \"\";\n    u.search = \"\"; // strips utm params etc\n    u.hostname = u.hostname.replace(/^www\\./i, \"\");\n    u.pathname = u.pathname.replace(/\\/+$/, \"\");\n    return (u.origin + u.pathname).toLowerCase();\n  } catch {\n    return String(raw).trim().toLowerCase().split(\"?\")[0].split(\"#\")[0];\n  }\n}\n\n// Build a canonical ID set for any record (sheet row OR unipile post)\nfunction collectCanonicalIds(obj) {\n  const out = [];\n\n  // direct numeric id field\n  if (isNonEmpty(obj.id)) out.push(norm(obj.id));\n\n  // your sheet might have these variations\n  if (isNonEmpty(obj.LinkedInPostId)) out.push(norm(obj.LinkedInPostId));\n  if (isNonEmpty(obj.LinkedInPostID)) out.push(norm(obj.LinkedInPostID));\n  if (isNonEmpty(obj.linkedInPostId)) out.push(norm(obj.linkedInPostId));\n  if (isNonEmpty(obj.linkedinPostId)) out.push(norm(obj.linkedinPostId));\n\n  if (isNonEmpty(obj.unique_post_id)) out.push(norm(obj.unique_post_id));\n  if (isNonEmpty(obj.post_id)) out.push(norm(obj.post_id));\n\n  // Unipile specific\n  if (isNonEmpty(obj.social_id)) {\n    const fromUrn = extractIdFromSocialId(obj.social_id);\n    if (isNonEmpty(fromUrn)) out.push(norm(fromUrn));\n    out.push(norm(obj.social_id)); // keep the urn too (extra safety)\n  }\n\n  // from share_url (activity-<id>)\n  const fromUrl = extractActivityIdFromShareUrl(obj.share_url || obj.post_url || obj.url);\n  if (isNonEmpty(fromUrl)) out.push(norm(fromUrl));\n\n  // normalize “best-7419...” -> \"7419...\" too\n  for (const v of [...out]) {\n    const digits = extractDigits(v);\n    if (isNonEmpty(digits)) out.push(norm(digits));\n  }\n\n  // dedupe\n  return [...new Set(out.filter(isNonEmpty))];\n}\n\nfunction collectCanonicalUrls(obj) {\n  const candidates = [\n    obj.share_url,\n    obj.post_url,\n    obj.url,\n  ].filter(isNonEmpty);\n\n  return [...new Set(candidates.map(canonicalizeUrl).filter(isNonEmpty))];\n}\n\n// ---------- load used sheet rows correctly ----------\nconst usedRows = $(\"Get Used Posts from Sheet\").all().map((it) => it.json);\n\n// Create lookup sets\nconst usedIdSet = new Set();\nconst usedUrlSet = new Set();\n\nfor (const row of usedRows) {\n  for (const id of collectCanonicalIds(row)) usedIdSet.add(id);\n  for (const u of collectCanonicalUrls(row)) usedUrlSet.add(u);\n}\n\n// ---------- process incoming Unipile items ----------\nreturn $input.all().map((item) => {\n  const post = item.json;\n\n  const postIds = collectCanonicalIds(post);\n  const postUrls = collectCanonicalUrls(post);\n\n  const matchedId = postIds.find((id) => usedIdSet.has(id)) || null;\n  const matchedUrl = postUrls.find((u) => usedUrlSet.has(u)) || null;\n\n  const isDuplicate = Boolean(matchedId || matchedUrl);\n\n  return {\n    json: {\n      ...post,\n      is_duplicate: isDuplicate,\n      duplicate_match: {\n        matched_id: matchedId,\n        matched_url: matchedUrl,\n        checked_ids: postIds,     // useful for debugging, remove later if you want\n        checked_urls: postUrls,   // useful for debugging, remove later if you want\n      },\n      flagged_reason: isDuplicate\n        ? `Post already exists (${matchedId ? `ID: ${matchedId}` : `URL: ${matchedUrl}`})`\n        : \"New post - safe to rate\",\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        480
+      ],
+      "id": "b1bcd56b-47c4-4968-b465-8da074cd1e48",
+      "name": "Flag Duplicate Posts"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1456,
+        464
+      ],
+      "id": "3bfd168f-ba60-4b67-8fef-daa647b1ed16",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "d65136de-4f0c-49fc-a146-e49bda1dab9d",
+      "name": "Aggregate All Posts",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        352
+      ],
+      "notes": "Combines all 5 posts for batch analysis"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 19
+            }
+          ]
+        }
+      },
+      "id": "a4d1c2b3-ef26-4986-b5ce-c5b11c847931",
+      "name": "Schedule1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        112
+      ],
+      "notes": "Runs every 12 hours to check influencer posts"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 14
+            }
+          ]
+        }
+      },
+      "id": "17185fb1-4634-4c8b-811e-06e6111d3cab",
+      "name": "Schedule2",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        448
+      ],
+      "notes": "Runs every 12 hours to check influencer posts"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f0134d5-309c-4b88-b4bf-a5fd3f86de84",
+              "name": "LInkedin Post",
+              "value": "={{ $('Post Maker').item.json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "b7e34fb3-e14a-43c6-b517-d2652c49ad76",
+              "name": "image-link",
+              "value": "={{ $json.image_url }}",
+              "type": "string"
+            },
+            {
+              "id": "5148ec93-9c14-4b53-9bbd-0625a5b35577",
+              "name": "video-link",
+              "value": "={{ $('extract best post1').item.json.best_post[\"video-url\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "87abd328-8774-4d6e-9185-03176e00b285",
+              "name": "total_score",
+              "value": "={{ $('extract best post1').item.json.best_post.total_score }}",
+              "type": "number"
+            },
+            {
+              "id": "8c5c7857-f02f-436f-8d52-d70968fc5abf",
+              "name": "author",
+              "value": "={{ $('extract best post1').item.json.best_post.author }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2016,
+        1392
+      ],
+      "id": "feec1df5-1260-48ab-a1d3-09b1c37f7060",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const json = $input.first().json;\n\n// Pull the actual content - note exact field name 'LInkedin Post' (capital I)\nconst title = json.title || json.headline || json.name || '';\n\nconst postContent = json['LInkedin Post'] \n  || json['Linkedin Post']\n  || json['linkedin Post']\n  || json.linkedinPost \n  || json.post \n  || '';\n\nconst snippet = json.contentSnippet \n  || json.summary \n  || json.description\n  || json.content\n  || postContent\n  || '';\n\n// Use post content as the primary source for query building\nconst rawText = postContent || title || snippet;\n\n// Extract meaningful keywords from the post\nconst stopWords = new Set([\n  'the','a','an','and','or','but','in','on','at','to','for','of','with',\n  'is','are','was','were','be','been','being','have','has','had','do',\n  'does','did','will','would','could','should','may','might','shall',\n  'that','this','these','those','it','its','i','we','you','they','he',\n  'she','what','which','who','how','when','where','why','just','out',\n  'by','from','as','so','if','not','no','up','all','also','than','then',\n  'been','into','about','after','before','between','same','our','their'\n]);\n\n// Get first sentence — preserve the full first sentence\nconst firstSentence = rawText\n  .replace(/\\\\n/g, ' ')\n  .replace(/\\n/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .match(/.*?(?:[.!?…](?=\\s|$)|$)/)?.[0]\n  ?.trim() || '';\n\n// Use the full first sentence as the search query\nconst searchQuery = firstSentence\n  .replace(/[“”\"]/g, '')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  || title\n  || 'artificial intelligence news';\n\nconsole.log('Available fields:', Object.keys(json));\nconsole.log('Post content preview:', postContent.slice(0, 100));\nconsole.log('Search query built:', searchQuery);\n\nconst fallbackImageUrl = 'https://withagi.space/og-image.png';\n\nreturn [{\n  json: {\n    ...json,\n    title,\n    snippet,\n    fallbackImageUrl,\n    searchQuery\n  }\n}];"
+      },
+      "id": "3cf7509e-e399-4e01-9b72-697dc80ba65a",
+      "name": "Prepare Search Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        1184
+      ],
+      "notes": "Cleans article title into a focused image search query (max 8 words)"
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.searchQuery }}"
+            },
+            {
+              "name": "engine",
+              "value": "google_images"
+            },
+            {
+              "name": "api_key",
+              "value": "a1ced12239570689765b682c2959f39c357de3dd6598e37533a964bd50f038c3"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            },
+            {
+              "name": "safe",
+              "value": "active"
+            },
+            {
+              "name": "tbs",
+              "value": "isz:l"
+            },
+            {
+              "name": "ijn",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "97541f39-e5db-44fe-93cb-5a07e91ee026",
+      "name": "SerpAPI Image Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        1184
+      ],
+      "notes": "Replace YOUR_SERPAPI_KEY with your actual key from serpapi.com\ntbs=isz:l filters for large images only"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.images_results || [];\nconst title = $input.first().json.searchQuery || '';\nconst snippet = $input.first().json.snippet || '';\nconst fallbackImageUrl = $input.first().json.fallbackImageUrl || '';\n\nif (!results.length) {\n  // No results — pass fallback through\n  return [{\n    json: {\n      title,\n      snippet,\n      fallbackImageUrl,\n      imageOptions: [],\n      hasFallback: true\n    }\n  }];\n}\n\n// Take top 10 and extract key fields for AI scoring\nconst imageOptions = results.slice(0, 10).map((img, i) => ({\n  index: i,\n  url: img.original || img.thumbnail || '',\n  title: img.title || '',\n  source: img.source || '',\n  width: img.original_width || 0,\n  height: img.original_height || 0,\n  isLandscape: (img.original_width || 0) > (img.original_height || 0)\n})).filter(img => img.url);\n\nreturn [{\n  json: {\n    title,\n    snippet,\n    fallbackImageUrl,\n    imageOptions,\n    hasFallback: false\n  }\n}];"
+      },
+      "id": "e0361633-e230-4dfa-85f9-5646d2c36c0e",
+      "name": "Extract Image Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        1184
+      ],
+      "notes": "Normalizes SerpAPI results into a clean list for AI scoring.\nAlso detects if there are no results and flags fallback."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "check-has-results",
+              "leftValue": "={{ $json.hasFallback }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8d3c6fc5-fe7b-41c9-b6a4-a69ef0117ea8",
+      "name": "Has Image Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        992,
+        1184
+      ],
+      "notes": "True → AI scoring path\nFalse → Fallback image path"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.text || $input.first().json.output || '';\n\nlet selected;\ntry {\n  const clean = raw.replace(/```json|```/g, '').trim();\n  selected = JSON.parse(clean);\n} catch (e) {\n  // Parse failed — use fallback\n  return [{\n    json: {\n      source_image_url: $input.first().json.fallbackImageUrl || '',\n      image_reason: 'AI parse failed — using fallback',\n      image_source: 'fallback'\n    }\n  }];\n}\n\nif (!selected?.url) {\n  return [{\n    json: {\n      source_image_url: $input.first().json.fallbackImageUrl || '',\n      image_reason: 'No URL in AI response — using fallback',\n      image_source: 'fallback'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    imageUrl: selected.url,\n    image_reason: selected.reason || '',\n    image_source: 'google_search'\n  }\n}];"
+      },
+      "id": "6e752b37-a8bc-4bd4-9780-c7f7bf7bb08c",
+      "name": "Extract Selected Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        1168
+      ],
+      "notes": "Parses Claude's JSON response.\nFails gracefully to fallback if parse errors or missing URL."
+    },
+    {
+      "parameters": {},
+      "id": "d0f05c76-4db0-4031-9c06-e711a9b93355",
+      "name": "Merge Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2016,
+        1632
+      ],
+      "notes": "Merges AI-selected and fallback paths back into one.\nBoth paths output same shape: { source_image_url, image_reason, image_source }"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "id": "46cf39c0-4a59-48b8-bbbf-460344206fed",
+      "name": "AI Post Writer",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1568,
+        1280
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "aDuwh40U1lK3zJ6B",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the LinkedIn post this image will accompany:\n\n{{ $('Edit Fields1').item.json[\"LInkedin Post\"] }}\n\nHere are the available image options:\n{{ JSON.stringify($json.imageOptions) }}\n\nSelect the single best image for this post. Return ONLY this JSON:\n{ \"index\": <number>, \"url\": \"<full image url>\", \"reason\": \"<one sentence why this image fits the post>\" }",
+        "options": {
+          "systemMessage": "You are an expert social media content strategist who selects the most impactful images for LinkedIn posts.\n\nYour job is to analyze a LinkedIn post and a list of candidate images, then select the single best image that:\n1. Is visually and contextually relevant to the post content and topic\n2. Looks professional and editorial quality — no watermarks, cartoons, memes, or stock photo clichés\n3. Is landscape orientation (isLandscape: true) when possible\n4. Comes from a reputable source (WSJ, Reuters, TechCrunch, Bloomberg etc. preferred)\n5. Would stop someone mid-scroll on LinkedIn\n\nYou must respond ONLY with valid raw JSON. No explanation, no markdown, no backticks."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1568,
+        1168
+      ],
+      "id": "1a001751-a4e5-404d-adec-cd1b0e72528b",
+      "name": "Image Picker"
+    },
+    {
+      "parameters": {
+        "jsCode": "const json = $input.first().json;\n\nconst fallbackImageUrl = 'https://withagi.space/og-image.png';\n\nconst imageOptions = json.imageOptions || json.images || json.results || [];\n\n// Only allow public HTTPS image URLs\nconst validImages = imageOptions.filter(img => {\n  const url = img.url || img.imageUrl || img.thumbnail || '';\n\n  if (!url) return false;\n\n  // Must be public HTTPS\n  if (!url.startsWith('https://')) return false;\n\n  // Block internal/local/blob/data URLs\n  if (\n    url.startsWith('x-raw-image://') ||\n    url.startsWith('blob:') ||\n    url.startsWith('file:') ||\n    url.startsWith('data:') ||\n    url.includes('localhost') ||\n    url.includes('127.0.0.1')\n  ) {\n    return false;\n  }\n\n  // Optional: prefer real image file URLs\n  const looksLikeImage =\n    url.match(/\\.(jpg|jpeg|png|webp|gif)(\\?|$)/i) ||\n    url.includes('pbs.twimg.com/media') ||\n    url.includes('images.unsplash.com') ||\n    url.includes('cloudinary.com') ||\n    url.includes('wp.com') ||\n    url.includes('cdn');\n\n  return looksLikeImage;\n});\n\n// If no valid image exists, force fallback\nconst finalImageOptions = validImages.length > 0\n  ? validImages\n  : [{\n      index: 0,\n      url: fallbackImageUrl,\n      title: 'Default WithAGI Image',\n      source: 'Fallback',\n      width: 1200,\n      height: 630,\n      isLandscape: true\n    }];\n\nreturn [{\n  json: {\n    ...json,\n    imageOptions: finalImageOptions,\n    hasValidImages: validImages.length > 0,\n    fallbackImageUrl\n  }\n}];"
+      },
+      "id": "96130c8e-82c5-401a-a3d9-89e16abe0529",
+      "name": "Filter Raw/non url images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        1168
+      ],
+      "notes": "Parses Claude's JSON response.\nFails gracefully to fallback if parse errors or missing URL."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f0134d5-309c-4b88-b4bf-a5fd3f86de84",
+              "name": "LInkedin Post",
+              "value": "={{ $('Edit Fields1').item.json[\"LInkedin Post\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "9a91a15e-f907-434c-981f-5cdbc6d624e1",
+              "name": "image-link",
+              "value": "={{ $json.imageUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2176,
+        1632
+      ],
+      "id": "26f796eb-e47f-48cf-9883-36657ce48fa3",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9885c37e-f320-4b1e-b7e9-f809c5700eed",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        1904
+      ],
+      "id": "8727101d-3ebe-493e-9ce3-90b34adb2101",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "1582782614",
+        "message": "={{ $json['LInkedin Post'] }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        1856
+      ],
+      "id": "7abc9a07-58bd-408c-b133-415828283859",
+      "name": "Send Damu message and wait for response3",
+      "webhookId": "db808950-eafd-473b-b644-30a7c517838f",
+      "credentials": {
+        "telegramApi": {
+          "id": "ix6CjC0dRcJTVc16",
+          "name": "@damuLinkedInPostsBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "967698709",
+        "message": "=Damu Winston Linkedin Post Review:\n\n------------------------------------------\n\n{{ $json['LInkedin Post'] }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        2064
+      ],
+      "id": "9620523c-e72b-4f68-917f-c86cb021dacb",
+      "name": "Send James message and wait for response",
+      "webhookId": "db808950-eafd-473b-b644-30a7c517838f",
+      "credentials": {
+        "telegramApi": {
+          "id": "JWELqrbDMwcpYZOu",
+          "name": "n8nReceiverBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        832
+      ],
+      "id": "8835376a-352e-424d-abbf-30c644cf81b9",
+      "credentials": {
+        "openRouterApi": {
+          "id": "OJKtYGS2YiGEh3Cn",
+          "name": "OpenRouter"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Unsplash (Fallback)": {
+      "main": [
+        [
+          {
+            "node": "Extract Image URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "Search Unsplash (Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Influencer List3": {
+      "main": [
+        [
+          {
+            "node": "Extract URL ID2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract URL ID2": {
+      "main": [
+        [
+          {
+            "node": "Get LinkedIn Provider ID2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Recent Posts (24h)3": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Posts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LinkedIn Provider ID2": {
+      "main": [
+        [
+          {
+            "node": "Unipile: Fetch Posts3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Posts1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image URL1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn1": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract best post1": {
+      "main": [
+        [
+          {
+            "node": "Find Relatable Articles3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Find Relatable Articles3": {
+      "main": [
+        [
+          {
+            "node": "Post Maker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Maker": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Prepare Search Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Send Damu message and wait for response3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article Image": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unipile: Fetch Posts3": {
+      "main": [
+        [
+          {
+            "node": "Filter Recent Posts (24h)3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert row(s)": {
+      "main": [
+        []
+      ]
+    },
+    "Get Used Posts from Sheet": {
+      "main": [
+        [
+          {
+            "node": "Set Influencer List3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Get Used Posts from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Post Agent": {
+      "main": [
+        [
+          {
+            "node": "extract best post1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag Duplicate Posts": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Posts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flag Duplicate Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Posts": {
+      "main": [
+        [
+          {
+            "node": "Rate Post Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheet1": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule1": {
+      "main": [
+        [
+          {
+            "node": "Get Used Posts from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule2": {
+      "main": [
+        [
+          {
+            "node": "Get Used Posts from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Search Query": {
+      "main": [
+        [
+          {
+            "node": "SerpAPI Image Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Image Search": {
+      "main": [
+        [
+          {
+            "node": "Extract Image Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image Options": {
+      "main": [
+        [
+          {
+            "node": "Has Image Results?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image Results?": {
+      "main": [
+        [
+          {
+            "node": "Filter Raw/non url images",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Image Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Selected Image": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Post Writer": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Picker",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Picker": {
+      "main": [
+        [
+          {
+            "node": "Extract Selected Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Raw/non url images": {
+      "main": [
+        [
+          {
+            "node": "Image Picker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Damu message and wait for response3": {
+      "main": [
+        []
+      ]
+    },
+    "Send James message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Find Relatable Articles3",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Post Maker",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "timeSavedPerExecution": 5,
+    "timezone": "Africa/Lagos",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Schedule": {
+      "recurrenceRules": []
+    },
+    "node:Schedule1": {
+      "recurrenceRules": []
+    },
+    "node:Schedule2": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "4941fca3-ad8a-46b9-8744-d4a736b6172e",
+  "activeVersionId": null,
+  "triggerCount": 3,
+  "shared": [
+    {
+      "updatedAt": "2026-01-12T08:03:47.225Z",
+      "createdAt": "2026-01-12T08:03:47.225Z",
+      "role": "workflow:owner",
+      "workflowId": "sCHO1DVXcoxw6k9D",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
