@@ -1,0 +1,2135 @@
+{
+  "updatedAt": "2026-06-15T00:08:43.823Z",
+  "createdAt": "2026-05-16T14:29:27.307Z",
+  "id": "sWX3WkL3YxqxLaM3",
+  "name": "Afrobeat San Diego",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        0,
+        0
+      ],
+      "id": "2f39c5b2-f92c-43c7-8ad5-99ae54dc5d97",
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        336,
+        0
+      ],
+      "id": "d1cbb12e-284c-4404-9b50-377c286bfbd3",
+      "name": "RSS Read",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const urls = [\n  'https://notjustok.com/feed',\n  'https://tooxclusive.com/feed',\n  'https://www.bellanaija.com/feed'\n];\n\nreturn urls.map(url => ({ json: { url: url } }));"
+      },
+      "name": "RSS URLs Setter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ],
+      "id": "d060878e-e311-44e8-824c-bb45ada42a27"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        576,
+        0
+      ],
+      "id": "24e9dcc4-7380-4353-baa7-510d95925296",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e6a9e4b-9e38-4b6d-a70d-8fe52a7712ac",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "1ff6654d-eb44-4eb7-a0e0-dfe4126571e1",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "d7b25ce5-8c6f-462c-9866-9f718faf652d",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date().toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        208
+      ],
+      "id": "424ff447-f53a-46b4-a46e-44f2e60cc1a2",
+      "name": "Filter for Latest Article"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keywords to block - add/remove as needed\nconst blockedKeywords = [\n  'lyrics',\n  'sports',\n  'football',\n  'betting',\n  'prediction',\n  'transfer',\n  'Premier League',\n  'La Liga',\n  'injury',\n  'match preview',\n  'EPL',\n  'Champions League',\n  'Serie A',\n  'Bundesliga',\n  'Ligue 1',\n  'match report',\n  'standings',\n  'fixtures',\n  'lineup',\n  'goal',\n  'scored',\n  'NBA',\n  'NFL'\n];\n\nconst items = $input.all();\nconst filteredItems = [];\n\nfor (const item of items) {\n  const title = (item.json.title || '').toLowerCase();\n  const content = (item.json.content || '').toLowerCase();\n  const snippet = (item.json.contentEncodedSnippet || '').toLowerCase();\n\n  // Check if title OR content contains any blocked keyword\n  const isTitleBlocked = blockedKeywords.some(keyword => \n    title.includes(keyword.toLowerCase())\n  );\n\n  const isContentBlocked = blockedKeywords.some(keyword => \n    content.includes(keyword.toLowerCase())\n  );\n\n  // Only keep articles that pass both checks\n  if (!isTitleBlocked && !isContentBlocked) {\n    filteredItems.push(item);\n  }\n}\n\nreturn filteredItems;"
+      },
+      "id": "ec2e2693-e439-40d0-bd73-9219d47c72cf",
+      "name": "Check for Outliers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Rewrite this article for our website:\n\nTitle: {{ $('Classify Category').item.json.postTitle }}\n\nContent: {{ $('Classify Category').item.json.cleanContent }}",
+        "options": {
+          "systemMessage": "You are a music journalist for Afrobeat San Diego, a global Afrobeats culture and music platform.\n\nYour job is to rewrite Afrobeats news articles in your own fresh voice.\n\nIMPORTANT RULES:\n- If the article is NOT about Afrobeats, African music, or African culture, respond with exactly this word and nothing else: SKIP\n- If the article IS about Afrobeats or African music, rewrite it fully\n- Keep all artist names, song titles, and facts 100% accurate\n- Write in an engaging, modern music journalism style\n- Do not plagiarize. Rewrite completely in your own words\n- Structure: Strong opening paragraph, 2-3 body paragraphs, closing line\n- Do not add fake quotes or information that wasn't in the original\n- Return clean HTML formatted text ready for WordPress\n- End every article with: <p><em>Stay connected with Afrobeat San Diego for the latest in global Afrobeats.</em></p>"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        496,
+        560
+      ],
+      "id": "e38328ac-96a8-4f72-b35e-f873a5cfde51",
+      "name": "AI Agent: Rewrite Article"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const inputItem of items) {\n  const item = inputItem.json;\nconst title = (item.title || '').toLowerCase();\nconst content = (item.contentEncodedSnippet || '').toLowerCase();\nconst text = title + ' ' + content;\n\n// Category mapping - ID numbers from your WordPress categories\n// Update these IDs to match your actual WordPress category IDs\nconst categoryMap = {\n  'whats-popping': {\n    id: 42,\n    slug: 'whats-popping',\n    keywords: [\n      'new music', 'drops', 'release', 'single', 'trending',\n      'charts', 'stream', 'viral', 'buzz', 'hot', 'latest',\n      'new song', 'out now', 'listen', 'premiere'\n    ]\n  },\n  'album-release': {\n    id: 70,\n    slug: 'album-release',\n    keywords: [\n      'album', 'ep', 'mixtape', 'project', 'tape',\n      'debut album', 'studio album', 'deluxe', 'tracklist',\n      'track list', 'drops album', 'releases album'\n    ]\n  },\n  'artists': {\n    id: 41,\n    slug: 'artists',\n    keywords: [\n      'interview', 'biography', 'profile', 'career',\n      'story', 'journey', 'artist spotlight', 'meet',\n      'rising star', 'emerging', 'artiste'\n    ]\n  },\n  'featured': {\n    id: 42,\n    slug: 'featured',\n    keywords: [\n      'exclusive', 'breaking', 'major', 'grammy',\n      'award', 'historic', 'first ever', 'milestone',\n      'world tour', 'collaboration', 'collab', 'feat'\n    ]\n  },\n  'dance-videos': {\n    id: 85,\n    slug: 'dance-videos',\n    keywords: [\n      'dance', 'video', 'music video', 'visual',\n      'choreography', 'tiktok', 'challenge', 'moves',\n      'official video', 'lyric video', 'visualizer'\n    ]\n  },\n  'dj-highlights': {\n    id: 42,\n    slug: 'dj-highlights',\n    keywords: [\n      'dj', 'mix', 'mixtape', 'playlist', 'set',\n      'afrobeats mix', 'deejay', 'spinall', 'turntable',\n      'amapiano mix', 'dj set'\n    ]\n  },\n  'event-recaps': {\n    id: 42,\n    slug: 'event-recaps',\n    keywords: [\n      'recap', 'review', 'concert review', 'festival recap',\n      'night out', 'highlights from', 'what happened',\n      'attended', 'photos from', 'recap of'\n    ]\n  },\n  'upcoming-events': {\n    id: 42,\n    slug: 'upcoming-events',\n    keywords: [\n      'upcoming', 'tour', 'concert', 'festival', 'live',\n      'tickets', 'performing', 'headline', 'announced',\n      'dates', 'show', 'gig', 'coming to'\n    ]\n  },\n  'community-moments': {\n    id: 42,\n    slug: 'community-moments',\n    keywords: [\n      'community', 'fan', 'fans react', 'twitter reacts',\n      'social media', 'goes viral', 'reaction', 'fans say',\n      'culture', 'movement', 'diaspora'\n    ]\n  }\n};\n\n// Score each category based on keyword matches\nlet bestCategory = 'whats-popping'; // Default fallback\nlet highestScore = 0;\n\nfor (const [categorySlug, categoryData] of Object.entries(categoryMap)) {\n  let score = 0;\n  \n  for (const keyword of categoryData.keywords) {\n    if (text.includes(keyword.toLowerCase())) {\n      score++;\n    }\n  }\n  \n  if (score > highestScore) {\n    highestScore = score;\n    bestCategory = categorySlug;\n  }\n}\n\n// Extract image from content:encoded\nlet featuredImageUrl = '';\n\n// Try to get image from media content first\nif (item['media:content'] && item['media:content']['$'] && item['media:content']['$'].url) {\n  featuredImageUrl = item['media:content']['$'].url;\n}\n\n// Fallback: Extract from content:encoded HTML\nif (!featuredImageUrl && item['content:encoded']) {\n  const imgMatch = item['content:encoded'].match(/src=\"([^\"]+\\.(jpg|jpeg|png|webp|gif))\"/i);\n  if (imgMatch) {\n    featuredImageUrl = imgMatch[1];\n  }\n}\n\n// Fallback: Extract from content field\nif (!featuredImageUrl && item.content) {\n  const imgMatch = item.content.match(/src=\"([^\"]+\\.(jpg|jpeg|png|webp|gif))\"/i);\n  if (imgMatch) {\n    featuredImageUrl = imgMatch[1];\n  }\n}\n\n// Clean up the content for WordPress\nlet cleanContent = item['content:encoded'] || item.content || item.contentEncodedSnippet || '';\n\n// Remove unwanted HTML elements\ncleanContent = cleanContent\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<ins[^>]*>[\\s\\S]*?<\\/ins>/gi, '')\n  .trim();\n\n// Add source attribution\ncleanContent += `\\n\\n<p><em>Source: <a href=\"${item.link}\" target=\"_blank\" rel=\"noopener\">${item['dc:creator'] || 'NotJustOk'}</a></em></p>`;\n\n  results.push({\n    json: {\n      ...item,\n      assignedCategory: bestCategory,\n      categoryId: categoryMap[bestCategory].id,\n      categoryScore: highestScore,\n      featuredImageUrl: featuredImageUrl,\n      cleanContent: cleanContent,\n      postTitle: item.title,\n      postExcerpt: (item.contentEncodedSnippet || '').substring(0, 155).trim() + '...'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "7f363c85-8308-49df-ae34-5d4296727b34",
+      "name": "Classify Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {
+          "thinking": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        528,
+        720
+      ],
+      "id": "e44201a1-7a75-4e84-a724-de5ce4880fd6",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "aDuwh40U1lK3zJ6B",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d408c8aa-4c8e-456b-8e65-3aae65fac3bc",
+              "leftValue": "={{ $json[0] }}",
+              "rightValue": "=0",
+              "operator": {
+                "type": "number",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        320,
+        576
+      ],
+      "id": "14ef1305-5f2b-471a-8ddf-7284b5bb05b2",
+      "name": "If",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-disposition",
+              "value": "=attachment; filename={{ $binary.data.fileName }}.{{ $binary.data.fileExtension }}"
+            },
+            {
+              "name": "content-type",
+              "value": "={{ $binary.data.mimeType }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        304,
+        960
+      ],
+      "id": "2a55c72e-6e95-4d29-af2e-20402fa7d5c8",
+      "name": "Upload media to WP",
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Edit Fields1').item.json['Original Image url'] }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        144,
+        960
+      ],
+      "id": "bcb039f8-075a-4b06-98e4-d339e9104ee1",
+      "name": "Fetch Image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1b0ea8d6-4072-48df-8b5f-7a6f34bffdbd",
+              "name": "Post Title",
+              "value": "={{ $('Classify Category').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "ee112eb6-5945-4b71-a3a0-9d25f5b6c06a",
+              "name": "Source Link",
+              "value": "={{ $('Classify Category').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "c9beb73f-6b6e-4576-982a-5f85d62aeb0e",
+              "name": "Publication Date",
+              "value": "={{ $('Classify Category').item.json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "799fd942-7c94-4a3e-80e0-97738e7542fd",
+              "name": "Original Createor",
+              "value": "={{ $('Classify Category').item.json['dc:creator'] }}",
+              "type": "string"
+            },
+            {
+              "id": "95168148-7815-44a3-bb08-655b6c6c2828",
+              "name": "Categories",
+              "value": "={{ $('Classify Category').item.json.categories[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "571d7249-ae2d-4083-87e5-9a9344c507d0",
+              "name": "Assigned Category",
+              "value": "={{ $('Classify Category').item.json.assignedCategory }}",
+              "type": "string"
+            },
+            {
+              "id": "124f2e30-e856-4ee7-bb2f-3daf2533bcf3",
+              "name": "Tags",
+              "value": "={{ $('Classify Category').item.json.categories[1] }},{{ $('Classify Category').item.json.categories[3] }}, {{ $('Classify Category').item.json.categories[2] }}",
+              "type": "string"
+            },
+            {
+              "id": "caef8433-5e5c-45e0-80bc-ab000c2ac4c8",
+              "name": "Author ID",
+              "value": "3",
+              "type": "string"
+            },
+            {
+              "id": "8d1c738a-9f10-4d84-9bda-1b34633a233b",
+              "name": "Post Content",
+              "value": "={{ $('AI Agent: Rewrite Article').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        960
+      ],
+      "id": "d1ac8304-2f46-4d29-a56f-91b5242b4c2c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/media/{{ $('Upload media to WP').item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "={{ $json['Post Title'] }}"
+            },
+            {
+              "name": "slug",
+              "value": "={{ $json['Post Title'].toLowerCase().replace(/[^a-z0-9]+/g, '-') }}"
+            },
+            {
+              "name": "alt-text",
+              "value": "={{ $json['Post Title'] }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json['Post Title'] }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json['Post Title'] }} - Afrobeat San Diego"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        960
+      ],
+      "id": "54042cab-7402-4151-863f-b7d03cbb6ae9",
+      "name": "update image metadata",
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/posts/{{ $json.id}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "excerpt",
+              "value": "={{ $('Classify Category').item.json.postExcerpt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        960,
+        960
+      ],
+      "id": "2f4e3332-5062-471d-87e6-23809e8ec898",
+      "name": "create post excerpt",
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/posts/{{ $('Create a post1').item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "featured_media",
+              "value": "={{ $('Upload media to WP').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1104,
+        960
+      ],
+      "id": "12e692e2-1186-45de-a195-c6b144267b80",
+      "name": "set featured image",
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "title": "={{ $('Edit Fields').item.json['Post Title'] }}",
+        "additionalFields": {
+          "authorId": 3,
+          "content": "={{ $('Edit Fields').item.json['Post Content'] }}",
+          "slug": "={{ $('Edit Fields').item.json['Post Title'].toLowerCase().replace(/[^a-z0-9]+/g, '-') }}",
+          "status": "publish",
+          "categories": "={{ $('Classify Category').item.json.categoryId }}"
+        }
+      },
+      "type": "n8n-nodes-base.wordpress",
+      "typeVersion": 1,
+      "position": [
+        800,
+        960
+      ],
+      "id": "4f862355-732e-45eb-acc5-996f49239598",
+      "name": "Create a post1",
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://afrobeatsandiego.com/wp-json/wp/v2/posts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wordpressApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "slug",
+              "value": "=`{{ $('Classify Category').item.json.title }}.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1424,
+        528
+      ],
+      "id": "ea5bf614-7d51-419a-9891-6689c1dd456c",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "credentials": {
+        "wordpressApi": {
+          "id": "DQmeNHUCMrv0Ffum",
+          "name": "Wordpress account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -112,
+        384
+      ],
+      "id": "7fd868b7-b458-47a6-a8e7-e6ce6b73ff5f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Classify Category').item.json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        176,
+        400
+      ],
+      "id": "081d3225-73cf-480a-b135-1e67a8d8541f",
+      "name": "Fetch Article2",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        384
+      ],
+      "id": "3f77d07a-4d35-4228-b9e7-1b3f2a119d23",
+      "name": "Find the Best Image2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1b0ea8d6-4072-48df-8b5f-7a6f34bffdbd",
+              "name": "Post Title",
+              "value": "={{ $('Classify Category').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "c9beb73f-6b6e-4576-982a-5f85d62aeb0e",
+              "name": "Original Publication Date",
+              "value": "={{ $('Classify Category').item.json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "799fd942-7c94-4a3e-80e0-97738e7542fd",
+              "name": "Original Creator",
+              "value": "={{ $('Classify Category').item.json['dc:creator'] }}",
+              "type": "string"
+            },
+            {
+              "id": "95168148-7815-44a3-bb08-655b6c6c2828",
+              "name": "Categories",
+              "value": "={{ $('Classify Category').item.json.categories[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "571d7249-ae2d-4083-87e5-9a9344c507d0",
+              "name": "Assigned Category",
+              "value": "={{ $('Classify Category').item.json.assignedCategory }}",
+              "type": "string"
+            },
+            {
+              "id": "caef8433-5e5c-45e0-80bc-ab000c2ac4c8",
+              "name": "Author ID",
+              "value": "3",
+              "type": "string"
+            },
+            {
+              "id": "c492ca95-03e6-4a19-bbe3-0d67225dbcb1",
+              "name": "Original Image url",
+              "value": "={{ $json.imageUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "67c2114c-d411-4b2d-a9ec-e973210a3c15",
+              "name": "hasImage",
+              "value": "={{ $json.hasImage }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        576,
+        384
+      ],
+      "id": "4e2e8603-6fe1-47db-8299-81c50a7bb7a4",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -96,
+        960
+      ],
+      "id": "159f0d68-d088-42f5-8b9b-d2b9a188b864",
+      "name": "Wait",
+      "webhookId": "ebc68fe4-0002-43c2-bd6a-5151a6d33432"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d408c8aa-4c8e-456b-8e65-3aae65fac3bc",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "=SKIP",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        560
+      ],
+      "id": "f5651ec1-dd1e-4e87-9565-024ad9777760",
+      "name": "Check for SKIP",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "tableId": "published_articles",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "source_url",
+              "fieldValue": "={{ $('Classify Category').item.json.link }}"
+            },
+            {
+              "fieldId": "post_title",
+              "fieldValue": "={{ $('Classify Category').item.json.postTitle }}"
+            },
+            {
+              "fieldId": "wordpress_post_id",
+              "fieldValue": "={{ $('Create a post1').item.json.id }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $('Classify Category').item.json.assignedCategory }}"
+            },
+            {
+              "fieldId": "source_site",
+              "fieldValue": "={{ $('Classify Category').item.json['dc:creator'] || 'Unknown' }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        976
+      ],
+      "id": "9a4446a9-6447-4447-a49f-996dfa324ee5",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dIiwgGnoyWGOY3At",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "published_articles",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_url",
+              "condition": "eq",
+              "keyValue": "={{ $('Classify Category').item.json.link }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        128,
+        576
+      ],
+      "id": "bd9c3ac0-3f1d-48b6-a5f9-c264bcd52d84",
+      "name": "Check Duplicate",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dIiwgGnoyWGOY3At",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS URLs Setter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS URLs Setter": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Filter for Latest Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter for Latest Article": {
+      "main": [
+        [
+          {
+            "node": "Check for Outliers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Outliers": {
+      "main": [
+        [
+          {
+            "node": "Classify Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Rewrite Article": {
+      "main": [
+        [
+          {
+            "node": "Check for SKIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Category": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Rewrite Article",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Rewrite Article",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Image": {
+      "main": [
+        [
+          {
+            "node": "Upload media to WP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload media to WP": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "update image metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update image metadata": {
+      "main": [
+        [
+          {
+            "node": "Create a post1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create post excerpt": {
+      "main": [
+        [
+          {
+            "node": "set featured image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a post1": {
+      "main": [
+        [
+          {
+            "node": "create post excerpt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        []
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fetch Article2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article2": {
+      "main": [
+        [
+          {
+            "node": "Find the Best Image2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Best Image2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set featured image": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for SKIP": {
+      "main": [
+        [
+          {
+            "node": "Fetch Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        []
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": [
+        12
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "c276f006-0837-488f-be54-dd5b9b92cf58",
+  "activeVersionId": "c276f006-0837-488f-be54-dd5b9b92cf58",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-16T14:29:27.307Z",
+      "createdAt": "2026-05-16T14:29:27.307Z",
+      "role": "workflow:owner",
+      "workflowId": "sWX3WkL3YxqxLaM3",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-06-15T00:08:49.042Z",
+    "createdAt": "2026-06-15T00:08:43.825Z",
+    "versionId": "c276f006-0837-488f-be54-dd5b9b92cf58",
+    "workflowId": "sWX3WkL3YxqxLaM3",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours",
+                "hoursInterval": 12
+              }
+            ]
+          }
+        },
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "position": [
+          0,
+          0
+        ],
+        "id": "2f39c5b2-f92c-43c7-8ad5-99ae54dc5d97",
+        "typeVersion": 1.3
+      },
+      {
+        "parameters": {
+          "url": "={{ $json.url }}",
+          "options": {
+            "ignoreSSL": true
+          }
+        },
+        "type": "n8n-nodes-base.rssFeedRead",
+        "typeVersion": 1.2,
+        "position": [
+          336,
+          0
+        ],
+        "id": "d1cbb12e-284c-4404-9b50-377c286bfbd3",
+        "name": "RSS Read",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const urls = [\n  'https://notjustok.com/feed',\n  'https://tooxclusive.com/feed',\n  'https://www.bellanaija.com/feed'\n];\n\nreturn urls.map(url => ({ json: { url: url } }));"
+        },
+        "name": "RSS URLs Setter",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          160,
+          0
+        ],
+        "id": "d060878e-e311-44e8-824c-bb45ada42a27"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          576,
+          0
+        ],
+        "id": "24e9dcc4-7380-4353-baa7-510d95925296",
+        "name": "Merge1"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "8e6a9e4b-9e38-4b6d-a70d-8fe52a7712ac",
+                "leftValue": "={{ $json.isoDate }}",
+                "rightValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              },
+              {
+                "id": "1ff6654d-eb44-4eb7-a0e0-dfe4126571e1",
+                "leftValue": "={{ $json.isoDate }}",
+                "rightValue": "={{ new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              },
+              {
+                "id": "d7b25ce5-8c6f-462c-9866-9f718faf652d",
+                "leftValue": "={{ $json.isoDate }}",
+                "rightValue": "={{ new Date().toISOString().split('T')[0] }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          160,
+          208
+        ],
+        "id": "424ff447-f53a-46b4-a46e-44f2e60cc1a2",
+        "name": "Filter for Latest Article"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Keywords to block - add/remove as needed\nconst blockedKeywords = [\n  'lyrics',\n  'sports',\n  'football',\n  'betting',\n  'prediction',\n  'transfer',\n  'Premier League',\n  'La Liga',\n  'injury',\n  'match preview',\n  'EPL',\n  'Champions League',\n  'Serie A',\n  'Bundesliga',\n  'Ligue 1',\n  'match report',\n  'standings',\n  'fixtures',\n  'lineup',\n  'goal',\n  'scored',\n  'NBA',\n  'NFL'\n];\n\nconst items = $input.all();\nconst filteredItems = [];\n\nfor (const item of items) {\n  const title = (item.json.title || '').toLowerCase();\n  const content = (item.json.content || '').toLowerCase();\n  const snippet = (item.json.contentEncodedSnippet || '').toLowerCase();\n\n  // Check if title OR content contains any blocked keyword\n  const isTitleBlocked = blockedKeywords.some(keyword => \n    title.includes(keyword.toLowerCase())\n  );\n\n  const isContentBlocked = blockedKeywords.some(keyword => \n    content.includes(keyword.toLowerCase())\n  );\n\n  // Only keep articles that pass both checks\n  if (!isTitleBlocked && !isContentBlocked) {\n    filteredItems.push(item);\n  }\n}\n\nreturn filteredItems;"
+        },
+        "id": "ec2e2693-e439-40d0-bd73-9219d47c72cf",
+        "name": "Check for Outliers",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          352,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Rewrite this article for our website:\n\nTitle: {{ $('Classify Category').item.json.postTitle }}\n\nContent: {{ $('Classify Category').item.json.cleanContent }}",
+          "options": {
+            "systemMessage": "You are a music journalist for Afrobeat San Diego, a global Afrobeats culture and music platform.\n\nYour job is to rewrite Afrobeats news articles in your own fresh voice.\n\nIMPORTANT RULES:\n- If the article is NOT about Afrobeats, African music, or African culture, respond with exactly this word and nothing else: SKIP\n- If the article IS about Afrobeats or African music, rewrite it fully\n- Keep all artist names, song titles, and facts 100% accurate\n- Write in an engaging, modern music journalism style\n- Do not plagiarize. Rewrite completely in your own words\n- Structure: Strong opening paragraph, 2-3 body paragraphs, closing line\n- Do not add fake quotes or information that wasn't in the original\n- Return clean HTML formatted text ready for WordPress\n- End every article with: <p><em>Stay connected with Afrobeat San Diego for the latest in global Afrobeats.</em></p>"
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          496,
+          560
+        ],
+        "id": "e38328ac-96a8-4f72-b35e-f873a5cfde51",
+        "name": "AI Agent: Rewrite Article"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const inputItem of items) {\n  const item = inputItem.json;\nconst title = (item.title || '').toLowerCase();\nconst content = (item.contentEncodedSnippet || '').toLowerCase();\nconst text = title + ' ' + content;\n\n// Category mapping - ID numbers from your WordPress categories\n// Update these IDs to match your actual WordPress category IDs\nconst categoryMap = {\n  'whats-popping': {\n    id: 42,\n    slug: 'whats-popping',\n    keywords: [\n      'new music', 'drops', 'release', 'single', 'trending',\n      'charts', 'stream', 'viral', 'buzz', 'hot', 'latest',\n      'new song', 'out now', 'listen', 'premiere'\n    ]\n  },\n  'album-release': {\n    id: 70,\n    slug: 'album-release',\n    keywords: [\n      'album', 'ep', 'mixtape', 'project', 'tape',\n      'debut album', 'studio album', 'deluxe', 'tracklist',\n      'track list', 'drops album', 'releases album'\n    ]\n  },\n  'artists': {\n    id: 41,\n    slug: 'artists',\n    keywords: [\n      'interview', 'biography', 'profile', 'career',\n      'story', 'journey', 'artist spotlight', 'meet',\n      'rising star', 'emerging', 'artiste'\n    ]\n  },\n  'featured': {\n    id: 42,\n    slug: 'featured',\n    keywords: [\n      'exclusive', 'breaking', 'major', 'grammy',\n      'award', 'historic', 'first ever', 'milestone',\n      'world tour', 'collaboration', 'collab', 'feat'\n    ]\n  },\n  'dance-videos': {\n    id: 85,\n    slug: 'dance-videos',\n    keywords: [\n      'dance', 'video', 'music video', 'visual',\n      'choreography', 'tiktok', 'challenge', 'moves',\n      'official video', 'lyric video', 'visualizer'\n    ]\n  },\n  'dj-highlights': {\n    id: 42,\n    slug: 'dj-highlights',\n    keywords: [\n      'dj', 'mix', 'mixtape', 'playlist', 'set',\n      'afrobeats mix', 'deejay', 'spinall', 'turntable',\n      'amapiano mix', 'dj set'\n    ]\n  },\n  'event-recaps': {\n    id: 42,\n    slug: 'event-recaps',\n    keywords: [\n      'recap', 'review', 'concert review', 'festival recap',\n      'night out', 'highlights from', 'what happened',\n      'attended', 'photos from', 'recap of'\n    ]\n  },\n  'upcoming-events': {\n    id: 42,\n    slug: 'upcoming-events',\n    keywords: [\n      'upcoming', 'tour', 'concert', 'festival', 'live',\n      'tickets', 'performing', 'headline', 'announced',\n      'dates', 'show', 'gig', 'coming to'\n    ]\n  },\n  'community-moments': {\n    id: 42,\n    slug: 'community-moments',\n    keywords: [\n      'community', 'fan', 'fans react', 'twitter reacts',\n      'social media', 'goes viral', 'reaction', 'fans say',\n      'culture', 'movement', 'diaspora'\n    ]\n  }\n};\n\n// Score each category based on keyword matches\nlet bestCategory = 'whats-popping'; // Default fallback\nlet highestScore = 0;\n\nfor (const [categorySlug, categoryData] of Object.entries(categoryMap)) {\n  let score = 0;\n  \n  for (const keyword of categoryData.keywords) {\n    if (text.includes(keyword.toLowerCase())) {\n      score++;\n    }\n  }\n  \n  if (score > highestScore) {\n    highestScore = score;\n    bestCategory = categorySlug;\n  }\n}\n\n// Extract image from content:encoded\nlet featuredImageUrl = '';\n\n// Try to get image from media content first\nif (item['media:content'] && item['media:content']['$'] && item['media:content']['$'].url) {\n  featuredImageUrl = item['media:content']['$'].url;\n}\n\n// Fallback: Extract from content:encoded HTML\nif (!featuredImageUrl && item['content:encoded']) {\n  const imgMatch = item['content:encoded'].match(/src=\"([^\"]+\\.(jpg|jpeg|png|webp|gif))\"/i);\n  if (imgMatch) {\n    featuredImageUrl = imgMatch[1];\n  }\n}\n\n// Fallback: Extract from content field\nif (!featuredImageUrl && item.content) {\n  const imgMatch = item.content.match(/src=\"([^\"]+\\.(jpg|jpeg|png|webp|gif))\"/i);\n  if (imgMatch) {\n    featuredImageUrl = imgMatch[1];\n  }\n}\n\n// Clean up the content for WordPress\nlet cleanContent = item['content:encoded'] || item.content || item.contentEncodedSnippet || '';\n\n// Remove unwanted HTML elements\ncleanContent = cleanContent\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<ins[^>]*>[\\s\\S]*?<\\/ins>/gi, '')\n  .trim();\n\n// Add source attribution\ncleanContent += `\\n\\n<p><em>Source: <a href=\"${item.link}\" target=\"_blank\" rel=\"noopener\">${item['dc:creator'] || 'NotJustOk'}</a></em></p>`;\n\n  results.push({\n    json: {\n      ...item,\n      assignedCategory: bestCategory,\n      categoryId: categoryMap[bestCategory].id,\n      categoryScore: highestScore,\n      featuredImageUrl: featuredImageUrl,\n      cleanContent: cleanContent,\n      postTitle: item.title,\n      postExcerpt: (item.contentEncodedSnippet || '').substring(0, 155).trim() + '...'\n    }\n  });\n}\n\nreturn results;"
+        },
+        "id": "7f363c85-8308-49df-ae34-5d4296727b34",
+        "name": "Classify Category",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          528,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "claude-sonnet-4-5-20250929",
+            "cachedResultName": "Claude Sonnet 4.5"
+          },
+          "options": {
+            "thinking": true
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          528,
+          720
+        ],
+        "id": "e44201a1-7a75-4e84-a724-de5ce4880fd6",
+        "name": "Anthropic Chat Model",
+        "credentials": {
+          "anthropicApi": {
+            "id": "aDuwh40U1lK3zJ6B",
+            "name": "Anthropic account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "d408c8aa-4c8e-456b-8e65-3aae65fac3bc",
+                "leftValue": "={{ $json[0] }}",
+                "rightValue": "=0",
+                "operator": {
+                  "type": "number",
+                  "operation": "empty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          320,
+          576
+        ],
+        "id": "14ef1305-5f2b-471a-8ddf-7284b5bb05b2",
+        "name": "If",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/media",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "content-disposition",
+                "value": "=attachment; filename={{ $binary.data.fileName }}.{{ $binary.data.fileExtension }}"
+              },
+              {
+                "name": "content-type",
+                "value": "={{ $binary.data.mimeType }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "binaryData",
+          "inputDataFieldName": "data",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          304,
+          960
+        ],
+        "id": "2a55c72e-6e95-4d29-af2e-20402fa7d5c8",
+        "name": "Upload media to WP",
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "={{ $('Edit Fields1').item.json['Original Image url'] }}",
+          "options": {
+            "allowUnauthorizedCerts": true,
+            "response": {
+              "response": {
+                "responseFormat": "file"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          144,
+          960
+        ],
+        "id": "bcb039f8-075a-4b06-98e4-d339e9104ee1",
+        "name": "Fetch Image"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1b0ea8d6-4072-48df-8b5f-7a6f34bffdbd",
+                "name": "Post Title",
+                "value": "={{ $('Classify Category').item.json.title }}",
+                "type": "string"
+              },
+              {
+                "id": "ee112eb6-5945-4b71-a3a0-9d25f5b6c06a",
+                "name": "Source Link",
+                "value": "={{ $('Classify Category').item.json.link }}",
+                "type": "string"
+              },
+              {
+                "id": "c9beb73f-6b6e-4576-982a-5f85d62aeb0e",
+                "name": "Publication Date",
+                "value": "={{ $('Classify Category').item.json.pubDate }}",
+                "type": "string"
+              },
+              {
+                "id": "799fd942-7c94-4a3e-80e0-97738e7542fd",
+                "name": "Original Createor",
+                "value": "={{ $('Classify Category').item.json['dc:creator'] }}",
+                "type": "string"
+              },
+              {
+                "id": "95168148-7815-44a3-bb08-655b6c6c2828",
+                "name": "Categories",
+                "value": "={{ $('Classify Category').item.json.categories[0] }}",
+                "type": "string"
+              },
+              {
+                "id": "571d7249-ae2d-4083-87e5-9a9344c507d0",
+                "name": "Assigned Category",
+                "value": "={{ $('Classify Category').item.json.assignedCategory }}",
+                "type": "string"
+              },
+              {
+                "id": "124f2e30-e856-4ee7-bb2f-3daf2533bcf3",
+                "name": "Tags",
+                "value": "={{ $('Classify Category').item.json.categories[1] }},{{ $('Classify Category').item.json.categories[3] }}, {{ $('Classify Category').item.json.categories[2] }}",
+                "type": "string"
+              },
+              {
+                "id": "caef8433-5e5c-45e0-80bc-ab000c2ac4c8",
+                "name": "Author ID",
+                "value": "3",
+                "type": "string"
+              },
+              {
+                "id": "8d1c738a-9f10-4d84-9bda-1b34633a233b",
+                "name": "Post Content",
+                "value": "={{ $('AI Agent: Rewrite Article').item.json.output }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          480,
+          960
+        ],
+        "id": "d1ac8304-2f46-4d29-a56f-91b5242b4c2c",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/media/{{ $('Upload media to WP').item.json.id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "Title",
+                "value": "={{ $json['Post Title'] }}"
+              },
+              {
+                "name": "slug",
+                "value": "={{ $json['Post Title'].toLowerCase().replace(/[^a-z0-9]+/g, '-') }}"
+              },
+              {
+                "name": "alt-text",
+                "value": "={{ $json['Post Title'] }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json['Post Title'] }}"
+              },
+              {
+                "name": "description",
+                "value": "={{ $json['Post Title'] }} - Afrobeat San Diego"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          640,
+          960
+        ],
+        "id": "54042cab-7402-4151-863f-b7d03cbb6ae9",
+        "name": "update image metadata",
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/posts/{{ $json.id}}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "excerpt",
+                "value": "={{ $('Classify Category').item.json.postExcerpt }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          960,
+          960
+        ],
+        "id": "2f4e3332-5062-471d-87e6-23809e8ec898",
+        "name": "create post excerpt",
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://afrobeatsandiego.com/wp-json/wp/v2/posts/{{ $('Create a post1').item.json.id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "featured_media",
+                "value": "={{ $('Upload media to WP').item.json.id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          1104,
+          960
+        ],
+        "id": "12e692e2-1186-45de-a195-c6b144267b80",
+        "name": "set featured image",
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "title": "={{ $('Edit Fields').item.json['Post Title'] }}",
+          "additionalFields": {
+            "authorId": 3,
+            "content": "={{ $('Edit Fields').item.json['Post Content'] }}",
+            "slug": "={{ $('Edit Fields').item.json['Post Title'].toLowerCase().replace(/[^a-z0-9]+/g, '-') }}",
+            "status": "publish",
+            "categories": "={{ $('Classify Category').item.json.categoryId }}"
+          }
+        },
+        "type": "n8n-nodes-base.wordpress",
+        "typeVersion": 1,
+        "position": [
+          800,
+          960
+        ],
+        "id": "4f862355-732e-45eb-acc5-996f49239598",
+        "name": "Create a post1",
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://afrobeatsandiego.com/wp-json/wp/v2/posts",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "wordpressApi",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "slug",
+                "value": "=`{{ $('Classify Category').item.json.title }}.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-"
+              },
+              {
+                "name": "per_page",
+                "value": "1"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1424,
+          528
+        ],
+        "id": "ea5bf614-7d51-419a-9891-6689c1dd456c",
+        "name": "HTTP Request",
+        "alwaysOutputData": true,
+        "credentials": {
+          "wordpressApi": {
+            "id": "DQmeNHUCMrv0Ffum",
+            "name": "Wordpress account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -112,
+          384
+        ],
+        "id": "7fd868b7-b458-47a6-a8e7-e6ce6b73ff5f",
+        "name": "Loop Over Items"
+      },
+      {
+        "parameters": {
+          "url": "={{ $('Classify Category').item.json.link }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          176,
+          400
+        ],
+        "id": "081d3225-73cf-480a-b135-1e67a8d8541f",
+        "name": "Fetch Article2",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          400,
+          384
+        ],
+        "id": "3f77d07a-4d35-4228-b9e7-1b3f2a119d23",
+        "name": "Find the Best Image2"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1b0ea8d6-4072-48df-8b5f-7a6f34bffdbd",
+                "name": "Post Title",
+                "value": "={{ $('Classify Category').item.json.title }}",
+                "type": "string"
+              },
+              {
+                "id": "c9beb73f-6b6e-4576-982a-5f85d62aeb0e",
+                "name": "Original Publication Date",
+                "value": "={{ $('Classify Category').item.json.pubDate }}",
+                "type": "string"
+              },
+              {
+                "id": "799fd942-7c94-4a3e-80e0-97738e7542fd",
+                "name": "Original Creator",
+                "value": "={{ $('Classify Category').item.json['dc:creator'] }}",
+                "type": "string"
+              },
+              {
+                "id": "95168148-7815-44a3-bb08-655b6c6c2828",
+                "name": "Categories",
+                "value": "={{ $('Classify Category').item.json.categories[0] }}",
+                "type": "string"
+              },
+              {
+                "id": "571d7249-ae2d-4083-87e5-9a9344c507d0",
+                "name": "Assigned Category",
+                "value": "={{ $('Classify Category').item.json.assignedCategory }}",
+                "type": "string"
+              },
+              {
+                "id": "caef8433-5e5c-45e0-80bc-ab000c2ac4c8",
+                "name": "Author ID",
+                "value": "3",
+                "type": "string"
+              },
+              {
+                "id": "c492ca95-03e6-4a19-bbe3-0d67225dbcb1",
+                "name": "Original Image url",
+                "value": "={{ $json.imageUrl }}",
+                "type": "string"
+              },
+              {
+                "id": "67c2114c-d411-4b2d-a9ec-e973210a3c15",
+                "name": "hasImage",
+                "value": "={{ $json.hasImage }}",
+                "type": "boolean"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          576,
+          384
+        ],
+        "id": "4e2e8603-6fe1-47db-8299-81c50a7bb7a4",
+        "name": "Edit Fields1"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -96,
+          960
+        ],
+        "id": "159f0d68-d088-42f5-8b9b-d2b9a188b864",
+        "name": "Wait",
+        "webhookId": "ebc68fe4-0002-43c2-bd6a-5151a6d33432"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "d408c8aa-4c8e-456b-8e65-3aae65fac3bc",
+                "leftValue": "={{ $json.output }}",
+                "rightValue": "=SKIP",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          800,
+          560
+        ],
+        "id": "f5651ec1-dd1e-4e87-9565-024ad9777760",
+        "name": "Check for SKIP",
+        "alwaysOutputData": false
+      },
+      {
+        "parameters": {
+          "tableId": "published_articles",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "source_url",
+                "fieldValue": "={{ $('Classify Category').item.json.link }}"
+              },
+              {
+                "fieldId": "post_title",
+                "fieldValue": "={{ $('Classify Category').item.json.postTitle }}"
+              },
+              {
+                "fieldId": "wordpress_post_id",
+                "fieldValue": "={{ $('Create a post1').item.json.id }}"
+              },
+              {
+                "fieldId": "category",
+                "fieldValue": "={{ $('Classify Category').item.json.assignedCategory }}"
+              },
+              {
+                "fieldId": "source_site",
+                "fieldValue": "={{ $('Classify Category').item.json['dc:creator'] || 'Unknown' }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          1312,
+          976
+        ],
+        "id": "9a4446a9-6447-4447-a49f-996dfa324ee5",
+        "name": "Create a row",
+        "credentials": {
+          "supabaseApi": {
+            "id": "dIiwgGnoyWGOY3At",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "published_articles",
+          "limit": 1,
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "source_url",
+                "condition": "eq",
+                "keyValue": "={{ $('Classify Category').item.json.link }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          128,
+          576
+        ],
+        "id": "bd9c3ac0-3f1d-48b6-a5f9-c264bcd52d84",
+        "name": "Check Duplicate",
+        "credentials": {
+          "supabaseApi": {
+            "id": "dIiwgGnoyWGOY3At",
+            "name": "Supabase account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "RSS URLs Setter",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "RSS Read": {
+        "main": [
+          [
+            {
+              "node": "Merge1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "RSS URLs Setter": {
+        "main": [
+          [
+            {
+              "node": "RSS Read",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge1": {
+        "main": [
+          [
+            {
+              "node": "Filter for Latest Article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter for Latest Article": {
+        "main": [
+          [
+            {
+              "node": "Check for Outliers",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check for Outliers": {
+        "main": [
+          [
+            {
+              "node": "Classify Category",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent: Rewrite Article": {
+        "main": [
+          [
+            {
+              "node": "Check for SKIP",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Classify Category": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent: Rewrite Article",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "AI Agent: Rewrite Article",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Image": {
+        "main": [
+          [
+            {
+              "node": "Upload media to WP",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload media to WP": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "update image metadata",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "update image metadata": {
+        "main": [
+          [
+            {
+              "node": "Create a post1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "create post excerpt": {
+        "main": [
+          [
+            {
+              "node": "set featured image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create a post1": {
+        "main": [
+          [
+            {
+              "node": "create post excerpt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request": {
+        "main": [
+          []
+        ]
+      },
+      "Loop Over Items": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Fetch Article2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Article2": {
+        "main": [
+          [
+            {
+              "node": "Find the Best Image2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find the Best Image2": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields1": {
+        "main": [
+          [
+            {
+              "node": "Check Duplicate",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set featured image": {
+        "main": [
+          [
+            {
+              "node": "Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check for SKIP": {
+        "main": [
+          [
+            {
+              "node": "Fetch Image",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create a row": {
+        "main": [
+          []
+        ]
+      },
+      "Check Duplicate": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Damu Winston",
+    "name": "Version c276f006",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}
