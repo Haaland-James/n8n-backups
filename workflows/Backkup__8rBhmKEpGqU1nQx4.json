@@ -1,0 +1,1370 @@
+{
+  "updatedAt": "2026-06-21T07:50:27.100Z",
+  "createdAt": "2026-06-21T07:50:18.670Z",
+  "id": "8rBhmKEpGqU1nQx4",
+  "name": "Backkup",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1088,
+        624
+      ],
+      "id": "1e66fc37-2395-4cff-82cd-f8fca370f77d",
+      "name": "RSS Read",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4,12 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -368,
+        144
+      ],
+      "id": "8d918c4a-bd53-4262-9da5-ea3b71af425a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const urls = [\n  'https://nonprofitquarterly.org/feed/',\n  'https://www.route-fifty.com/rss.xml',\n  'https://www.govexec.com/rss/all/',\n'https://www.federalregister.gov/documents/current.rss',\n  'https://www.huduser.gov/rss/rss.xml',\n];\n\nreturn urls.map(url => ({ json: { url: url } }));"
+      },
+      "name": "RSS URLs Setter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        624
+      ],
+      "id": "149bf12f-bf2e-46ac-a151-65162a0c3f7a"
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com.ng/alerts/feeds/17560601412901264091/17846267083681172480",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e0937153-a756-407b-8507-0bcdaf64fa74",
+      "name": "RSS Read1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e86fa47e-3e47-4657-acce-6b988572b931",
+              "name": "link",
+              "value": "={{ decodeURIComponent($json.link.split('url=')[1].split('&')[0]) }}",
+              "type": "string"
+            },
+            {
+              "id": "9ef95a03-bb46-4144-ba16-cd03b04aa589",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34f9106b-f73c-41ca-96a8-38a3eeb7d545",
+              "name": "pubDate",
+              "value": "={{ $json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "c1db0499-572c-44f7-bd29-8ec51ea5cd5a",
+              "name": "content",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "e61dab21-2df0-4f4c-905a-00e66b33e9d0",
+              "name": "contentSnippet",
+              "value": "={{ $json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "48f1f13e-b733-4a0a-a7d7-09fa264225c1",
+              "name": "isoDate",
+              "value": "={{ $json.isoDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        384,
+        160
+      ],
+      "id": "bb0a5318-0682-4bee-b5d7-b8902af8a70b",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        208,
+        144
+      ],
+      "id": "a9c7c58b-3390-4120-bbec-6ba81f47cb5d",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e6a9e4b-9e38-4b6d-a70d-8fe52a7712ac",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "1ff6654d-eb44-4eb7-a0e0-dfe4126571e1",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "d7b25ce5-8c6f-462c-9866-9f718faf652d",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ new Date().toISOString().split('T')[0] }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        160
+      ],
+      "id": "490a3258-c0bd-40a3-9041-6ee296da086c",
+      "name": "Filter for Latest Article"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "id": "aa96dcfe-0094-4257-b219-69ff63e28135",
+      "name": "AI Post Writer1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        560
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "aDuwh40U1lK3zJ6B",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "keyword-check",
+              "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || '')).toLowerCase() }}",
+              "rightValue": "ai|artificial intelligence|machine learning|llm|large language model|agent|agentic|automation|gpt|claude|gemini|openai|anthropic|deepmind|neural network|deep learning|foundation model|generative ai|rag|vector|embedding|inference|fine.tun|autonomous|copilot|chatbot|multimodal|transformer",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2a039e1d-8392-4f80-9924-e06ab46973ac",
+      "name": "Filter — Keywords1",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e86fa47e-3e47-4657-acce-6b988572b931",
+              "name": "link",
+              "value": "={{ $json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "9ef95a03-bb46-4144-ba16-cd03b04aa589",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34f9106b-f73c-41ca-96a8-38a3eeb7d545",
+              "name": "pubDate",
+              "value": "={{ $json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "c1db0499-572c-44f7-bd29-8ec51ea5cd5a",
+              "name": "content",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "e61dab21-2df0-4f4c-905a-00e66b33e9d0",
+              "name": "contentSnippet",
+              "value": "={{ $json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "48f1f13e-b733-4a0a-a7d7-09fa264225c1",
+              "name": "isoDate",
+              "value": "={{ $json.isoDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1168,
+        448
+      ],
+      "id": "4038f4ba-1413-48e8-80c7-fd05fbb31f7c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Score this article for relevance to WithAGI's LinkedIn audience (AI professionals, founders, enterprise teams, and developers building with or evaluating autonomous AI agents).\n\nScoring criteria:\n+3 if it directly relates to AI agents, agentic AI, LLM orchestration, or autonomous AI systems\n+3 if it affects enterprise AI adoption, AI infrastructure, or AI security/compliance\n+2 if it is timely or actionable (new model release, policy shift, major product launch)\n+2 if a founder, CTO, or AI product strategist would find it valuable\n\nArticle Title: {{ $json.title }}\nArticle Summary: {{ $json.contentSnippet }}\nSource: {{ $json.link }}\nPublished: {{ $json.pubDate }}\n\nReturn ONLY this JSON structure with no other text:\n{\n  \"link\": {{ $json.link }},\n  \"title\": {{ $json.title }},\n  \"content\": {{ $json.content }},\n  \"isoDate\": {{ $json.isoDate }},\n  \"author\": \"the author of the article\",\n  \"score\": 0,\n  \"reason\": \"one sentence explaining the score\",\n  \"category\": \"ai-agents | llms | enterprise-ai | ai-security | ai-policy | ai-tools | other\",\n  \"urgency\": \"high | medium | low\",\n  \"audience\": \"founders | developers | enterprise-teams | ai-researchers | all\"\n}",
+        "options": {
+          "systemMessage": "You are a senior AI intelligence analyst for WithAGI — an autonomous AI agent platform built for professionals who need real outcomes, not just conversations. You have deep expertise in large language models, agentic AI systems, AI infrastructure, enterprise automation, and the evolving AI regulatory and investment landscape.\n\nYour job is to evaluate news articles for relevance to WithAGI's LinkedIn audience and return structured JSON only. No explanations, no markdown, no extra text — just raw JSON."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        416
+      ],
+      "id": "67ec4cd5-a4f4-403e-8211-627b47de170e",
+      "name": "AI Agent: Score Articles"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a LinkedIn post for WithAGI about this article.\n\nStructure:\n- Hook: 1 punchy opening line (do NOT start with an emoji)\n- 2-3 lines of expert insight from WithAGI's perspective on what this means for autonomous AI, agentic workflows, or enterprise AI adoption\n- 1 line on what this means for professionals building or evaluating AI agent systems\n- Soft CTA (follow our page, visit withagi.space, or drop a comment)\n- 3-5 relevant hashtags on the last line\n\nMax 200 words. No fluff. No em dashes.\n\nArticle: {{ $json.output }}\nCategory: {{ $json.ai_category }}\nUrgency: {{ $json.ai_urgency }}\nAudience: {{ $json.ai_audience }}",
+        "options": {
+          "systemMessage": "You are a LinkedIn content writer for WithAGI — an autonomous AI agent platform that delivers real work outcomes for professionals, not just conversations.\n\nYour writing style:\n- Direct and confident, like a practitioner who lives at the intersection of AI research and real-world deployment\n- No corporate filler: never use \"in today's landscape\", \"it's more important than ever\", \"game-changer\", or \"unlock\"\n- Short sentences. Active voice.\n- You write for an audience of founders, CTOs, AI engineers, and enterprise teams evaluating or building with autonomous AI agents\n- Always sound like a human expert sharing insider knowledge, not a press release\n\nReturn only the post text. No labels, no subject lines, no commentary."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        544,
+        416
+      ],
+      "id": "fed9f2df-12d4-47ad-80a9-9516cf569d3b",
+      "name": "post creator"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('select highest score').item.json.source_link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        704
+      ],
+      "id": "728e41df-71fb-4582-a971-1753ca7c0326",
+      "name": "Fetch Article",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const html = item.json.html || item.json.data;\n  let imageUrl = '';\n  \n  if (html) {\n    // Try multiple methods to find the best image\n    \n    // Method 1: Open Graph image (most reliable for articles)\n    let match = html.match(/<meta[^>]*property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n    if (match) {\n      imageUrl = match[1];\n    }\n    \n    // Method 2: Twitter card image\n    if (!imageUrl) {\n      match = html.match(/<meta[^>]*name=[\"']twitter:image[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/i);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 3: Featured/hero images (common in blog posts)\n    if (!imageUrl) {\n      const featuredSelectors = [\n        /<img[^>]*class=[\"'][^\"']*featured[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*hero[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i,\n        /<img[^>]*class=[\"'][^\"']*wp-post-image[^\"']*[\"'][^>]*src=[\"']([^\"']+)[\"'][^>]*>/i\n      ];\n      \n      for (const regex of featuredSelectors) {\n        match = html.match(regex);\n        if (match) {\n          imageUrl = match[1];\n          break;\n        }\n      }\n    }\n    \n    // Method 4: First image in article content\n    if (!imageUrl) {\n      match = html.match(/<(?:article|div[^>]*class=[\"'][^\"']*(?:content|post|article)[^\"']*[\"'])[^>]*>.*?<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/is);\n      if (match) {\n        imageUrl = match[1];\n      }\n    }\n    \n    // Method 5: Any reasonably sized image (width > 300px)\n    if (!imageUrl) {\n      const imgMatches = html.match(/<img[^>]*src=[\"']([^\"']+)[\"'][^>]*>/gi);\n      if (imgMatches) {\n        for (const imgTag of imgMatches) {\n          const srcMatch = imgTag.match(/src=[\"']([^\"']+)[\"']/);\n          const widthMatch = imgTag.match(/width=[\"']?(\\d+)/);\n          \n          if (srcMatch && (!widthMatch || parseInt(widthMatch[1]) > 300)) {\n            imageUrl = srcMatch[1];\n            break;\n          }\n        }\n      }\n    }\n    \n    // Clean up relative URLs\n    if (imageUrl && imageUrl.startsWith('//')) {\n      imageUrl = 'https:' + imageUrl;\n    } else if (imageUrl && imageUrl.startsWith('/')) {\n      const linkUrl = item.json.link || '';\n      const baseUrl = linkUrl.match(/^https?:\\/\\/[^\\/]+/);\n      if (baseUrl) {\n        imageUrl = baseUrl[0] + imageUrl;\n      }\n    }\n    \n    // Validate it's actually an image\n    if (imageUrl && !imageUrl.match(/\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$/i)) {\n      // Check if it might be a valid image URL without extension\n      if (!imageUrl.includes('image') && !imageUrl.includes('photo') && !imageUrl.includes('pic')) {\n        imageUrl = '';\n      }\n    }\n  }\n  \n  // Add image data to your item\n  item.json.imageUrl = imageUrl;\n  item.json.hasImage = !!imageUrl;\n  \n  // Log for debugging\n  if (imageUrl) {\n    console.log(`Found image: ${imageUrl}`);\n  } else {\n    console.log('No image found for article');\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        688
+      ],
+      "id": "1f9b0065-f395-4380-a699-121d5dc08d8f",
+      "name": "Find the Best Image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e86fa47e-3e47-4657-acce-6b988572b931",
+              "name": "source_link",
+              "value": "={{ $('Edit Fields2').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "9ef95a03-bb46-4144-ba16-cd03b04aa589",
+              "name": "title",
+              "value": "={{ $('Edit Fields2').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34f9106b-f73c-41ca-96a8-38a3eeb7d545",
+              "name": "source_pubDate",
+              "value": "={{ $('Edit Fields2').item.json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "c1db0499-572c-44f7-bd29-8ec51ea5cd5a",
+              "name": "source_content",
+              "value": "={{ $('Edit Fields2').item.json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "e61dab21-2df0-4f4c-905a-00e66b33e9d0",
+              "name": "source_contentSnippet",
+              "value": "={{ $('Edit Fields2').item.json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "48f1f13e-b733-4a0a-a7d7-09fa264225c1",
+              "name": "source_isoDate",
+              "value": "={{ $('Edit Fields2').item.json.isoDate }}",
+              "type": "string"
+            },
+            {
+              "id": "01e0b201-bf47-4dc9-9a22-f59a8adbf00f",
+              "name": "confirmed_post_image",
+              "value": "={{ $json.imageUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "fb83845a-e1d2-4321-bb17-0521f8834840",
+              "name": "linkedin_post",
+              "value": "={{ $('Clean Post').item.json.linkedin_post }}",
+              "type": "string"
+            },
+            {
+              "id": "ca7ba832-66cf-422c-abc4-8866a4a7443b",
+              "name": "ai_score",
+              "value": "={{ $('Cleans and parses ').item.json.ai_score }}",
+              "type": "number"
+            },
+            {
+              "id": "75421905-a5e6-44ec-b6fe-1acae4fee5a9",
+              "name": "ai_urgency",
+              "value": "={{ $('Cleans and parses ').item.json.ai_reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        1344
+      ],
+      "id": "ae79cd90-a4e7-44e6-9707-6853061f7563",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.confirmed_post_image }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        1344
+      ],
+      "id": "2738eff7-d9f3-4f94-9bbd-a5afde7ea001",
+      "name": "Fetch Article Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.output;\n\nreturn [{\n  json: {\n    linkedin_post: text.replace(/\\\\n/g, '\\n'),\n    source_image_url: $input.first().json.source_image_url\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        416
+      ],
+      "id": "65c96067-2d44-4d59-905b-68831e38cf23",
+      "name": "Clean Post"
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com.ng/alerts/feeds/17560601412901264091/3722970378925283676",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        144
+      ],
+      "id": "c99f25dc-3910-4ec6-aefe-4c17efc09cb5",
+      "name": "RSS Read2"
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com.ng/alerts/feeds/17560601412901264091/10427998771757218362",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        288
+      ],
+      "id": "7151d4bb-b9fd-4f84-b491-1da778d33ae4",
+      "name": "RSS Read3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://connect.pabbly.com/webhook-listener/webhook/IjU3NjIwNTY0MDYzZTA0MzQ1MjZiNTUzMyI_3D_pc/IjU3NjcwNTZlMDYzMTA0MzQ1MjZjNTUzMzUxMzYi_pc",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.linkedin_post }}"
+            },
+            {
+              "name": "image_url",
+              "value": "={{ $json.confirmed_post_image }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        1344
+      ],
+      "id": "c7b60a8a-adcd-4563-ba0d-e989cc940c06",
+      "name": "Send to Pabbly"
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "isoDate",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        144
+      ],
+      "id": "b229b19d-a2aa-4822-8571-1bdab04ee58d",
+      "name": "Sort"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        144
+      ],
+      "id": "dc2961eb-249d-431f-b85d-6012e89816a3",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst best = items.reduce((top, item) => {\n  return item.json.ai_score > top.json.ai_score ? item : top;\n}, items[0]);\n\nreturn [{ json: {\n  ...best.json,\n  source_link: best.json.source_link || best.json.link || best.json.url || best.json.guid || ''\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        416
+      ],
+      "id": "ed3a4ea2-2d7b-4eb3-a4f6-3d94af0c7c79",
+      "name": "select highest score"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  try {\n    let raw = item.json.output || '';\n    \n    // Strip backticks and json fencing\n    raw = raw.replace(/```json|```/g, '').trim();\n    \n    // Find JSON object\n    const match = raw.match(/\\{[\\s\\S]*\\}/);\n    if (!match) throw new Error(\"No JSON object found\");\n    \n    // Clean common AI mistakes in JSON values\n    const cleaned = match[0]\n      .replace(/:\\s*\"([^\"]*)\"([^,}\\]]*)/g, (m, p1, p2) => `: \"${p1.replace(/\\n/g, ' ')}\"${p2}`)\n      .replace(/,\\s*}/g, '}')\n      .replace(/,\\s*]/g, ']');\n    \n    const parsed = JSON.parse(cleaned);\n\n    return { json: {\n      ...item.json,\n      ai_score: Number(parsed.score) || 0,\n      ai_reason: parsed.reason || '',\n      ai_category: parsed.category || '',\n      ai_urgency: parsed.urgency || '',\n      ai_audience: parsed.audience || '',\n      source_link: parsed.link        // ← from AI output\n        || item.json.link             // ← from RSS input\n        || item.json.url \n        || item.json.guid \n        || ''\n    }};\n  } catch (e) {\n    return { json: {\n      ...item.json,\n      ai_score: 0,\n      ai_reason: \"Parse error: \" + e.message,\n      ai_category: \"unknown\",\n      ai_urgency: \"low\",\n      ai_audience: \"all\",\n      source_link: item.json.link || item.json.url || item.json.guid || ''\n    }};\n  }\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        416
+      ],
+      "id": "535be670-a8a4-4902-99ce-fc642ea9b887",
+      "name": "Cleans and parses "
+    },
+    {
+      "parameters": {
+        "jsCode": "// On the error branch, n8n puts the original input under $input.first().json\n// but also check the error message context\nconst json = $input.first().json;\n\n// The RSS title may be nested in the original item that caused the error\nconst title = json.title \n  || json.headline\n  || json.name\n  || '';\n\nconst snippet = json.contentSnippet \n  || json.summary \n  || json.description\n  || json.content\n  || '';\n\n// Log what we actually have for debugging\nconsole.log('Available fields:', Object.keys(json));\nconsole.log('Title found:', title);\n\nconst fallbackImageUrl = 'https://withagi.space/og-image.png';\n\nconst cleanTitle = title\n  .replace(/[^a-zA-Z0-9 ]/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .split(' ')\n  .slice(0, 8)\n  .join(' ');\n\nreturn [{\n  json: {\n    ...json,\n    title,\n    snippet,\n    fallbackImageUrl,\n    searchQuery: cleanTitle || 'artificial intelligence news'\n  }\n}];"
+      },
+      "id": "0135d3fe-3440-406f-b773-511da2199c93",
+      "name": "Prepare Search Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        928
+      ],
+      "notes": "Cleans article title into a focused image search query (max 8 words)"
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.searchQuery }}"
+            },
+            {
+              "name": "engine",
+              "value": "google_images"
+            },
+            {
+              "name": "api_key",
+              "value": "a1ced12239570689765b682c2959f39c357de3dd6598e37533a964bd50f038c3"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            },
+            {
+              "name": "safe",
+              "value": "active"
+            },
+            {
+              "name": "tbs",
+              "value": "isz:l"
+            },
+            {
+              "name": "ijn",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a54a9167-57b8-48cb-bd0f-491fcf1b364d",
+      "name": "SerpAPI Image Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        928
+      ],
+      "notes": "Replace YOUR_SERPAPI_KEY with your actual key from serpapi.com\ntbs=isz:l filters for large images only"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.images_results || [];\nconst title = $input.first().json.searchQuery || '';\nconst snippet = $input.first().json.snippet || '';\nconst fallbackImageUrl = $input.first().json.fallbackImageUrl || '';\n\nif (!results.length) {\n  // No results — pass fallback through\n  return [{\n    json: {\n      title,\n      snippet,\n      fallbackImageUrl,\n      imageOptions: [],\n      hasFallback: true\n    }\n  }];\n}\n\n// Take top 10 and extract key fields for AI scoring\nconst imageOptions = results.slice(0, 10).map((img, i) => ({\n  index: i,\n  url: img.original || img.thumbnail || '',\n  title: img.title || '',\n  source: img.source || '',\n  width: img.original_width || 0,\n  height: img.original_height || 0,\n  isLandscape: (img.original_width || 0) > (img.original_height || 0)\n})).filter(img => img.url);\n\nreturn [{\n  json: {\n    title,\n    snippet,\n    fallbackImageUrl,\n    imageOptions,\n    hasFallback: false\n  }\n}];"
+      },
+      "id": "ea8ef7d8-0633-4d49-9ff4-15a9123d9632",
+      "name": "Extract Image Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        928
+      ],
+      "notes": "Normalizes SerpAPI results into a clean list for AI scoring.\nAlso detects if there are no results and flags fallback."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "check-has-results",
+              "leftValue": "={{ $json.hasFallback }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "36131ab5-3301-44ff-84dd-2285392a6491",
+      "name": "Has Image Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        592,
+        928
+      ],
+      "notes": "True → AI scoring path\nFalse → Fallback image path"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.text || $input.first().json.output || '';\n\nlet selected;\ntry {\n  const clean = raw.replace(/```json|```/g, '').trim();\n  selected = JSON.parse(clean);\n} catch (e) {\n  // Parse failed — use fallback\n  return [{\n    json: {\n      source_image_url: $input.first().json.fallbackImageUrl || '',\n      image_reason: 'AI parse failed — using fallback',\n      image_source: 'fallback'\n    }\n  }];\n}\n\nif (!selected?.url) {\n  return [{\n    json: {\n      source_image_url: $input.first().json.fallbackImageUrl || '',\n      image_reason: 'No URL in AI response — using fallback',\n      image_source: 'fallback'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    imageUrl: selected.url,\n    image_reason: selected.reason || '',\n    image_source: 'google_search'\n  }\n}];"
+      },
+      "id": "ae9c5d20-b280-4215-910c-cd02cdf6bcd3",
+      "name": "Extract Selected Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        928
+      ],
+      "notes": "Parses Claude's JSON response.\nFails gracefully to fallback if parse errors or missing URL."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback path — return the OG image passed in from the parent workflow\nconst fallbackImageUrl = $input.first().json.fallbackImageUrl || '';\n\nreturn [{\n  json: {\n    source_image_url: fallbackImageUrl,\n    image_reason: 'No Google results found — using site fallback image',\n    image_source: 'fallback'\n  }\n}];"
+      },
+      "id": "09ad3612-3a16-4179-ad32-8db753e148ad",
+      "name": "Use Fallback Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        1152
+      ],
+      "notes": "Used when SerpAPI returns no results.\nPasses through the fallback OG image from the parent workflow."
+    },
+    {
+      "parameters": {},
+      "id": "5d515a0e-7522-41c2-8d88-e03b34fb9ad5",
+      "name": "Merge Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        896,
+        1136
+      ],
+      "notes": "Merges AI-selected and fallback paths back into one.\nBoth paths output same shape: { source_image_url, image_reason, image_source }"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e86fa47e-3e47-4657-acce-6b988572b931",
+              "name": "source_link",
+              "value": "={{ $('Edit Fields2').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "9ef95a03-bb46-4144-ba16-cd03b04aa589",
+              "name": "title",
+              "value": "={{ $('Edit Fields2').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34f9106b-f73c-41ca-96a8-38a3eeb7d545",
+              "name": "source_pubDate",
+              "value": "={{ $('Edit Fields2').item.json.pubDate }}",
+              "type": "string"
+            },
+            {
+              "id": "c1db0499-572c-44f7-bd29-8ec51ea5cd5a",
+              "name": "source_content",
+              "value": "={{ $('Edit Fields2').item.json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "e61dab21-2df0-4f4c-905a-00e66b33e9d0",
+              "name": "source_contentSnippet",
+              "value": "={{ $('Edit Fields2').item.json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "48f1f13e-b733-4a0a-a7d7-09fa264225c1",
+              "name": "source_isoDate",
+              "value": "={{ $('Edit Fields2').item.json.isoDate }}",
+              "type": "string"
+            },
+            {
+              "id": "fb83845a-e1d2-4321-bb17-0521f8834840",
+              "name": "linkedin_post",
+              "value": "={{ $('Clean Post').item.json.linkedin_post }}",
+              "type": "string"
+            },
+            {
+              "id": "ca7ba832-66cf-422c-abc4-8866a4a7443b",
+              "name": "ai_score",
+              "value": "={{ $('Cleans and parses ').item.json.ai_score }}",
+              "type": "number"
+            },
+            {
+              "id": "75421905-a5e6-44ec-b6fe-1acae4fee5a9",
+              "name": "ai_urgency",
+              "value": "={{ $('Cleans and parses ').item.json.ai_reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        928
+      ],
+      "id": "84ecfc1d-92bc-44dc-bb66-3085206434be",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "id": "93a1d244-78f4-43fc-a04e-8329aa55164b",
+      "name": "AI Post Writer",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        1072
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "aDuwh40U1lK3zJ6B",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the LinkedIn post this image will accompany:\n\n{{ $('Clean Post').first().json.linkedin_post }}\n\nHere are the available image options:\n{{ JSON.stringify($json.imageOptions) }}\n\nSelect the single best image for this post. Return ONLY this JSON:\n{ \"index\": <number>, \"url\": \"<full image url>\", \"reason\": \"<one sentence why this image fits the post>\" }",
+        "options": {
+          "systemMessage": "You are an expert social media content strategist who selects the most impactful images for LinkedIn posts.\n\nYour job is to analyze a LinkedIn post and a list of candidate images, then select the single best image that:\n1. Is visually and contextually relevant to the post content and topic\n2. Looks professional and editorial quality — no watermarks, cartoons, memes, or stock photo clichés\n3. Is landscape orientation (isLandscape: true) when possible\n4. Comes from a reputable source (WSJ, Reuters, TechCrunch, Bloomberg etc. preferred)\n5. Would stop someone mid-scroll on LinkedIn\n\nYou must respond ONLY with valid raw JSON. No explanation, no markdown, no backticks."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        768,
+        928
+      ],
+      "id": "1f02461c-184f-417b-8833-bd618e8ae52a",
+      "name": "Image Picker"
+    },
+    {
+      "parameters": {},
+      "id": "01c5e944-7394-4727-b1d5-39e86531a046",
+      "name": "Confirmed Post Image",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -272,
+        1344
+      ],
+      "notes": "Merges AI-selected and fallback paths back into one.\nBoth paths output same shape: { source_image_url, image_reason, image_source }"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "01e0b201-bf47-4dc9-9a22-f59a8adbf00f",
+              "name": "confirmed_post_image",
+              "value": "={{ $json.confirmed_post_image }}",
+              "type": "string"
+            },
+            {
+              "id": "fb83845a-e1d2-4321-bb17-0521f8834840",
+              "name": "linkedin_post",
+              "value": "={{ $('Clean Post').item.json.linkedin_post }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        1344
+      ],
+      "id": "425817bf-0b50-4506-8de5-f35a7ff7a766",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "058fbc86-3d46-46e8-af7f-b79ab4680b4a",
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        288,
+        688
+      ],
+      "id": "9ccf6fc7-5f74-4232-8ce9-5914eea4f0cc",
+      "name": "Check if it is image"
+    }
+  ],
+  "connections": {
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Read3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Read1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS URLs Setter": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Filter for Latest Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter for Latest Article": {
+      "main": [
+        [
+          {
+            "node": "Filter — Keywords1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Post Writer1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Score Articles",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "post creator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter — Keywords1": {
+      "main": [
+        [
+          {
+            "node": "Sort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Score Articles": {
+      "main": [
+        [
+          {
+            "node": "Cleans and parses ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post creator": {
+      "main": [
+        [
+          {
+            "node": "Clean Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article": {
+      "main": [
+        [
+          {
+            "node": "Find the Best Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Best Image": {
+      "main": [
+        [
+          {
+            "node": "Check if it is image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article Image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Post": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "RSS Read3": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Sort": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Score Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "select highest score": {
+      "main": [
+        [
+          {
+            "node": "post creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleans and parses ": {
+      "main": [
+        [
+          {
+            "node": "select highest score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Search Query": {
+      "main": [
+        [
+          {
+            "node": "SerpAPI Image Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Image Search": {
+      "main": [
+        [
+          {
+            "node": "Extract Image Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image Options": {
+      "main": [
+        [
+          {
+            "node": "Has Image Results?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image Results?": {
+      "main": [
+        [
+          {
+            "node": "Image Picker",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Fallback Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Selected Image": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Fallback Image": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Confirmed Post Image",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Prepare Search Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Post Writer": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Picker",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Picker": {
+      "main": [
+        [
+          {
+            "node": "Extract Selected Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed Post Image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Send to Pabbly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if it is image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirmed Post Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "6e73fbdd-4467-487e-b99a-d5cc6df6fd61",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-06-21T07:50:18.670Z",
+      "createdAt": "2026-06-21T07:50:18.670Z",
+      "role": "workflow:owner",
+      "workflowId": "8rBhmKEpGqU1nQx4",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
