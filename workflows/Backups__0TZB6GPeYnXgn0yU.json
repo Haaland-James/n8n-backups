@@ -1,0 +1,1198 @@
+{
+  "updatedAt": "2026-10-18T12:09:15.036Z",
+  "createdAt": "2026-10-18T11:22:53.427Z",
+  "id": "0TZB6GPeYnXgn0yU",
+  "name": "Backups",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 19
+            }
+          ]
+        }
+      },
+      "id": "41fc690b-d755-4d3f-9c63-711425ee17fd",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -336,
+        672
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').item.json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').item.json.repo_name }}"
+        },
+        "filePath": "=index.json",
+        "fileContent": "{}",
+        "commitMessage": "=Index (Created) {{ new Date().toISOString().split('T')[0] }}"
+      },
+      "id": "205d377d-380a-4cb3-830a-fa39ee6dbe00",
+      "name": "Create Index File",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        512,
+        832
+      ],
+      "webhookId": "b1c00612-30d6-402d-a737-b9d06e473053",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.repo_name }}"
+        },
+        "filePath": "index.json",
+        "asBinaryProperty": false,
+        "additionalParameters": {}
+      },
+      "id": "db334ded-c1bd-4fbf-a744-0c6a8529f0a4",
+      "name": "Get Download Url for Index File",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        64,
+        672
+      ],
+      "webhookId": "6e7d3020-5558-4a80-9647-3c5a9de59a29",
+      "retryOnFail": true,
+      "typeVersion": 1.1,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}",
+        "options": {}
+      },
+      "id": "0d61be9c-96c2-46e0-954e-3717345c2e0b",
+      "name": "Get Index File Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        288,
+        656
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "3e028766-cfb2-4464-9a97-b0845f082ed4",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "=The resource you are requesting could not be found"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f216f9cd-d851-47d9-bdef-43f951eb1a7b",
+      "name": "Index File Not Found",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        288,
+        848
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "452d7af0-1a81-4426-a171-0379eb83f575",
+              "name": "repo_owner",
+              "type": "string",
+              "value": "your-github-username"
+            },
+            {
+              "id": "eed5e0e0-4a5e-4df9-adec-a266d175e40d",
+              "name": "repo_name",
+              "type": "string",
+              "value": "your-github-repository-name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "beecfa00-8279-4d09-9d46-0f88025ca69b",
+      "name": "Set Github Data",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -128,
+        672
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {},
+      "id": "1e22472e-4da3-4071-8e98-b95331af7d2a",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        -304,
+        1760
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "857cdabd-829f-4f78-afc8-0223acc71267",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "position": [
+        720,
+        832
+      ],
+      "webhookId": "6d7f1445-a6c5-4ebb-bae3-a4ebbeed5f95",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "filters": {
+          "excludePinnedData": true
+        },
+        "requestOptions": {}
+      },
+      "id": "9921feef-8038-4b8b-b751-c7ab0be1a9db",
+      "name": "Get All Workflows",
+      "type": "n8n-nodes-base.n8n",
+      "position": [
+        496,
+        656
+      ],
+      "executeOnce": false,
+      "retryOnFail": true,
+      "typeVersion": 1,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// =======================\n// READ INPUTS\n// =======================\n\n// Current workflows from n8n\nconst workflows = $input.all()\n  .map(i => i.json)\n  .filter(w => w && typeof w.id === 'string' && typeof w.name === 'string');\n\nconst indexData = JSON.parse($('Get Index File Content').first()?.json?.data || '{}');\n\n// =======================\n// PREPARE STATE\n// =======================\n\nconst results = [];\nconst updatedIndex = { ...indexData };\n\n// Track only REAL workflow IDs from index\nconst existingIds = new Set(Object.keys(indexData));\n\n// =======================\n// STEP 1: CREATE / EDIT / RENAME\n// =======================\n\nfor (const workflow of workflows) {\n  const id = workflow.id;\n  const name = workflow.name || 'unnamed';\n  const path = `workflows/${name}.json`;\n\n  // -------- CREATE --------\n  if (!indexData[id]) {\n    updatedIndex[id] = { name, file_path: path };\n\n    results.push({\n      status: 'create',\n      workflowId: id,\n      name,\n      path,\n      data: workflow\n    });\n\n    continue;\n  }\n\n  // -------- RENAME --------\n  if (indexData[id].name !== name) {\n    // delete old file\n    results.push({\n      status: 'delete',\n      workflowId: id,\n      name: indexData[id].name,\n      path: indexData[id].file_path\n    });\n\n    // create new file\n    results.push({\n      status: 'create',\n      workflowId: id,\n      name,\n      path,\n      data: workflow\n    });\n\n    updatedIndex[id] = { name, file_path: path };\n    existingIds.delete(id);\n    continue;\n  }\n\n  // -------- EDIT --------\n  results.push({\n    status: 'edit',\n    workflowId: id,\n    name,\n    path: indexData[id].file_path,\n    data: workflow\n  });\n\n  existingIds.delete(id);\n}\n\n// =======================\n// STEP 2: DELETE REMOVED WORKFLOWS\n// =======================\n\nfor (const id of existingIds) {\n  results.push({\n    status: 'delete',\n    workflowId: id,\n    name: indexData[id].name,\n    path: indexData[id].file_path\n  });\n\n  delete updatedIndex[id];\n}\n\n// =======================\n// STEP 3: INDEX UPDATE (ONLY IF CHANGED)\n// =======================\n\nif (JSON.stringify(indexData) !== JSON.stringify(updatedIndex)) {\n  results.push({\n    status: 'index',\n    data: updatedIndex\n  });\n}\n\n// =======================\n// OUTPUT FOR N8N\n// =======================\n\nreturn results.map(r => ({ json: r }));"
+      },
+      "id": "4996012d-4b9d-41f4-8bd2-987957d11f84",
+      "name": "C,E,D Checker",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        720,
+        656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_name }}"
+        },
+        "filePath": "={{ $json.path }}",
+        "fileContent": "={{ JSON.stringify($json.data, null, 2) }}",
+        "commitMessage": "={{ $json.name }} (Created) {{ new Date().toISOString().split('T')[0] }}"
+      },
+      "id": "483d601e-37ec-4c69-a3a4-8435b2166826",
+      "name": "Create New Files",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        1248,
+        384
+      ],
+      "webhookId": "b1c00612-30d6-402d-a737-b9d06e473053",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_name }}"
+        },
+        "filePath": "index.json",
+        "fileContent": "={{ JSON.stringify($json.data, null, 2) }}",
+        "commitMessage": "=Index (Edited) {{ new Date().toISOString().split('T')[0] }}"
+      },
+      "id": "fa0a13ba-d91a-4336-bbc3-33c2ba18cd0d",
+      "name": "Update Index File",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        1248,
+        944
+      ],
+      "webhookId": "0cfd3844-d625-413e-9760-c352d50d4c79",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_name }}"
+        },
+        "filePath": "={{ $json.path }}",
+        "asBinaryProperty": false,
+        "additionalParameters": {}
+      },
+      "id": "91232e1d-39f4-4086-b131-4313f14878b0",
+      "name": "Get Download Url for Github File",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        1248,
+        544
+      ],
+      "webhookId": "6e7d3020-5558-4a80-9647-3c5a9de59a29",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "97023852-faa0-4c13-91fc-7d080beae826",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "create"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ae9ec2ae-f5d7-47be-85a5-7c13cf4b6688",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "edit"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Edit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "8f1e5618-6223-4ad3-afc8-b8e8d74b8f05",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "delete"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b548ed0b-878d-45da-80c7-28347fa3d555",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "index"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Update Index"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3696666a-4ecd-4da6-bc31-50a46c09fe73",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        928,
+        624
+      ],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "delete",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_name }}"
+        },
+        "filePath": "={{ $json.path }}",
+        "commitMessage": "={{ $json.name }} (Deleted) {{ new Date().toISOString().split('T')[0] }}"
+      },
+      "id": "d4f40eef-3d43-472f-821b-652034148320",
+      "name": "Delete Files",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        1248,
+        768
+      ],
+      "webhookId": "b1c00612-30d6-402d-a737-b9d06e473053",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}",
+        "options": {}
+      },
+      "id": "17223273-8e69-49eb-ba50-d03a42d76340",
+      "name": "Get Github File Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1504,
+        544
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(i => ({\n  json: {\n    githubData: JSON.parse(i.json.data || '{}')\n  }\n}));"
+      },
+      "id": "b7b48634-0189-4874-b358-db08baf32447",
+      "name": "Parse Github File Content",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1728,
+        544
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalize = (obj) =>\n  JSON.stringify(obj, (_, value) =>\n    value && typeof value === 'object' && !Array.isArray(value)\n      ? Object.keys(value)\n          .sort()\n          .reduce((o, k) => {\n            o[k] = value[k];\n            return o;\n          }, {})\n      : value\n  );\n\nreturn $input.all()\n  .filter(item =>\n    normalize(item.json.githubData) !== normalize(item.json.data)\n  )\n  .map(item => {\n    const { githubData, ...rest } = item.json;\n    return { json: rest };\n  });"
+      },
+      "id": "0e894883-0a25-4db0-8021-635da7044e00",
+      "name": "File Edit Checker",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2176,
+        560
+      ],
+      "executeOnce": false,
+      "typeVersion": 2,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "9230b900-0aff-42c0-8cd5-bed2932fa426",
+      "name": "Merge Github & n8n File",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        1952,
+        560
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "7f597ed3-ce0c-4830-97b8-3a07e9dda11f",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.status !== null && $json.status !== undefined }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8eb11a9f-5d8f-4115-b0c0-ff0bf4626021",
+      "name": "If File Edited",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        2400,
+        560
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Github Data').first().json.repo_name }}"
+        },
+        "filePath": "={{ $json.path }}",
+        "fileContent": "={{ JSON.stringify($json.data, null, 2) }}",
+        "commitMessage": "={{ $json.name }} (Edited) {{ new Date().toISOString().split('T')[0] }}"
+      },
+      "id": "6e272d9c-9eca-401a-9bc9-5faebb7639a1",
+      "name": "Edit Files",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        2624,
+        544
+      ],
+      "webhookId": "0cfd3844-d625-413e-9760-c352d50d4c79",
+      "retryOnFail": true,
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "# n8n-Workflow-Github-Backup",
+        "height": 1443,
+        "width": 3270,
+        "color": 7
+      },
+      "id": "c56fbc0b-2c0f-4d5c-8ea2-6b98ded8b962",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -432,
+        112
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 📋 WORKFLOW SUMMARY\n\n**Purpose:** Automatically backup n8n workflows to GitHub\n\n**Flow:**\n1. Trigger (Schedule/Manual)\n2. Get/Create index.json in GitHub\n3. Fetch all n8n workflows\n4. Compare with GitHub index\n5. Create/Edit/Delete files as needed\n6. Update index.json\n\n\n**Features:**\n- Daily automatic backups (7 PM)\n- Detects new, edited, renamed, and deleted workflows\n- Maintains an index for tracking\n- Smart comparison to avoid unnecessary commits",
+        "height": 416,
+        "width": 512,
+        "color": 2
+      },
+      "id": "3de6e86c-72ab-4314-80aa-c9c853446ce2",
+      "name": "Workflow Summary",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -976,
+        960
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## ⚙️ SETUP REQUIREMENTS\n\n**1️⃣ GitHub OAuth Credentials**\n- Go to *Credentials → New → GitHub OAuth2*\n- Create GitHub OAuth App:\n  - Settings → Developer settings → OAuth Apps\n  - Authorization callback URL: your n8n instance\n  - Enter Client ID & Secret in n8n\n\n\n**2️⃣ GitHub Repository**\n- Create a new repository (public/private)\n- Copy repository owner and name\n\n\n**3️⃣ Configure Workflow**\n- Edit \"Set Github Data\" node:\n  - `repo_owner`: your GitHub username\n  - `repo_name`: your repository name\n- Connect GitHub OAuth credentials to all GitHub nodes\n\n\n**4️⃣ n8n API Credentials**\n- Go to *Settings → API*\n- Create new API key\n- Add as n8n credential in workflow\n\n✅ Test manually before enabling schedule",
+        "height": 608,
+        "width": 500,
+        "color": 4
+      },
+      "id": "af54072c-833b-4ba5-a977-50be925c1691",
+      "name": "Setup Requirements",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -976,
+        304
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 📂 INDEX SYSTEM\n\n**index.json structure:**\n```json\n{\n  \"workflow_id_1\": {\n    \"name\": \"Workflow Name\",\n    \"file_path\": \"workflows/Workflow Name.json\"\n  },\n  \"workflow_id_2\": { ... }\n}\n```\n\n**Purpose:**\n- Tracks which workflows exist in GitHub\n- Maps workflow IDs to file paths\n- Enables detection of renames and deletes\n\n**First Run:**\n- If index.json doesn't exist, it's created automatically\n- 3-second wait allows file creation to complete",
+        "height": 472,
+        "width": 420,
+        "color": 5
+      },
+      "id": "46d253f7-f722-4532-8b1c-a11ea9f78a3b",
+      "name": "Index System",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        336,
+        1040
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 🔍 C,E,D CHECKER\n\n**Compare & Decision Logic:**\n\nFor each n8n workflow:\n- **CREATE:** New workflow not in index\n- **RENAME:** Workflow name changed\n  - Deletes old file\n  - Creates new file with new name\n- **EDIT:** Existing workflow (checked later for actual changes)\n\n\nFor workflows in index but not in n8n:\n- **DELETE:** Workflow removed from n8n\n\n\nFor index itself:\n- **UPDATE INDEX:** If any changes detected\n\n**Output:** Array of actions to take",
+        "height": 456,
+        "width": 400,
+        "color": 6
+      },
+      "id": "bb13aaa8-797d-4692-8fc3-c5af4762dd0a",
+      "name": "C,E,D Checker Logic",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        512,
+        160
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 🔀 SWITCH ROUTING\n\nRoutes items based on status:\n\n**Create Branch:**\n- New workflows → Create New Files\n\n\n**Edit Branch:**\n- Existing workflows → Smart edit check\n- Fetches GitHub version\n- Compares with n8n version\n- Only commits if actually different\n\n\n**Delete Branch:**\n- Removed workflows → Delete Files\n\n\n**Update Index Branch:**\n- Index changed → Update Index File\n\n\nEach branch processes independently.",
+        "height": 496,
+        "width": 360,
+        "color": 7
+      },
+      "id": "676100b1-a511-431c-b4b1-e1a34c57d79d",
+      "name": "Switch Routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        832,
+        1024
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## ✏️ SMART EDIT DETECTION\n\n**Why needed:**\n- n8n changes timestamps/metadata on save\n- Prevents unnecessary commits\n\n\n**Process:**\n1. Fetch current file from GitHub\n2. Parse both GitHub & n8n versions\n3. Normalize JSON (sort keys)\n4. Compare stringified versions\n5. Only commit if truly different\n\n\n**Benefits:**\n- Cleaner commit history\n- No spam commits\n- Saves GitHub API calls",
+        "height": 428,
+        "width": 380,
+        "color": 6
+      },
+      "id": "00e4020f-7493-4b2d-bbd3-c595d0be1bd1",
+      "name": "Smart Edit Detection",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2160,
+        720
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 📝 COMMIT MESSAGES\n\nAuto-generated commit messages:\n\n**Format:** `[Workflow Name] ([Action]) YYYY-MM-DD`\n\n**Examples:**\n- `My Workflow (Created) 2026-01-15`\n- `My Workflow (Edited) 2026-01-15`\n- `My Workflow (Deleted) 2026-01-15`\n- `Index (Edited) 2026-01-15`\n\n\n**Benefits:**\n- Clear action history\n- Easy to track changes\n- Searchable by date",
+        "height": 404,
+        "width": 360,
+        "color": 3
+      },
+      "id": "b0a51055-0407-4ec8-9538-b0c6d4f56337",
+      "name": "Commit Messages",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1536,
+        768
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "3e028766-cfb2-4464-9a97-b0845f082ed4",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "=The resource you are requesting could not be found"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ce345be7-e849-4138-8cb3-bbc2a60285fa",
+      "name": "Workflows Folder Not Found",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        336,
+        1984
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "fa16e0ca-276b-4157-87da-de4a700d74ea",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        336,
+        1744
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}",
+        "options": {}
+      },
+      "id": "38739f3a-19ad-4360-b7bf-efd79db80165",
+      "name": "Get File Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        576,
+        1760
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "list",
+        "owner": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.repo_owner }}"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.repo_name }}"
+        },
+        "filePath": "workflows/"
+      },
+      "id": "b3603ac8-baa1-4ad2-97ad-cb18bbe7b3b5",
+      "name": "List Workflow Files",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        112,
+        1760
+      ],
+      "webhookId": "b4034155-275a-407e-8168-e9e9c7b1babe",
+      "retryOnFail": true,
+      "typeVersion": 1.1,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "workflowObject": "={{ $json.data }}",
+        "requestOptions": {}
+      },
+      "id": "255911e4-4592-4502-b721-fdbe32d652e5",
+      "name": "Create Workflow",
+      "type": "n8n-nodes-base.n8n",
+      "position": [
+        800,
+        1760
+      ],
+      "executeOnce": false,
+      "retryOnFail": true,
+      "typeVersion": 1,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 HOW IT WORKS\n\n**Sequential Processing:**\n- Loops through files one at a time\n- Downloads JSON from GitHub\n- Creates workflow in n8n\n- Prevents conflicts and rate limits\n\n**Error Handling:**\n- If `workflows/` folder not found → stops gracefully\n- Ensure backup workflow ran at least once first",
+        "height": 284,
+        "width": 400,
+        "color": 6
+      },
+      "id": "657bdfde-2d2c-458a-ab73-71bf051cffe0",
+      "name": "How It Works",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -160,
+        1952
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "452d7af0-1a81-4426-a171-0379eb83f575",
+              "name": "repo_owner",
+              "type": "string",
+              "value": "your-github-username"
+            },
+            {
+              "id": "eed5e0e0-4a5e-4df9-adec-a266d175e40d",
+              "name": "repo_name",
+              "type": "string",
+              "value": "your-github-repository-name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f31d7721-d452-4be8-b522-530a36460f05",
+      "name": "Set Github Data1",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -96,
+        1760
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "# n8n-Workflow-Github-Restore",
+        "height": 675,
+        "width": 1494,
+        "color": 7
+      },
+      "id": "7040efe2-9ede-4869-97f0-98915516136f",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -432,
+        1600
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 📋 WORKFLOW SUMMARY\n\n**Purpose:** Restore n8n workflows from GitHub backup\n\n**Flow:**\n1. Manual trigger\n2. Set GitHub repo details\n3. List workflow files from GitHub\n4. Loop through each file\n5. Download & create workflow in n8n\n\n\n**Use Cases:**\n- New n8n instance setup\n- Disaster recovery\n- Cloning workflows to another environment",
+        "height": 372,
+        "width": 416,
+        "color": 2
+      },
+      "id": "27103aeb-037b-4fd4-91fb-8ccbe3784c18",
+      "name": "Workflow Summary1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -880,
+        1600
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Set Github Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Create New Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Download Url for Github File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Github & n8n File",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Delete Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Index File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C,E,D Checker": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If File Edited": {
+      "main": [
+        [
+          {
+            "node": "Edit Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Workflow": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get File Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Github Data": {
+      "main": [
+        [
+          {
+            "node": "Get Download Url for Index File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File Content": {
+      "main": [
+        [
+          {
+            "node": "Create Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Github Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Github Data1": {
+      "main": [
+        [
+          {
+            "node": "List Workflow Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Index File": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Edit Checker": {
+      "main": [
+        [
+          {
+            "node": "If File Edited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Workflows": {
+      "main": [
+        [
+          {
+            "node": "C,E,D Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Workflow Files": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Workflows Folder Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Index File Not Found": {
+      "main": [
+        [
+          {
+            "node": "Create Index File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Index File Content": {
+      "main": [
+        [
+          {
+            "node": "Get All Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Github File Content": {
+      "main": [
+        [
+          {
+            "node": "Parse Github File Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Github & n8n File": {
+      "main": [
+        [
+          {
+            "node": "File Edit Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Github File Content": {
+      "main": [
+        [
+          {
+            "node": "Merge Github & n8n File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Download Url for Index File": {
+      "main": [
+        [
+          {
+            "node": "Get Index File Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Index File Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Download Url for Github File": {
+      "main": [
+        [
+          {
+            "node": "Get Github File Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Set Github Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "540368aa-ad3c-4275-b03d-6d58f25e0f87",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-10-18T11:22:53.427Z",
+      "createdAt": "2026-10-18T11:22:53.427Z",
+      "role": "workflow:owner",
+      "workflowId": "0TZB6GPeYnXgn0yU",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
