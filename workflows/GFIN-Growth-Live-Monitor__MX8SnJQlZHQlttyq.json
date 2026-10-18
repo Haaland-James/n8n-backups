@@ -1,0 +1,263 @@
+{
+  "updatedAt": "2026-09-14T09:02:00.701Z",
+  "createdAt": "2026-09-14T09:00:28.724Z",
+  "id": "MX8SnJQlZHQlttyq",
+  "name": "GFIN Growth Live Monitor",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## GFIN Growth Live Monitor\n\nRead-only dashboard. It queries n8n execution history and workflow definitions; it never executes or edits GFIN workflows.\n\n**One-time credentials:**\n1. `GFIN Monitor n8n API` — Base URL: `https://awf.deeplearningintelligence.com`; use the **n8n API key**, not the MCP access token.\n2. `GFIN Monitor Dashboard Login` — choose a username/password for the dashboard.\n\nAfter credentials are filled, publish this workflow and open `/webhook/gfin-growth-monitor`.\n\nThe dashboard auto-refreshes every 60 seconds and flags hidden node-level errors, missing scheduled runs, unitless Wait nodes, and fragile `defineBelow` Sheets writes.",
+        "height": 200,
+        "width": 1860,
+        "color": 5
+      },
+      "id": "f7fae40d-de9a-49ad-b12c-ab894a7dea4d",
+      "name": "Sticky Note e0471b89",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "path": "gfin-growth-monitor",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": true
+        }
+      },
+      "id": "a4f91c02-6943-475e-aecd-f6279cf85d03",
+      "name": "Open Live Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        384
+      ],
+      "webhookId": "ca1532d7-0422-4fc2-94b1-c742f81b0e1b",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "d5YybLk7izJ8fcfv",
+          "name": "Serp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "filters": {
+          "excludePinnedData": true
+        },
+        "requestOptions": {
+          "timeout": 15000
+        }
+      },
+      "id": "3c2e3017-ad23-4754-b79c-3923e01031c5",
+      "name": "Get GFIN Workflows",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        512,
+        384
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "execution",
+        "limit": 1000,
+        "filters": {},
+        "options": {},
+        "requestOptions": {
+          "timeout": 20000
+        }
+      },
+      "id": "fdefa2eb-dcb1-4a03-9e8b-823695020cce",
+      "name": "Get Recent Executions",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        768,
+        384
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const monitored = [\n  'QHtg7jHbZVmN1ACb',\n  'HfILQNdAdfaVnvEP',\n  'IGP3MiEqqdKccTrB',\n  'ufZuWDDf1Iq5Y8dE',\n  'XT7Q3o9JOryCVe0I',\n  'ZOO7V4y2yF96P7bi',\n  'dODxamYt3K6p5B1T',\n  '5Bztfh6rXBkKKFcD',\n  'n4lKsSDteXqvRrsX',\n  'Xznf1uqAkbujdyw5',\n  'BQIZWBjlwYwyQcx7'\n];\nconst rows = $input.all().map(i => i.json).filter(x => x && x.id);\nconst toMs = v => { const n = Date.parse(v || ''); return Number.isFinite(n) ? n : 0; };\nconst out = [];\nfor (const workflowId of monitored) {\n  const matches = rows.filter(r => String(r.workflowId || '') === workflowId).sort((a,b) => toMs(b.startedAt) - toMs(a.startedAt));\n  if (matches[0]) out.push({ json: { workflowId, executionId: String(matches[0].id) } });\n}\nif (!out.length && rows[0]) out.push({ json: { workflowId: String(rows[0].workflowId || ''), executionId: String(rows[0].id) } });\nreturn out;"
+      },
+      "id": "9858b6da-1e4b-469d-9333-31d6a5ea5e8e",
+      "name": "Select Latest GFIN Runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "execution",
+        "operation": "get",
+        "executionId": "={{ $json.executionId }}",
+        "options": {
+          "activeWorkflows": true
+        },
+        "requestOptions": {
+          "timeout": 20000
+        }
+      },
+      "id": "6f4b6ad1-1f9f-4a8b-8940-d25a538114c2",
+      "name": "Get Latest Run Details",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        384
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const monitored = [\n  {id:'QHtg7jHbZVmN1ACb', name:'LinkedIn Lead Discovery', stage:'Source', expectation:'scheduled', cadence:'two_hour', expectedActive:true},\n  {id:'HfILQNdAdfaVnvEP', name:'Lead Discovery Account 2', stage:'Source', expectation:'scheduled', cadence:'two_hour', expectedActive:true},\n  {id:'IGP3MiEqqdKccTrB', name:'Digital Scout', stage:'Source', expectation:'scheduled', cadence:'weekday_0800', expectedActive:true},\n  {id:'ufZuWDDf1Iq5Y8dE', name:'Lead Enrichment v1', stage:'Enrich', expectation:'legacy off', cadence:'none', expectedActive:false},\n  {id:'XT7Q3o9JOryCVe0I', name:'Lead Enrichment v2 (OSINT)', stage:'Enrich', expectation:'scheduled', cadence:'daily_0730', expectedActive:true},\n  {id:'ZOO7V4y2yF96P7bi', name:'Email Pre-Filter', stage:'Grade', expectation:'scheduled', cadence:'weekday_0900', expectedActive:true},\n  {id:'dODxamYt3K6p5B1T', name:'Email Outreach', stage:'Send', expectation:'scheduled', cadence:'weekday_1100', expectedActive:true},\n  {id:'5Bztfh6rXBkKKFcD', name:'Bounce and Reply Handler', stage:'Feedback', expectation:'event-driven', cadence:'event', expectedActive:true},\n  {id:'n4lKsSDteXqvRrsX', name:'Lead Outreach (LinkedIn)', stage:'Send', expectation:'active trigger', cadence:'active_unknown', expectedActive:true},\n  {id:'Xznf1uqAkbujdyw5', name:'LinkedIn Reply & Acceptance Handler', stage:'Feedback', expectation:'open risk / inactive', cadence:'none', expectedActive:false},\n  {id:'BQIZWBjlwYwyQcx7', name:'Unsubscribe Handler', stage:'Feedback', expectation:'event-driven', cadence:'event', expectedActive:true}\n];\nconst workflowItems = $('Get GFIN Workflows').all().map(i => i.json || {});\nconst recent = $('Get Recent Executions').all().map(i => i.json || {}).filter(x => x && x.id);\nconst details = $input.all().map(i => i.json || {}).filter(x => x && x.id);\nconst workflowById = new Map(workflowItems.map(w => [String(w.id || ''), w]));\nconst detailById = new Map(details.map(e => [String(e.workflowId || e.workflowData?.id || ''), e]));\nconst esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;');\nconst redact = s => String(s ?? '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+.[A-Z]{2,}/gi,'<email>').replace(/Bearers+[^s,;]+/gi,'Bearer <redacted>').replace(/(api[_-]?key|x-api-key|authorization)[=: ]+[^s,;]+/gi,'$1=<redacted>').replace(/[A-Za-z0-9+/_=-]{36,}/g,'<redacted>');\nconst toMs = v => { const n = Date.parse(v || ''); return Number.isFinite(n) ? n : 0; };\nconst fmtDate = v => { const n = toMs(v); if (!n) return 'Never'; return new Date(n).toLocaleString('en-GB',{timeZone:'Asia/Dubai',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}) + ' Dubai'; };\nconst fmtDuration = ms => { if (!Number.isFinite(ms) || ms < 0) return '—'; const s=Math.round(ms/1000); if (s<60) return s+'s'; const m=Math.floor(s/60),rs=s%60; if(m<60)return m+'m '+rs+'s'; const h=Math.floor(m/60),rm=m%60; return h+'h '+rm+'m'; };\nconst dubaiKey = v => { const n=toMs(v); if(!n)return ''; return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dubai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(n)); };\nconst now=Date.now();\nconst todayDubai=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dubai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));\nconst dubaiParts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dubai',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(now));\nconst part=t=>dubaiParts.find(p=>p.type===t)?.value||'';\nconst dubaiWeekday=part('weekday'); const dubaiMinutes=Number(part('hour'))*60+Number(part('minute')); const isWeekday=!['Sat','Sun'].includes(dubaiWeekday);\nconst getRunData=ex=>ex?.data?.resultData?.runData||ex?.resultData?.runData||ex?.data?.runData||{};\nconst flattenJson=run=>{const out=[];const walk=x=>{if(!x)return;if(Array.isArray(x)){for(const y of x)walk(y);return;}if(typeof x==='object'){if(x.json&&typeof x.json==='object')out.push(x.json);else for(const y of Object.values(x))walk(y);}};walk(run?.data?.main);return out;};\nconst inspect=ex=>{const runData=getRunData(ex);const issues=[];const slow=[];let summary=null;const execErr=ex?.data?.resultData?.error||ex?.resultData?.error;if(execErr)issues.push({node:'Execution',message:redact(execErr.message||execErr.description||JSON.stringify(execErr))});for(const [nodeName,runsRaw] of Object.entries(runData||{})){const runs=Array.isArray(runsRaw)?runsRaw:[runsRaw];for(const run of runs){if(run?.error)issues.push({node:nodeName,message:redact(run.error.message||run.error.description||JSON.stringify(run.error))});if(Number(run?.executionTime)>120000)slow.push({node:nodeName,ms:Number(run.executionTime)});const jsons=flattenJson(run);for(const j of jsons){if(j?.error)issues.push({node:nodeName,message:redact(typeof j.error==='string'?j.error:(j.error.message||JSON.stringify(j.error)))});if(/run summary/i.test(nodeName)&&j&&typeof j==='object')summary=j;}}}return{issues,slow,summary};};\nconst compactSummary=s=>{if(!s||typeof s!=='object')return'';const wanted=['leads_total','growth','rescue','ae_ready','email_valid','warmup_queued','crm_errors','rows_written','emails_found','emails_sent','emails_invalid','checked','graded','eligible','by_status','by_sendability'];const parts=[];for(const k of wanted)if(s[k]!==undefined)parts.push('<span class=\"metric\"><b>'+esc(k.replace(/_/g,' '))+':</b> '+esc(typeof s[k]==='object'?JSON.stringify(s[k]):s[k])+'</span>');return parts.join(' ');};\nconst triggerLabel=wf=>{const nodes=Array.isArray(wf?.nodes)?wf.nodes:[];const triggers=nodes.filter(n=>String(n.type||'').includes('scheduleTrigger')||String(n.type||'').includes('webhook')||String(n.type||'').includes('emailReadImap'));if(!triggers.length)return'Unknown / manual';return triggers.map(n=>n.name||n.type).join(', ');};\nconst configRisks=wf=>{const out=[];const nodes=Array.isArray(wf?.nodes)?wf.nodes:[];for(const n of nodes){if(n.type==='n8n-nodes-base.wait'&&n.parameters&&n.parameters.amount!==undefined&&!n.parameters.unit)out.push('Unitless Wait: '+(n.name||'Wait')+' amount '+n.parameters.amount);if(n.type==='n8n-nodes-base.googleSheets'&&n.parameters?.columns?.mappingMode==='defineBelow'&&['appendOrUpdate','update','append'].includes(String(n.parameters?.operation||'')))out.push('Sheets write uses defineBelow: '+(n.name||'Google Sheets'));}return out;};\nconst dueWarning=(m,last,todayCount)=>{if(m.cadence==='event'||m.cadence==='none')return'';const age=last?now-toMs(last.startedAt):Infinity;if(m.cadence==='two_hour'&&age>4*3600000)return'No run in >4h';if(m.cadence==='daily_0730'&&dubaiMinutes>=450&&todayCount===0)return'07:30 Dubai run missing today';if(m.cadence==='weekday_0800'&&isWeekday&&dubaiMinutes>=480&&todayCount===0)return'08:00 Dubai run missing today';if(m.cadence==='weekday_0900'&&isWeekday&&dubaiMinutes>=540&&todayCount===0)return'09:00 Dubai run missing today';if(m.cadence==='weekday_1100'&&isWeekday&&dubaiMinutes>=660&&todayCount===0)return'11:00 Dubai run missing today';if(m.cadence==='active_unknown'&&age>36*3600000)return'No run in >36h';return'';};\nlet successToday=0,errorToday=0,runningToday=0,partialLatest=0,overdue=0,activeCount=0;const notices=[];const recentErrors=[];const cards=[];\nfor(const m of monitored){const wf=workflowById.get(m.id)||{};const isActive=wf.active===true;if(isActive)activeCount++;if(m.expectedActive&&!isActive)notices.push({sev:'bad',text:m.name+' is expected active but is currently inactive.'});if(!m.expectedActive&&isActive)notices.push({sev:'warn',text:m.name+' is currently active although the handoff expected it inactive.'});const execs=recent.filter(e=>String(e.workflowId||'')===m.id).sort((a,b)=>toMs(b.startedAt)-toMs(a.startedAt));const todayExecs=execs.filter(e=>dubaiKey(e.startedAt)===todayDubai);const succ=todayExecs.filter(e=>String(e.status||'').toLowerCase()==='success').length;const errs=todayExecs.filter(e=>String(e.status||'').toLowerCase()==='error').length;const running=todayExecs.filter(e=>['running','waiting'].includes(String(e.status||'').toLowerCase())).length;successToday+=succ;errorToday+=errs;runningToday+=running;const last=execs[0]||null;const detail=detailById.get(m.id)||null;const diag=detail?inspect(detail):{issues:[],slow:[],summary:null};if(diag.issues.length&&String(last?.status||'').toLowerCase()==='success'){partialLatest++;notices.push({sev:'warn',text:m.name+' latest execution says success but contains '+diag.issues.length+' node-level error(s).'});}const due=dueWarning(m,last,todayExecs.length);if(due){overdue++;notices.push({sev:'bad',text:m.name+': '+due+'.'});}const risks=configRisks(wf);for(const r of risks)notices.push({sev:'warn',text:m.name+': '+r+'.'});if(String(last?.status||'').toLowerCase()==='error')notices.push({sev:'bad',text:m.name+' latest execution failed.'});for(const e of execs.filter(x=>String(x.status||'').toLowerCase()==='error').slice(0,3))recentErrors.push({workflow:m.name,...e});let status='No recent run',cls='neutral';const ls=String(last?.status||'').toLowerCase();if(ls==='success'&&diag.issues.length===0){status='Success';cls='good';}else if(ls==='success'&&diag.issues.length){status='Partial';cls='warn';}else if(ls==='error'){status='Error';cls='bad';}else if(ls==='running'){status='Running';cls='info';}else if(ls==='waiting'){status='Waiting';cls='info';}else if(ls){status=ls;cls='neutral';}const duration=last&&last.stoppedAt?toMs(last.stoppedAt)-toMs(last.startedAt):(last?now-toMs(last.startedAt):NaN);const issueText=diag.issues.slice(0,3).map(x=>'<div class=\"issue\"><b>'+esc(x.node)+':</b> '+esc(redact(x.message).slice(0,220))+'</div>').join('');const slowText=diag.slow.slice(0,3).map(x=>'<div class=\"slow\">Slow node: '+esc(x.node)+' ('+fmtDuration(x.ms)+')</div>').join('');const riskText=risks.map(r=>'<span class=\"tag risk\">'+esc(r)+'</span>').join(' ');const summaryText=compactSummary(diag.summary);const execLink=last?.id?'https://awf.deeplearningintelligence.com/workflow/'+encodeURIComponent(m.id)+'/executions/'+encodeURIComponent(last.id):'';cards.push('<tr><td><div class=\"wf\">'+esc(m.name)+'</div><div class=\"sub\">'+esc(m.stage)+' · '+esc(m.expectation)+'</div></td><td><span class=\"pill '+(isActive?'good':'neutral')+'\">'+(isActive?'Active':'Inactive')+'</span><div class=\"sub\">'+esc(triggerLabel(wf))+'</div></td><td><span class=\"pill '+cls+'\">'+esc(status)+'</span><div class=\"sub\">'+esc(fmtDate(last?.startedAt))+' · '+esc(fmtDuration(duration))+'</div>'+(last?.id?'<a class=\"exec\" href=\"'+execLink+'\" target=\"_blank\">Execution '+esc(last.id)+'</a>':'')+'</td><td><b>'+succ+'</b> success · <b>'+errs+'</b> error · <b>'+running+'</b> live<div class=\"sub\">'+todayExecs.length+' execution(s) today</div></td><td>'+(due?'<div class=\"issue\"><b>'+esc(due)+'</b></div>':'')+issueText+slowText+riskText+(summaryText?'<div class=\"summary\">'+summaryText+'</div>':'<span class=\"sub\">No run-summary metrics exposed</span>')+'</td></tr>');}\nrecentErrors.sort((a,b)=>toMs(b.startedAt)-toMs(a.startedAt));const errRows=recentErrors.slice(0,12).map(e=>'<tr><td>'+esc(fmtDate(e.startedAt))+'</td><td>'+esc(e.workflow)+'</td><td>'+esc(e.id)+'</td><td><span class=\"pill bad\">Error</span></td></tr>').join('');if(!notices.some(n=>n.text.includes('LinkedIn Reply & Acceptance Handler')))notices.push({sev:'warn',text:'LinkedIn Reply & Acceptance Handler remains an open-risk workflow until validated end-to-end.'});notices.push({sev:'info',text:'Bounce/Reply and Unsubscribe are event-driven; zero executions today is normal when no inbound event occurs.'});notices.push({sev:'info',text:'This dashboard reads the most recent 1,000 instance executions. Very old event-driven runs can fall outside that window.'});\nconst noticeHtml=notices.slice(0,20).map(n=>'<div class=\"notice '+n.sev+'\">'+esc(n.text)+'</div>').join('');const updated=new Date(now).toLocaleString('en-GB',{timeZone:'Asia/Dubai',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});\nconst css=':root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26324a;--text:#eef3ff;--muted:#94a3b8;--good:#35d07f;--bad:#ff647c;--warn:#f7c54a;--info:#62a8ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:1500px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}h1{margin:0 0 6px;font-size:28px}.sub{color:var(--muted);font-size:12px;margin-top:4px}.refresh{padding:8px 12px;border:1px solid var(--line);border-radius:9px;color:var(--text);text-decoration:none;background:#182238}.kpis{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:10px;margin:18px 0}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}.kpi b{display:block;font-size:23px}.kpi span{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;overflow:auto}.panel h2{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse;min-width:1100px}th{text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:10px 8px}td{vertical-align:top;border-bottom:1px solid #1e2940;padding:12px 8px}.wf{font-weight:700}.pill,.tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;border:1px solid currentColor}.pill.good{color:var(--good)}.pill.bad{color:var(--bad)}.pill.warn{color:var(--warn)}.pill.info{color:var(--info)}.pill.neutral{color:var(--muted)}.issue{color:#ffd5dc;margin-top:5px}.slow{color:#ffe6a3;margin-top:5px}.tag.risk{color:var(--warn);margin:4px 4px 0 0}.summary{margin-top:7px}.metric{display:inline-block;background:#182238;border:1px solid var(--line);border-radius:7px;padding:4px 7px;margin:3px 3px 0 0;font-size:12px}.notice{border-left:3px solid var(--line);padding:8px 10px;margin:6px 0;background:#0f1728;border-radius:5px}.notice.bad{border-color:var(--bad)}.notice.warn{border-color:var(--warn)}.notice.info{border-color:var(--info)}.exec{color:#83b9ff;font-size:12px;text-decoration:none;display:inline-block;margin-top:4px}@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.wrap{padding:16px}.top{display:block}.refresh{display:inline-block;margin-top:12px}}';\nconst html='<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"60\"><title>GFIN Growth Live Monitor</title><style>'+css+'</style></head><body><div class=\"wrap\"><div class=\"top\"><div><h1>GFIN Growth Live Monitor</h1><div class=\"sub\">Read-only operational view · auto-refreshes every 60 seconds · updated '+esc(updated)+' Dubai</div></div><a class=\"refresh\" href=\"\">Refresh now</a></div><div class=\"kpis\"><div class=\"kpi\"><b>'+monitored.length+'</b><span>monitored workflows</span></div><div class=\"kpi\"><b>'+activeCount+'</b><span>currently active</span></div><div class=\"kpi\"><b>'+successToday+'</b><span>successes today</span></div><div class=\"kpi\"><b>'+errorToday+'</b><span>errors today</span></div><div class=\"kpi\"><b>'+partialLatest+'</b><span>partial / hidden errors</span></div><div class=\"kpi\"><b>'+overdue+'</b><span>overdue / stale</span></div></div><div class=\"panel\"><h2>What needs attention</h2>'+noticeHtml+'</div><div class=\"panel\"><h2>Workflow status</h2><table><thead><tr><th>Workflow</th><th>Live state / trigger</th><th>Latest run</th><th>Today</th><th>Diagnostics & metrics</th></tr></thead><tbody>'+cards.join('')+'</tbody></table></div><div class=\"panel\"><h2>Recent failed executions</h2><table><thead><tr><th>Time</th><th>Workflow</th><th>Execution</th><th>Status</th></tr></thead><tbody>'+(errRows||'<tr><td colspan=\"4\" class=\"sub\">No recent failed executions in the monitoring window.</td></tr>')+'</tbody></table></div><div class=\"panel\"><h2>How to read this</h2><div class=\"sub\">Success = n8n execution completed cleanly. Partial = n8n marked the execution successful, but a node returned an error or error-shaped output. Error = execution failed. Waiting/Running = still in progress. Unitless Wait and defineBelow warnings come from scanning the current workflow definitions.</div></div></div></body></html>';\nreturn [{json:{html}}];"
+      },
+      "id": "1adf5db8-a2ef-47b3-a64c-3aee957e169f",
+      "name": "Build Monitoring Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store, no-cache, must-revalidate"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              }
+            ]
+          }
+        }
+      },
+      "id": "1fdeafad-aba9-412c-9b62-c2032d94c91d",
+      "name": "Serve Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1808,
+        384
+      ]
+    }
+  ],
+  "connections": {
+    "Open Live Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Get GFIN Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get GFIN Workflows": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Executions": {
+      "main": [
+        [
+          {
+            "node": "Select Latest GFIN Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Latest GFIN Runs": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Run Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Run Details": {
+      "main": [
+        [
+          {
+            "node": "Build Monitoring Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Monitoring Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Serve Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "versionId": "0db7a5a1-543b-4fd6-b6f2-a55d644c401c",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-09-14T09:00:28.724Z",
+      "createdAt": "2026-09-14T09:00:28.724Z",
+      "role": "workflow:owner",
+      "workflowId": "MX8SnJQlZHQlttyq",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
