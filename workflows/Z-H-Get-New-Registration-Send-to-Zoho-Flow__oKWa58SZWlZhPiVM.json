@@ -1,0 +1,331 @@
+{
+  "updatedAt": "2026-01-03T09:40:56.239Z",
+  "createdAt": "2025-11-15T16:59:51.036Z",
+  "id": "oKWa58SZWlZhPiVM",
+  "name": "(Z-H) Get New Registration - Send to Zoho Flow",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8987a58f-ba30-4f7f-8d18-63242a94f3b9",
+              "leftValue": "={{ $json.user_role }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        48
+      ],
+      "id": "879edfe4-e1e6-466f-973b-4066f07dce23",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://flow.zoho.com/712393634/flow/webhook/incoming?zapikey=1001.a65eb7e1e5e2fd7219cf314e3d529ab4.532e61d15a6811d6e1eb545cdf59a818&isdebug=false",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"name\": \"{{ $json.name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"wordpress_url\": \"{{ $json.wordpress_url }}\",\n  \"user_role\": \"{{ $json.user_role }}\",\n  \"template_id\": \"{{ $json.template_id }}\",\n  \"contract_name\": \"{{ $json.contract_name }}\"\n}",
+        "options": {}
+      },
+      "id": "99f92f36-1d41-493d-aa81-11ec558088b4",
+      "name": "Send to Zoho Flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://flow.zoho.com/712393634/flow/webhook/incoming?zapikey=1001.d0b89e60e29a67fdc917b94274ee2eca.0b1e4f438c59fc376076218c43bfff0f&isdebug=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"name\": \"{{ $json.name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"wordpress_url\": \"{{ $json.wordpress_url }}\",\n  \"user_role\": \"{{ $json.user_role }}\",\n  \"template_id\": \"{{ $json.template_id }}\",\n  \"contract_name\": \"{{ $json.contract_name }}\"\n}",
+        "options": {}
+      },
+      "id": "3485293a-92f4-458f-95d4-5c2d21024f9d",
+      "name": "Test - Send to Zoho Flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map roles to template IDs - REMOVED um_employee\nconst templateMap = {\n  'um_account-manager': '188622000000348111',      // Account Manager template\n  'um_business-developer': '188622000000357141',   // Business Developer template \n  'um_advisor': '188622000000XXXXXX',              // ADD ADVISOR TEMPLATE ID\n  'customer': '188622000000366147',                // Customer template\n};\n\nconst contractNames = {\n  'um_account-manager': 'Account Manager Contract',\n  'um_business-developer': 'Business Developer Contract',\n  'um_advisor': 'Advisor Contract',\n  'customer': 'Customer Agreement'\n};\n\n// Get user roles from webhook data\nconst userRoles = $input.first().json.body.roles || [];\n\n// Debug: Log what roles we received\nconsole.log('Received roles:', userRoles);\n\n// Determine which role matches (priority order) - REMOVED um_employee\nlet matchedRole = null;\nconst contractRoles = ['um_account-manager', 'um_business-developer', 'um_advisor', 'customer'];\n\nfor (const role of contractRoles) {\n  if (userRoles.includes(role)) {\n    matchedRole = role;\n    console.log('Matched role:', matchedRole);\n    break;\n  }\n}\n\n// If no contract role found, stop workflow\nif (!matchedRole) {\n  console.log('No contract role found for user');\n  return null;\n}\n\n// Verify template ID exists and is not placeholder\nif (!templateMap[matchedRole] || templateMap[matchedRole].includes('XXXXXX')) {\n  console.error('Invalid or missing template ID for role:', matchedRole);\n  return null;\n}\n\n// Get first and last name from user_meta (it's an array)\nconst firstName = $input.first().json.body.user_meta.first_name?.[0] || '';\nconst lastName = $input.first().json.body.user_meta.last_name?.[0] || '';\n\n// Return enriched data\nreturn {\n  json: {\n    user_id: $input.first().json.body.data.ID,\n    name: $input.first().json.body.data.display_name,\n    email: $input.first().json.body.data.user_email,\n    first_name: firstName,\n    last_name: lastName,\n    wordpress_url: 'https://gofunditnow.com',\n    user_role: matchedRole,\n    template_id: templateMap[matchedRole],\n    contract_name: contractNames[matchedRole]\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        48
+      ],
+      "id": "2ef3f3a7-aeb1-451f-9c0a-84e71f08f6b1",
+      "name": "Assign Template based on user type"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-registration",
+        "options": {}
+      },
+      "id": "84d95690-7ac6-425e-8230-4c6b401f50b1",
+      "name": "Fetch Employee Data",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -576,
+        48
+      ],
+      "webhookId": "employee-signup"
+    }
+  ],
+  "connections": {
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send to Zoho Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Template based on user type": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Employee Data": {
+      "main": [
+        [
+          {
+            "node": "Assign Template based on user type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 240,
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "39cc5d25-85e5-4d64-9d50-887b934bc161",
+  "activeVersionId": "d80d39e7-035b-4e52-aab6-164b56f78fc0",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-11-15T16:59:51.036Z",
+      "createdAt": "2025-11-15T16:59:51.036Z",
+      "role": "workflow:owner",
+      "workflowId": "oKWa58SZWlZhPiVM",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-01-03T09:27:35.488Z",
+    "createdAt": "2026-01-03T09:27:31.026Z",
+    "versionId": "d80d39e7-035b-4e52-aab6-164b56f78fc0",
+    "workflowId": "oKWa58SZWlZhPiVM",
+    "nodes": [
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "8987a58f-ba30-4f7f-8d18-63242a94f3b9",
+                "leftValue": "={{ $json.user_role }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "exists",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -224,
+          48
+        ],
+        "id": "879edfe4-e1e6-466f-973b-4066f07dce23",
+        "name": "If"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://flow.zoho.com/712393634/flow/webhook/incoming?zapikey=1001.a65eb7e1e5e2fd7219cf314e3d529ab4.532e61d15a6811d6e1eb545cdf59a818&isdebug=false",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"name\": \"{{ $json.name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"wordpress_url\": \"{{ $json.wordpress_url }}\",\n  \"user_role\": \"{{ $json.user_role }}\",\n  \"template_id\": \"{{ $json.template_id }}\",\n  \"contract_name\": \"{{ $json.contract_name }}\"\n}",
+          "options": {}
+        },
+        "id": "99f92f36-1d41-493d-aa81-11ec558088b4",
+        "name": "Send to Zoho Flow",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://flow.zoho.com/712393634/flow/webhook/incoming?zapikey=1001.d0b89e60e29a67fdc917b94274ee2eca.0b1e4f438c59fc376076218c43bfff0f&isdebug=true",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"name\": \"{{ $json.name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"wordpress_url\": \"{{ $json.wordpress_url }}\",\n  \"user_role\": \"{{ $json.user_role }}\",\n  \"template_id\": \"{{ $json.template_id }}\",\n  \"contract_name\": \"{{ $json.contract_name }}\"\n}",
+          "options": {}
+        },
+        "id": "3485293a-92f4-458f-95d4-5c2d21024f9d",
+        "name": "Test - Send to Zoho Flow",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Map roles to template IDs - REMOVED um_employee\nconst templateMap = {\n  'um_account-manager': '188622000000348111',      // Account Manager template\n  'um_business-developer': '188622000000357141',   // Business Developer template \n  'um_advisor': '188622000000XXXXXX',              // ADD ADVISOR TEMPLATE ID\n  'customer': '188622000000366147',                // Customer template\n};\n\nconst contractNames = {\n  'um_account-manager': 'Account Manager Contract',\n  'um_business-developer': 'Business Developer Contract',\n  'um_advisor': 'Advisor Contract',\n  'customer': 'Customer Agreement'\n};\n\n// Get user roles from webhook data\nconst userRoles = $input.first().json.body.roles || [];\n\n// Debug: Log what roles we received\nconsole.log('Received roles:', userRoles);\n\n// Determine which role matches (priority order) - REMOVED um_employee\nlet matchedRole = null;\nconst contractRoles = ['um_account-manager', 'um_business-developer', 'um_advisor', 'customer'];\n\nfor (const role of contractRoles) {\n  if (userRoles.includes(role)) {\n    matchedRole = role;\n    console.log('Matched role:', matchedRole);\n    break;\n  }\n}\n\n// If no contract role found, stop workflow\nif (!matchedRole) {\n  console.log('No contract role found for user');\n  return null;\n}\n\n// Verify template ID exists and is not placeholder\nif (!templateMap[matchedRole] || templateMap[matchedRole].includes('XXXXXX')) {\n  console.error('Invalid or missing template ID for role:', matchedRole);\n  return null;\n}\n\n// Get first and last name from user_meta (it's an array)\nconst firstName = $input.first().json.body.user_meta.first_name?.[0] || '';\nconst lastName = $input.first().json.body.user_meta.last_name?.[0] || '';\n\n// Return enriched data\nreturn {\n  json: {\n    user_id: $input.first().json.body.data.ID,\n    name: $input.first().json.body.data.display_name,\n    email: $input.first().json.body.data.user_email,\n    first_name: firstName,\n    last_name: lastName,\n    wordpress_url: 'https://gofunditnow.com',\n    user_role: matchedRole,\n    template_id: templateMap[matchedRole],\n    contract_name: contractNames[matchedRole]\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -400,
+          48
+        ],
+        "id": "2ef3f3a7-aeb1-451f-9c0a-84e71f08f6b1",
+        "name": "Assign Template based on user type"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "new-registration",
+          "options": {}
+        },
+        "id": "84d95690-7ac6-425e-8230-4c6b401f50b1",
+        "name": "Fetch Employee Data",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -576,
+          48
+        ],
+        "webhookId": "employee-signup"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://flow.zoho.com/712393634/flow/webhook/incoming?zapikey=1001.a94f60d3612f5da2011ab81a3408cd57.351ef4223c2868ab62153009c2fb9c2d&isdebug=true",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"name\": \"{{ $json.name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"wordpress_url\": \"{{ $json.wordpress_url }}\",\n  \"user_role\": \"{{ $json.user_role }}\",\n  \"template_id\": \"{{ $json.template_id }}\",\n  \"contract_name\": \"{{ $json.contract_name }}\"\n}",
+          "options": {}
+        },
+        "id": "8419e603-05aa-4911-9e8d-d17d88dce9ea",
+        "name": "Test - Send to Zoho Flow1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          464
+        ]
+      }
+    ],
+    "connections": {
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Send to Zoho Flow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Assign Template based on user type": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Employee Data": {
+        "main": [
+          [
+            {
+              "node": "Assign Template based on user type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Damu Winston",
+    "name": "Version d80d39e7",
+    "description": "",
+    "autosaved": false
+  },
+  "tags": []
+}
