@@ -1,0 +1,666 @@
+{
+  "updatedAt": "2026-10-13T11:00:03.665Z",
+  "createdAt": "2026-09-09T03:14:07.006Z",
+  "id": "XT7Q3o9JOryCVe0I",
+  "name": "GFIN Lead Enrichment v2 (OSINT)",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup\n\n**1. Create the OSINT credential and select it on BOTH OSINT nodes** (left blank intentionally):\nCredentials to New to **Header Auth**\n- Name: `Authorization`\n- Value: `Bearer api__your_key_here`\nSave as **OSINT Prospecting API**\n\n**2. Tune the caps** in 'Group By Company':\n- `MAX_COMPANIES_PER_RUN` (default 15) - each job runs 30-90s\n- `APPEND_NEW_CONTACTS` (default true) - adds newly discovered people as new Lead Pool rows\n\n**3. Run Manual Test Trigger** and watch one company go end to end before activating.\n\n---\n\n### What it does\n\nTargets the ~439 rows with **no email at all**.\n\n1. Groups them by company (one job per employer, not per person)\n2. Resolves the domain if missing: `.org` first, confirmed by live DNS MX lookup\n3. Sends one async job to OSINT, polls until complete (max 20 attempts / ~5 min)\n4. Matches discovered people back to known leads by name\n5. Optionally appends newly discovered people as fresh leads\n\n**It does not judge deliverability.** Emails land with `sendability` blank, which is exactly what GFIN Email Pre-Filter picks up next run.\n\n### Why it reads `unverified[]`\n\n`leads[]` is always empty - M365/Workspace never confirm mailboxes, so nothing is ever marked verified. This reads both arrays and lets the pre-filter and bounce handler decide.",
+        "height": 760,
+        "width": 470
+      },
+      "id": "note-setup",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Every Day 07:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -464,
+        448
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "options": {}
+      },
+      "id": "read-lead-pool",
+      "name": "Read Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -240,
+        528
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group emailless leads by company so we spend one OSINT job per employer, not per person.\n\nconst MAX_COMPANIES_PER_RUN = 15;\nconst ne = (v) => v !== undefined && v !== null && String(v).trim() !== '';\n\n// A 'company' made only of job words is a job title, not an employer.\n// This is what produced leader.com / programdirector.org in v1 - never build a\n// domain from it.\nconst ROLE_WORDS = new Set(['director','directors','leader','leaders','leadership','manager','management','executive','officer','president','founder','cofounder','ceo','coo','cfo','cto','chair','chairman','board','consultant','consulting','strategist','specialist','coordinator','administrator','administration','program','programs','development','fundraising','fundraiser','grant','grants','writer','writing','nonprofit','non','profit','volunteer','entrepreneur','inventor','professional','freelance','independent','self','employed','retired','advisor','adviser','principal','owner','partner','associate','analyst','engineer','designer','marketing','sales','operations','recruiter','student','intern','philanthropy','philanthropist','relations','affairs','outreach','engagement','strategy','strategic','various','none']);\nconst STOPWORDS = new Set(['the','of','for','and','a','an','at','in','on','to','inc','llc','ltd','corp','corporation','co','company','group','holdings','plc','org']);\nconst isJobTitle = (nameStr) => {\n  const toks = String(nameStr || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').split(/\\s+/).filter(Boolean);\n  if (!toks.length) return true;\n  return toks.filter(t => !STOPWORDS.has(t) && !ROLE_WORDS.has(t)).length === 0;\n};\n\nconst rows = $input.all().map(i => i.json);\n\nconst knownEmails = new Set(\n  rows.filter(r => ne(r.email)).map(r => String(r.email).trim().toLowerCase())\n);\n\nconst groups = new Map();\n\nfor (const r of rows) {\n  if (ne(r.email)) continue;\n  if (!ne(r.provider_id)) continue;\n  if (String(r.email_send_status || '').toLowerCase() === 'unsubscribed') continue;\n\n  const company = ne(r.company_name) ? String(r.company_name).trim() : '';\n  const domain = ne(r.company_domain) ? String(r.company_domain).trim().toLowerCase() : '';\n\n  if (!company && !domain) continue;\n  if (company && isJobTitle(company)) continue;\n\n  const key = (domain || company).toLowerCase();\n  if (!groups.has(key)) groups.set(key, { company, domain, members: [] });\n  const g = groups.get(key);\n  if (!g.company && company) g.company = company;\n  if (!g.domain && domain) g.domain = domain;\n  g.members.push({ provider_id: r.provider_id, name: r.name || '', headline: r.headline || '' });\n}\n\nconst all = [...groups.values()].filter(g => g.company || g.domain);\nconsole.log(`Emailless leads grouped into ${all.length} companies; processing ${Math.min(all.length, MAX_COMPANIES_PER_RUN)}`);\n\nreturn all.slice(0, MAX_COMPANIES_PER_RUN).map(g => ({ json: { ...g, known_emails: [...knownEmails] } }));"
+      },
+      "id": "group-companies",
+      "name": "Group By Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Resolve a company domain and confirm it can receive mail.\n// .org first - this pool is nonprofit/church/foundation heavy.\n\nconst g = $json;\nconst H = (typeof $helpers !== 'undefined' && $helpers) ? $helpers : this.helpers;\nconst hasMx = async (domain) => {\n  try {\n    const dns = await H.httpRequest({ method: 'GET', url: `https://dns.google/resolve?name=${domain}&type=MX`, json: true });\n    return !!(dns.Answer && dns.Answer.length > 0);\n  } catch (e) { return false; }\n};\n\nif (g.domain) {\n  const ok = await hasMx(g.domain);\n  return { json: { ...g, domain_verified: ok, company_domain_source: ok ? 'lead_pool' : 'unverified' } };\n}\n\nconst cleaned = String(g.company || '')\n  .replace(/\\b(inc|llc|corp|corporation|foundation|nonprofit|non-profit|ltd|co|the)\\.?\\b/gi, '')\n  .replace(/[^\\w\\s]/g, '')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .toLowerCase();\n\nif (!cleaned) return { json: { ...g, domain: '', domain_verified: false, company_domain_source: '' } };\n\nconst words = cleaned.split(/\\s+/).filter(Boolean);\nconst noSpaces = words.join('');\nconst firstTwo = words.slice(0, 2).join('') || words[0] || '';\nconst acronym = words.length >= 2 ? words.map(w => w[0]).join('') : '';\n\nconst candidates = [...new Set([\n  `${noSpaces}.org`,\n  `${firstTwo}.org`,\n  acronym ? `${acronym}.org` : '',\n  `${noSpaces}.com`,\n  `${firstTwo}.com`,\n  `${noSpaces}.net`\n])].filter(d => d && d.length > 5);\n\nfor (const cand of candidates) {\n  if (await hasMx(cand)) {\n    return { json: { ...g, domain: cand, domain_verified: true, company_domain_source: 'mx_guess' } };\n  }\n}\n\nreturn { json: { ...g, domain: '', domain_verified: false, company_domain_source: '' } };"
+      },
+      "id": "resolve-domain",
+      "name": "Resolve Domain (MX)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dom-ok",
+              "leftValue": "={{ $json.domain_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "domain-ok",
+      "name": "Domain Resolved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  for (const m of (item.json.members || [])) {\n    out.push({ json: { provider_id: m.provider_id, enriched_status: 'domain_not_found', enriched_at: new Date().toISOString() } });\n  }\n}\nreturn out;"
+      },
+      "id": "mark-no-domain",
+      "name": "Mark Domain Not Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "write-no-domain",
+      "name": "Write Domain Not Found",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        864,
+        720
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-companies",
+      "name": "Loop Over Companies",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        640,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://osint.deeplearningintelligence.com/v1/jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ company: $json.company || $json.domain, domain: $json.domain, email_pattern: '{first}.{last}', include_harvester: false }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "osint-start",
+      "name": "OSINT: Start Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        512
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "y0DuXR7N6F6uSigz",
+          "name": "OSINT"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const company = $('Loop Over Companies').item.json;\nconst resp = $json || {};\n\nreturn { json: {\n  job_id: resp.job_id || '',\n  attempt: 0,\n  status: resp.status || 'queued',\n  start_failed: !resp.job_id,\n  company: company.company,\n  domain: company.domain,\n  members: company.members || [],\n  known_emails: company.known_emails || []\n}};"
+      },
+      "id": "init-poll",
+      "name": "Init Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "wait-job",
+      "name": "Wait For Job",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        512
+      ],
+      "webhookId": "a4d2a4c8-7649-4254-ba11-5679f28f0e18"
+    },
+    {
+      "parameters": {
+        "url": "=https://osint.deeplearningintelligence.com/v1/jobs/{{ $json.job_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "osint-poll",
+      "name": "OSINT: Poll Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        512
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "y0DuXR7N6F6uSigz",
+          "name": "OSINT"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Hard ceiling of 20 attempts (~5 min) so a stuck job can never spin forever.\n\nconst MAX_ATTEMPTS = 20;\nconst prev = $('Wait For Job').item.json;\nconst resp = $json || {};\n\nconst attempt = (prev.attempt || 0) + 1;\nconst status = String(resp.status || '').toLowerCase();\nconst finished = status === 'completed' || status === 'failed';\nconst exhausted = attempt >= MAX_ATTEMPTS;\n\nreturn { json: {\n  job_id: prev.job_id,\n  attempt: attempt,\n  status: status || 'unknown',\n  done: finished || exhausted || prev.start_failed === true,\n  timed_out: !finished && exhausted,\n  start_failed: prev.start_failed === true,\n  result: resp.result || null,\n  company: prev.company,\n  domain: prev.domain,\n  members: prev.members || [],\n  known_emails: prev.known_emails || []\n}};"
+      },
+      "id": "check-poll",
+      "name": "Check Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-done",
+              "leftValue": "={{ $json.done }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "job-done",
+      "name": "Job Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1968,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match discovered people back onto known leads, and collect anyone new.\n// leads[] = SMTP-verified (currently always empty). unverified[] = pattern-built.\n// We read both; the pre-filter and bounce handler rule on deliverability.\n\nconst APPEND_NEW_CONTACTS = true;\n\nconst norm = (s) => String(s || '').toLowerCase().replace(/[^a-z\\s]/g, ' ').replace(/\\s+/g, ' ').trim();\n\n// Strip honorifics/prefixes that corrupt matching (e.g. 'BCC Marvina D. Jackson').\nconst NOISE = new Set(['mr','mrs','ms','miss','dr','rev','pastor','bcc','the','jr','sr','ii','iii']);\nconst nameKey = (s) => norm(s)\n  .split(' ')\n  .filter(w => w.length > 1 && !NOISE.has(w))\n  .filter((w, i, arr) => i === 0 || i === arr.length - 1)\n  .join(' ');\n\nconst out = [];\nlet matched = 0, appended = 0, discovered = 0;\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const now = new Date().toISOString();\n  const members = j.members || [];\n  const knownEmails = new Set((j.known_emails || []).map(e => String(e).toLowerCase()));\n\n  if (j.start_failed || j.timed_out || j.status === 'failed' || !j.result) {\n    for (const m of members) {\n      out.push({ json: { provider_id: m.provider_id, enriched_status: j.timed_out ? 'osint_timeout' : 'osint_failed', enriched_at: now } });\n    }\n    continue;\n  }\n\n  const res = j.result || {};\n  const found = [\n    ...(Array.isArray(res.leads) ? res.leads.map(l => ({ ...l, from_verified: true })) : []),\n    ...(Array.isArray(res.unverified) ? res.unverified.map(l => ({ ...l, from_verified: false })) : [])\n  ].filter(l => l && l.email);\n  discovered += found.length;\n\n  const claimed = new Set();\n\n  for (const m of members) {\n    const key = nameKey(m.name);\n    if (!key) {\n      out.push({ json: { provider_id: m.provider_id, enriched_status: 'no_name_to_match', enriched_at: now } });\n      continue;\n    }\n    const hit = found.find(f => nameKey(f.name) === key && !claimed.has(f.email));\n    if (hit) {\n      claimed.add(hit.email);\n      matched++;\n      out.push({ json: {\n        provider_id: m.provider_id,\n        company_domain: j.domain,\n        email: hit.email,\n        email_source: hit.from_verified ? 'osint_verified' : 'osint_pattern',\n        email_verified: false,\n        sendability: '',\n        email_check_result: '',\n        enriched_status: 'osint_matched',\n        enriched_at: now\n      }});\n    } else {\n      out.push({ json: { provider_id: m.provider_id, company_domain: j.domain, enriched_status: 'osint_no_match', enriched_at: now } });\n    }\n  }\n\n  if (APPEND_NEW_CONTACTS) {\n    for (const f of found) {\n      const email = String(f.email).toLowerCase();\n      if (claimed.has(f.email) || knownEmails.has(email)) continue;\n      knownEmails.add(email);\n      appended++;\n      out.push({ json: {\n        provider_id: 'osint_' + Buffer.from(email).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 24),\n        name: f.name || '',\n        headline: f.title || '',\n        linkedin_link: f.linkedin_url || '',\n        company_name: j.company || '',\n        company_domain: j.domain,\n        email: f.email,\n        email_source: f.from_verified ? 'osint_verified' : 'osint_pattern',\n        email_verified: false,\n        sendability: '',\n        email_check_result: '',\n        lead_source: 'osint_discovery',\n        status: 'New',\n        discovered_at: now,\n        enriched_status: 'osint_new_contact',\n        enriched_at: now\n      }});\n    }\n  }\n}\n\nconsole.log(`OSINT: ${discovered} discovered, ${matched} matched, ${appended} appended`);\nreturn out;"
+      },
+      "id": "match-leads",
+      "name": "Match Leads To Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1azxgkDPPKMYKgVeDwuG-skr38mA2nbXimG7RNb942N4",
+          "mode": "list",
+          "cachedResultName": "GFIN Discovery & Outreach"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1474100927,
+          "mode": "list",
+          "cachedResultName": "Lead Pool"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "provider_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "write-enrichment",
+      "name": "Write Enrichment To Lead Pool",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2368,
+        816
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let rows = [];\ntry { rows = $('Match Leads To Rows').all().map(i => i.json); } catch (e) {}\n\nconst tally = {};\nfor (const r of rows) {\n  const k = r.enriched_status || 'unknown';\n  tally[k] = (tally[k] || 0) + 1;\n}\n\nreturn [{ json: { run_id: $execution.id, finished_at: new Date().toISOString(), rows_written: rows.length, emails_found: rows.filter(r => r.email).length, by_status: tally }}];"
+      },
+      "id": "run-summary",
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Every Day 07:30": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Group By Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group By Company": {
+      "main": [
+        [
+          {
+            "node": "Resolve Domain (MX)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Domain (MX)": {
+      "main": [
+        [
+          {
+            "node": "Domain Resolved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domain Resolved?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Domain Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Domain Not Found": {
+      "main": [
+        [
+          {
+            "node": "Write Domain Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Companies": {
+      "main": [
+        [
+          {
+            "node": "Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OSINT: Start Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSINT: Start Job": {
+      "main": [
+        [
+          {
+            "node": "Init Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Poll State": {
+      "main": [
+        [
+          {
+            "node": "Wait For Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Job": {
+      "main": [
+        [
+          {
+            "node": "OSINT: Poll Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OSINT: Poll Job": {
+      "main": [
+        [
+          {
+            "node": "Check Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Poll State": {
+      "main": [
+        [
+          {
+            "node": "Job Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Done?": {
+      "main": [
+        [
+          {
+            "node": "Match Leads To Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Leads To Rows": {
+      "main": [
+        [
+          {
+            "node": "Write Enrichment To Lead Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Enrichment To Lead Pool": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600,
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:Every Day 07:30": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "versionId": "4adccf08-cd3c-45b8-8bf5-e57d05aa1003",
+  "activeVersionId": null,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-09-09T03:14:07.006Z",
+      "createdAt": "2026-09-09T03:14:07.006Z",
+      "role": "workflow:owner",
+      "workflowId": "XT7Q3o9JOryCVe0I",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": [
+    {
+      "updatedAt": "2026-08-03T13:52:32.842Z",
+      "createdAt": "2026-08-03T13:52:32.842Z",
+      "id": "RTqSSKIqgkMEBb4C",
+      "name": "growth"
+    }
+  ]
+}
