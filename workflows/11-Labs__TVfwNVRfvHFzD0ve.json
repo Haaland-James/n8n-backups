@@ -1,0 +1,160 @@
+{
+  "updatedAt": "2026-01-16T00:24:26.807Z",
+  "createdAt": "2026-01-07T03:59:37.212Z",
+  "id": "TVfwNVRfvHFzD0ve",
+  "name": "11 Labs",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-slots",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -416,
+        -176
+      ],
+      "id": "f7125e89-ee01-46e8-8a22-a76c37d44d76",
+      "name": "Webhook",
+      "webhookId": "503e8648-a348-4247-9854-ceaa0010982c"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-slots",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d4841586-bb3d-4a25-804c-12ab475d1b84",
+      "name": "ElevenLabs Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        48
+      ],
+      "webhookId": "cbe2b554-3414-4870-a683-e37347bc0b89",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "7232eab3-3dc3-4834-9ffe-7e6f04048d3d",
+      "name": "Format for Zoho",
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.zohoapis.com/bookings/v1/json/availableslots",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "zohoOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"service_id\": \"{{your_service_id}}\",\n  \"staff_id\": \"{{your_staff_id}}\",\n  \"customer_details\": {\n    \"name\": \"{{$json.name}}\",\n    \"email\": \"{{$json.email}}\",\n    \"phone\": \"{{$json.phone}}\"\n  },\n  \"from_time\": \"{{$json.date}}T{{$json.time}}:00\",\n  \"timezone\": \"{{$json.timezone}}\"\n}",
+        "options": {}
+      },
+      "id": "33da7d4e-e38e-4ced-85b2-b8212dce1317",
+      "name": "Zoho Availability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        144,
+        -16
+      ],
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "eX2d7494WeuOIbhz",
+          "name": "Zoho account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const slots = $input.all()[0].json.available_slots || [];\n\nif (slots.length === 0) {\n  return { \n    speech_response: \"I'm sorry, I don't see any openings for that specific date. Would you like to try another day?\" \n  };\n}\n\n// Format times for natural speech\nconst timeList = slots.slice(0, 4).map(slot => {\n  const [hh, mm] = slot.start_time.split(':');\n  const hour = parseInt(hh);\n  const ampm = hour >= 12 ? 'PM' : 'AM';\n  const displayHour = hour % 12 || 12;\n  return `${displayHour}:${mm} ${ampm}`;\n}).join(\", \");\n\nreturn {\n  speech_response: `I have a few openings then, including ${timeList}. Do any of those work for you?`,\n  slots: slots\n};"
+      },
+      "id": "f38bc9ee-e509-4182-a299-9e61643aaaa7",
+      "name": "Format for AI Voice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -16
+      ]
+    }
+  ],
+  "connections": {
+    "ElevenLabs Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format for Zoho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Zoho": {
+      "main": [
+        [
+          {
+            "node": "Zoho Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho Availability": {
+      "main": [
+        [
+          {
+            "node": "Format for AI Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format for Zoho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "versionId": "b46d0ec6-47e3-4a00-849b-a6eb67f10b66",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-07T03:59:37.212Z",
+      "createdAt": "2026-01-07T03:59:37.212Z",
+      "role": "workflow:owner",
+      "workflowId": "TVfwNVRfvHFzD0ve",
+      "projectId": "GI4HhIuLBJaOsUEi"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
