@@ -1,0 +1,98 @@
+{
+  "id": "2EwrxYqZoFg7PlMW",
+  "name": "My workflow",
+  "active": true,
+  "activeVersionId": "fef245c8-6518-407b-8bdb-785bc6568044",
+  "createdAt": "2026-10-19T12:29:03.263Z",
+  "updatedAt": "2026-11-12T11:24:03.311Z",
+  "isArchived": false,
+  "versionId": "fef245c8-6518-407b-8bdb-785bc6568044",
+  "triggerCount": 0,
+  "nodes": [
+    {
+      "id": "5daace5a-b7e0-4aa9-8d71-5209e0dd8f62",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        64,
+        96
+      ],
+      "parameters": {
+        "url": "https://api10.unipile.com:14011/api/v1/accounts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {},
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "2EwrxYqZoFg7PlMW",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:29:03.263Z",
+      "updatedAt": "2026-10-19T12:29:03.263Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "fef245c8-6518-407b-8bdb-785bc6568044",
+    "workflowId": "2EwrxYqZoFg7PlMW",
+    "nodes": [
+      {
+        "id": "5daace5a-b7e0-4aa9-8d71-5209e0dd8f62",
+        "name": "HTTP Request",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          64,
+          96
+        ],
+        "parameters": {
+          "url": "https://api10.unipile.com:14011/api/v1/accounts",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-API-KEY",
+                "value": "3tkufvoz.IOND2wdYsw9M4HbIG3ddI/J5JHbbbusv3c8YoS+yk28="
+              },
+              {
+                "name": "accept",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {},
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:29:03.263Z",
+    "updatedAt": "2026-10-19T12:29:03.263Z"
+  }
+}
