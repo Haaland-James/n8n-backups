@@ -1,0 +1,156 @@
+{
+  "id": "AkJ4ufvSWd1CHRE8",
+  "name": "My workflow 2",
+  "active": true,
+  "activeVersionId": "5d88749d-d61f-40ff-a744-3fb8be0ba476",
+  "createdAt": "2026-10-19T12:29:02.752Z",
+  "updatedAt": "2026-11-12T11:24:10.539Z",
+  "isArchived": false,
+  "versionId": "5d88749d-d61f-40ff-a744-3fb8be0ba476",
+  "triggerCount": 0,
+  "nodes": [
+    {
+      "id": "eb76638b-2f9d-4651-a432-db2820722caa",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "25c451c1-4b7e-4dc8-9b2f-b1abc4e52288",
+      "name": "Get row(s) in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc",
+          "mode": "list",
+          "cachedResultName": "Business Card List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 507464578,
+          "mode": "list",
+          "cachedResultName": "Business Card List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit#gid=507464578"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qIn3NXXK9sY7HdMQ",
+          "name": "James Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "AkJ4ufvSWd1CHRE8",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:29:02.752Z",
+      "updatedAt": "2026-10-19T12:29:02.752Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "5d88749d-d61f-40ff-a744-3fb8be0ba476",
+    "workflowId": "AkJ4ufvSWd1CHRE8",
+    "nodes": [
+      {
+        "id": "eb76638b-2f9d-4651-a432-db2820722caa",
+        "name": "When clicking ‘Execute workflow’",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "25c451c1-4b7e-4dc8-9b2f-b1abc4e52288",
+        "name": "Get row(s) in sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          208,
+          0
+        ],
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc",
+            "mode": "list",
+            "cachedResultName": "Business Card List",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": 507464578,
+            "mode": "list",
+            "cachedResultName": "Business Card List",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jckv9A-vgo3oGBAjon6pENhoLT96vVDXyY95citoOYc/edit#gid=507464578"
+          },
+          "options": {}
+        },
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "qIn3NXXK9sY7HdMQ",
+            "name": "James Google Sheets account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "Get row(s) in sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:29:02.752Z",
+    "updatedAt": "2026-10-19T12:29:02.752Z"
+  }
+}
