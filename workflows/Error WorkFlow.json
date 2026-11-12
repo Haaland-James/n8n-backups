@@ -1,0 +1,139 @@
+{
+  "id": "Nbl2tmbZ1Yeqf5QL",
+  "name": "Error WorkFlow",
+  "active": true,
+  "activeVersionId": "9637fdd0-7b6e-47df-b23f-fabf2a9bcf1b",
+  "createdAt": "2026-10-19T12:28:52.506Z",
+  "updatedAt": "2026-11-12T11:19:45.050Z",
+  "isArchived": false,
+  "versionId": "9637fdd0-7b6e-47df-b23f-fabf2a9bcf1b",
+  "triggerCount": 0,
+  "nodes": [
+    {
+      "id": "a435aba2-80ff-4d90-91a4-2e6747334b22",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        16
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "3bde4586-1f35-4492-943e-8c7520a86ec6",
+      "name": "Send a message",
+      "webhookId": "607b5225-9490-45e6-802b-2667cc7b73a2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -80,
+        16
+      ],
+      "parameters": {
+        "sendTo": "haalandjames97@gmail.com",
+        "subject": "Error on WorkFlow",
+        "message": "=Hi\n\nYou have got an error on your workflow {{ $json.workflow.name }}.\n\nError Message:\n{{ $json.execution.error.message }}\n\nWorkflow URL:\n{{ $json.execution.url }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "i5Q0MbZQ7aZcDjqW",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "Nbl2tmbZ1Yeqf5QL",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:28:52.506Z",
+      "updatedAt": "2026-10-19T12:28:52.506Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "9637fdd0-7b6e-47df-b23f-fabf2a9bcf1b",
+    "workflowId": "Nbl2tmbZ1Yeqf5QL",
+    "nodes": [
+      {
+        "id": "a435aba2-80ff-4d90-91a4-2e6747334b22",
+        "name": "Error Trigger",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          -288,
+          16
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "3bde4586-1f35-4492-943e-8c7520a86ec6",
+        "name": "Send a message",
+        "webhookId": "607b5225-9490-45e6-802b-2667cc7b73a2",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          -80,
+          16
+        ],
+        "parameters": {
+          "sendTo": "haalandjames97@gmail.com",
+          "subject": "Error on WorkFlow",
+          "message": "=Hi\n\nYou have got an error on your workflow {{ $json.workflow.name }}.\n\nError Message:\n{{ $json.execution.error.message }}\n\nWorkflow URL:\n{{ $json.execution.url }}",
+          "options": {}
+        },
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "i5Q0MbZQ7aZcDjqW",
+            "name": "Gmail account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Error Trigger": {
+        "main": [
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:28:52.506Z",
+    "updatedAt": "2026-10-19T12:28:52.506Z"
+  }
+}
