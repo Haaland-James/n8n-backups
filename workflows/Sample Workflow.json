@@ -1,0 +1,208 @@
+{
+  "id": "NyOjrYb3dlOFa34C",
+  "name": "Sample Workflow",
+  "active": true,
+  "activeVersionId": "d0824ccf-736c-4c54-8ce4-2cfd9eb49626",
+  "createdAt": "2026-10-19T12:29:04.497Z",
+  "updatedAt": "2026-11-12T11:24:56.591Z",
+  "isArchived": false,
+  "versionId": "d0824ccf-736c-4c54-8ce4-2cfd9eb49626",
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "id": "05ee9a30-e635-440a-bb64-d78e6842574a",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -176
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9d337922-be90-4b41-a55d-8db7ebd793bc",
+      "name": "Send a message",
+      "webhookId": "8dd39edc-1b05-4c0f-adc7-1dd809bb8f39",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -32
+      ],
+      "parameters": {
+        "sendTo": "jaja@",
+        "subject": "Sample Eroor ",
+        "message": "Just saying Hi from n8n",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "i5Q0MbZQ7aZcDjqW",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "id": "257f83e0-3c57-45fe-aa86-b3e2f8a4779d",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        -16
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "errorWorkflow": "VZWpZqNvzymxhVcm",
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "NyOjrYb3dlOFa34C",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:29:04.497Z",
+      "updatedAt": "2026-10-19T12:29:04.497Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "d0824ccf-736c-4c54-8ce4-2cfd9eb49626",
+    "workflowId": "NyOjrYb3dlOFa34C",
+    "nodes": [
+      {
+        "id": "05ee9a30-e635-440a-bb64-d78e6842574a",
+        "name": "When clicking ‘Execute workflow’",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -176,
+          -176
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "9d337922-be90-4b41-a55d-8db7ebd793bc",
+        "name": "Send a message",
+        "webhookId": "8dd39edc-1b05-4c0f-adc7-1dd809bb8f39",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          -32
+        ],
+        "parameters": {
+          "sendTo": "jaja@",
+          "subject": "Sample Eroor ",
+          "message": "Just saying Hi from n8n",
+          "options": {}
+        },
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "i5Q0MbZQ7aZcDjqW",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "id": "257f83e0-3c57-45fe-aa86-b3e2f8a4779d",
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -304,
+          -16
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "seconds"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "connections": {
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:29:04.497Z",
+    "updatedAt": "2026-10-19T12:29:04.497Z"
+  }
+}
