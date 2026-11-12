@@ -1,0 +1,296 @@
+{
+  "id": "DgpSYrohdyxzFC1S",
+  "name": "Acute Inflections WooHoo -> Sendy",
+  "active": true,
+  "activeVersionId": "5c257138-9c29-45b9-b195-417649466cb8",
+  "createdAt": "2026-10-19T12:28:44.958Z",
+  "updatedAt": "2026-11-12T11:17:28.228Z",
+  "isArchived": false,
+  "versionId": "5c257138-9c29-45b9-b195-417649466cb8",
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "id": "c3f54a9f-bb79-4b98-bd27-b1d752252146",
+      "name": "Webhook",
+      "webhookId": "95a48496-aef1-47bc-a25f-c535e11b5788",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -432,
+        -16
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "acute-inflections-sendy",
+        "options": {}
+      }
+    },
+    {
+      "id": "96f95209-0e51-492b-b9cb-d48459c3970f",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        -16
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b5288f4b-7a3f-473b-b2bb-70c1ced0b97a",
+              "leftValue": "={{ $json.body.wheel }}",
+              "rightValue": "44584",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f9b572ee-0937-4bd0-b711-da7dd54efb58",
+      "name": "Add a subscriber - Website Mailing List Sign Ups",
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -96
+      ],
+      "parameters": {
+        "email": "={{ $json.body.email }}",
+        "listId": "An7636e3zevZVz8ka6yWr4vg",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "sendyApi": {
+          "id": "ZHVoaHiY3uuqeqSC",
+          "name": "Acute Inflections Sendy"
+        }
+      }
+    },
+    {
+      "id": "778ff25c-8a93-4f0e-83ed-d8885676265d",
+      "name": "Add a subscriber - Test List",
+      "type": "n8n-nodes-base.sendy",
+      "typeVersion": 1,
+      "position": [
+        16,
+        112
+      ],
+      "parameters": {
+        "email": "={{ $json.body.email }}",
+        "listId": "cMja5LEcTknUCf9C892u5ffA",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "sendyApi": {
+          "id": "ZHVoaHiY3uuqeqSC",
+          "name": "Acute Inflections Sendy"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Add a subscriber - Website Mailing List Sign Ups",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add a subscriber - Test List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add a subscriber - Website Mailing List Sign Ups": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "DgpSYrohdyxzFC1S",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:28:44.958Z",
+      "updatedAt": "2026-10-19T12:28:44.958Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "5c257138-9c29-45b9-b195-417649466cb8",
+    "workflowId": "DgpSYrohdyxzFC1S",
+    "nodes": [
+      {
+        "id": "c3f54a9f-bb79-4b98-bd27-b1d752252146",
+        "name": "Webhook",
+        "webhookId": "95a48496-aef1-47bc-a25f-c535e11b5788",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -432,
+          -16
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "acute-inflections-sendy",
+          "options": {}
+        }
+      },
+      {
+        "id": "96f95209-0e51-492b-b9cb-d48459c3970f",
+        "name": "If",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          -256,
+          -16
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "b5288f4b-7a3f-473b-b2bb-70c1ced0b97a",
+                "leftValue": "={{ $json.body.wheel }}",
+                "rightValue": "44584",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "f9b572ee-0937-4bd0-b711-da7dd54efb58",
+        "name": "Add a subscriber - Website Mailing List Sign Ups",
+        "type": "n8n-nodes-base.sendy",
+        "typeVersion": 1,
+        "position": [
+          0,
+          -96
+        ],
+        "parameters": {
+          "email": "={{ $json.body.email }}",
+          "listId": "An7636e3zevZVz8ka6yWr4vg",
+          "additionalFields": {}
+        },
+        "credentials": {
+          "sendyApi": {
+            "id": "ZHVoaHiY3uuqeqSC",
+            "name": "Acute Inflections Sendy"
+          }
+        }
+      },
+      {
+        "id": "778ff25c-8a93-4f0e-83ed-d8885676265d",
+        "name": "Add a subscriber - Test List",
+        "type": "n8n-nodes-base.sendy",
+        "typeVersion": 1,
+        "position": [
+          16,
+          112
+        ],
+        "parameters": {
+          "email": "={{ $json.body.email }}",
+          "listId": "cMja5LEcTknUCf9C892u5ffA",
+          "additionalFields": {}
+        },
+        "credentials": {
+          "sendyApi": {
+            "id": "ZHVoaHiY3uuqeqSC",
+            "name": "Acute Inflections Sendy"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Add a subscriber - Website Mailing List Sign Ups",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Add a subscriber - Test List",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add a subscriber - Website Mailing List Sign Ups": {
+        "main": [
+          []
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:28:44.958Z",
+    "updatedAt": "2026-10-19T12:28:44.958Z"
+  }
+}
