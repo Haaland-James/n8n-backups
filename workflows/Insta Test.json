@@ -1,0 +1,42 @@
+{
+  "id": "PA88p1PPeJMgdNuE",
+  "name": "Insta Test",
+  "active": true,
+  "activeVersionId": "bd2ac4f0-25a2-4d38-b79c-f12dff549172",
+  "createdAt": "2026-10-19T12:29:00.336Z",
+  "updatedAt": "2026-11-12T11:23:03.187Z",
+  "isArchived": false,
+  "versionId": "bd2ac4f0-25a2-4d38-b79c-f12dff549172",
+  "triggerCount": 0,
+  "nodes": [],
+  "connections": {},
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "PA88p1PPeJMgdNuE",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:29:00.336Z",
+      "updatedAt": "2026-10-19T12:29:00.336Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "bd2ac4f0-25a2-4d38-b79c-f12dff549172",
+    "workflowId": "PA88p1PPeJMgdNuE",
+    "nodes": [],
+    "connections": {},
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:29:00.336Z",
+    "updatedAt": "2026-10-19T12:29:00.336Z"
+  }
+}
