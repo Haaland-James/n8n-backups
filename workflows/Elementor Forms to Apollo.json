@@ -1,0 +1,528 @@
+{
+  "id": "FeNvk4ggObxkLF2T",
+  "name": "Elementor Forms to Apollo",
+  "active": true,
+  "activeVersionId": "6cd521c8-6599-47a5-853f-cd9d20529077",
+  "createdAt": "2026-10-19T12:28:52.268Z",
+  "updatedAt": "2026-11-12T11:19:36.521Z",
+  "isArchived": false,
+  "versionId": "6cd521c8-6599-47a5-853f-cd9d20529077",
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "id": "01d7cabc-1cbb-47e5-8112-fee90efc5a31",
+      "name": "Webhook - Elementor Forms",
+      "webhookId": "elementor-forms-apollo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        640
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "elementor-forms-webhook",
+        "options": {}
+      }
+    },
+    {
+      "id": "7693b335-ccd9-4a51-806c-451161ffee6b",
+      "name": "Is Contact Form?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        160,
+        544
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body['form[name]'] }}",
+              "operation": "contains",
+              "value2": "Contact"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5eab29b6-dabc-4d2e-b252-e4bc953599fb",
+      "name": "Is E-book Form?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        160,
+        816
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body['form[name]'] }}",
+              "operation": "contains",
+              "value2": "A Simple Guide to Cybersecurity for SMBs - eBook Request"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "97493fc0-f1c2-4732-bddf-abaa6e244877",
+      "name": "Extract Contact Form Data1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        448,
+        528
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "f87a18cb-e506-48b1-b3b2-b23437b54b18",
+      "name": "Extract E-book Form Data1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        464,
+        800
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "75c9ed72-95de-4bec-b5e0-972015876b20",
+      "name": "Create/Update Apollo Contact1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        752,
+        640
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.body['fields[email][value]'] }}"
+            },
+            {
+              "name": "first_name",
+              "value": "={{ $json.body['fields[name][value]'] }}"
+            },
+            {
+              "name": "last_name",
+              "value": "={{ $json.body['fields[field_d6f3fe1][value]'] }}"
+            },
+            {
+              "name": "company_name",
+              "value": "={{ $json.body['fields[field_4db8bc0][value]'] }}"
+            },
+            {
+              "name": "label_names",
+              "value": "={{ [$json.form_type] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8buQMs9BYkl884t6",
+          "name": "Apollo API"
+        }
+      }
+    },
+    {
+      "id": "ea0e3ceb-ec96-429a-a87d-0cfd45d9030f",
+      "name": "Add to Apollo List1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1024,
+        640
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/contacts/{{ $('Create/Update Apollo Contact').item.json.contact.id }}/add_to_lists",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contact_ids\": [\"{{ $json.contact.id }}\"],\n  \"contact_list_ids\": [\"{{ $json.list_id }}\"]\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8buQMs9BYkl884t6",
+          "name": "Apollo API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Elementor Forms": {
+      "main": [
+        [
+          {
+            "node": "Is Contact Form?1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is E-book Form?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Contact Form?1": {
+      "main": [
+        [
+          {
+            "node": "Extract Contact Form Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is E-book Form?1": {
+      "main": [
+        [
+          {
+            "node": "Extract E-book Form Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Contact Form Data1": {
+      "main": [
+        [
+          {
+            "node": "Create/Update Apollo Contact1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract E-book Form Data1": {
+      "main": [
+        [
+          {
+            "node": "Create/Update Apollo Contact1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create/Update Apollo Contact1": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "FeNvk4ggObxkLF2T",
+      "projectId": "jWiwGdctakbwD9Zb",
+      "createdAt": "2026-10-19T12:28:52.268Z",
+      "updatedAt": "2026-10-19T12:28:52.268Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "6cd521c8-6599-47a5-853f-cd9d20529077",
+    "workflowId": "FeNvk4ggObxkLF2T",
+    "nodes": [
+      {
+        "id": "01d7cabc-1cbb-47e5-8112-fee90efc5a31",
+        "name": "Webhook - Elementor Forms",
+        "webhookId": "elementor-forms-apollo",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1.1,
+        "position": [
+          -160,
+          640
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "elementor-forms-webhook",
+          "options": {}
+        }
+      },
+      {
+        "id": "7693b335-ccd9-4a51-806c-451161ffee6b",
+        "name": "Is Contact Form?1",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          160,
+          544
+        ],
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "value1": "={{ $json.body['form[name]'] }}",
+                "operation": "contains",
+                "value2": "Contact"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "5eab29b6-dabc-4d2e-b252-e4bc953599fb",
+        "name": "Is E-book Form?1",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          160,
+          816
+        ],
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "value1": "={{ $json.body['form[name]'] }}",
+                "operation": "contains",
+                "value2": "A Simple Guide to Cybersecurity for SMBs - eBook Request"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "97493fc0-f1c2-4732-bddf-abaa6e244877",
+        "name": "Extract Contact Form Data1",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.2,
+        "position": [
+          448,
+          528
+        ],
+        "parameters": {
+          "options": {}
+        }
+      },
+      {
+        "id": "f87a18cb-e506-48b1-b3b2-b23437b54b18",
+        "name": "Extract E-book Form Data1",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.2,
+        "position": [
+          464,
+          800
+        ],
+        "parameters": {
+          "options": {}
+        }
+      },
+      {
+        "id": "75c9ed72-95de-4bec-b5e0-972015876b20",
+        "name": "Create/Update Apollo Contact1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.1,
+        "position": [
+          752,
+          640
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.apollo.io/v1/contacts",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "email",
+                "value": "={{ $json.body['fields[email][value]'] }}"
+              },
+              {
+                "name": "first_name",
+                "value": "={{ $json.body['fields[name][value]'] }}"
+              },
+              {
+                "name": "last_name",
+                "value": "={{ $json.body['fields[field_d6f3fe1][value]'] }}"
+              },
+              {
+                "name": "company_name",
+                "value": "={{ $json.body['fields[field_4db8bc0][value]'] }}"
+              },
+              {
+                "name": "label_names",
+                "value": "={{ [$json.form_type] }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "8buQMs9BYkl884t6",
+            "name": "Apollo API"
+          }
+        }
+      },
+      {
+        "id": "ea0e3ceb-ec96-429a-a87d-0cfd45d9030f",
+        "name": "Add to Apollo List1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.1,
+        "position": [
+          1024,
+          640
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.apollo.io/v1/contacts/{{ $('Create/Update Apollo Contact').item.json.contact.id }}/add_to_lists",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"contact_ids\": [\"{{ $json.contact.id }}\"],\n  \"contact_list_ids\": [\"{{ $json.list_id }}\"]\n}",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "8buQMs9BYkl884t6",
+            "name": "Apollo API"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook - Elementor Forms": {
+        "main": [
+          [
+            {
+              "node": "Is Contact Form?1",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Is E-book Form?1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Contact Form?1": {
+        "main": [
+          [
+            {
+              "node": "Extract Contact Form Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is E-book Form?1": {
+        "main": [
+          [
+            {
+              "node": "Extract E-book Form Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Contact Form Data1": {
+        "main": [
+          [
+            {
+              "node": "Create/Update Apollo Contact1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract E-book Form Data1": {
+        "main": [
+          [
+            {
+              "node": "Create/Update Apollo Contact1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create/Update Apollo Contact1": {
+        "main": [
+          []
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Damu Winston",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-19T12:28:52.268Z",
+    "updatedAt": "2026-10-19T12:28:52.268Z"
+  }
+}
